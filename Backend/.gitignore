@@ -1,0 +1,31 @@
+# node modules
+node_modules/
+
+# environment variables
+.env
+
+# logs
+logs
+*.log
+npm-debug.log*
+
+# runtime data
+pids
+*.pid
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# build folder
+dist/
+build/
+
+# vscode settings
+.vscode/
+
+# coverage
+coverage/
+
+# temp files
+*.tmp
