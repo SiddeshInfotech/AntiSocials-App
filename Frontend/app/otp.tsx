@@ -109,6 +109,7 @@ export default function OTPScreen() {
                 isComplete ? styles.buttonActive : styles.buttonDisabled
               ]}
               disabled={!isComplete}
+              onPress={() => router.replace('/(tabs)')}
             >
               <Text style={[
                 styles.buttonText,
