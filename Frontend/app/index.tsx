@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, SafeAreaView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function LoginScreen() {
+  const router = useRouter();
   const [phoneNumber, setPhoneNumber] = useState('');
 
   return (
@@ -46,8 +49,8 @@ export default function LoginScreen() {
               </View>
               <TextInput
                 style={styles.inputField}
-                placeholder="_________"
-                placeholderTextColor="#D1D5DB"
+                placeholder="12345 67890"
+                placeholderTextColor="#A1A1AA"
                 keyboardType="phone-pad"
                 value={phoneNumber}
                 onChangeText={setPhoneNumber}
@@ -62,6 +65,7 @@ export default function LoginScreen() {
                 phoneNumber.length === 10 ? styles.buttonActive : styles.buttonDisabled
               ]}
               disabled={phoneNumber.length !== 10}
+              onPress={() => router.push({ pathname: '/otp', params: { phone: phoneNumber } } as any)}
             >
               <Text style={[
                 styles.buttonText,
