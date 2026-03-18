@@ -23,6 +23,24 @@ import {
 
 const { width } = Dimensions.get("window");
 
+const INTERESTS = [
+  "Theatre & Acting",
+  "Dance",
+  "Startup & Entrepreneurship",
+  "Business Networking",
+  "Freelancing",
+  "Tech & AI",
+  "Personal Growth",
+  "Mental Health",
+  "Spirituality",
+  "Volunteering & Social Work",
+  "Fitness & Gym",
+  "Running & Walking",
+  "Yoga & Wellness",
+  "Meditation & Mindfulness",
+  "Cricket"
+];
+
 const DATA = [
   {
     id: "1",
@@ -65,21 +83,51 @@ const DATA = [
     subtitle: "Heart & Legacy",
     desc: "Build long-term connections.",
     colors: ["#D50000", "#B71C1C"] as const
+  },
+  {
+    id: "7",
+    title: "Tell us what you're into",
+    subtitle: "Choose at least 3 interests",
+    desc: "You can update this later.",
+    colors: ["#5398d5", "#15898f"] as const
   }
 ];
 
 export default function Onboarding() {
   const router = useRouter();
   const [index, setIndex] = useState(0);
+  const [selected, setSelected] = useState<string[]>([]);
 
   const translateX = useSharedValue(0);
 
   const goNext = () => {
+    const item = DATA[index];
+
+    if (item.id === "7" && selected.length < 3) {
+      alert("Select at least 3 interests");
+      return;
+    }
+
     if (index < DATA.length - 1) {
       setIndex((prev) => prev + 1);
       translateX.value = 0;
     } else {
       router.replace("/");
+    }
+  };
+
+  const goPrev = () => {
+    if (index > 0) {
+      setIndex((prev) => prev - 1);
+      translateX.value = 0;
+    }
+  };
+
+  const toggleInterest = (item: string) => {
+    if (selected.includes(item)) {
+      setSelected(selected.filter((i) => i !== item));
+    } else {
+      setSelected([...selected, item]);
     }
   };
 
@@ -93,29 +141,20 @@ export default function Onboarding() {
           runOnJS(goNext)();
         });
       } else if (e.translationX > 100) {
-        if (index > 0) {
-          translateX.value = withSpring(width, {}, () => {
-            runOnJS(() => {
-              setIndex((prev) => prev - 1);
-              translateX.value = 0;
-            })();
-          });
-        } else {
-          translateX.value = withSpring(0);
-        }
+        translateX.value = withSpring(width, {}, () => {
+          runOnJS(goPrev)(); // ✅ FIXED CRASH
+        });
       } else {
         translateX.value = withSpring(0);
       }
     });
 
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [
-        { translateX: translateX.value },
-        { rotate: `${translateX.value / 20}deg` }
-      ]
-    };
-  });
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { rotate: `${translateX.value / 20}deg` }
+    ]
+  }));
 
   const item = DATA[index];
 
@@ -124,9 +163,47 @@ export default function Onboarding() {
       <GestureDetector gesture={gesture}>
         <Animated.View style={[styles.card, animatedStyle]}>
           <LinearGradient colors={item.colors} style={styles.gradient}>
-            <Text style={styles.title}>{item.title}</Text>
-            <Text style={styles.subtitle}>{item.subtitle}</Text>
-            <Text style={styles.desc}>{item.desc}</Text>
+            
+            {item.id === "7" ? (
+              <>
+                <Text style={styles.title}>{item.title}</Text>
+                <Text style={styles.subtitle}>{item.subtitle}</Text>
+                <Text style={styles.desc}>{item.desc}</Text>
+
+                <View style={styles.interestContainer}>
+                  {INTERESTS.map((interest) => {
+                    const isSelected = selected.includes(interest);
+
+                    return (
+                      <TouchableOpacity
+                        key={interest}
+                        style={[
+                          styles.chip,
+                          isSelected && styles.chipSelected
+                        ]}
+                        onPress={() => toggleInterest(interest)}
+                      >
+                        <Text
+                          style={[
+                            styles.chipText,
+                            isSelected && styles.chipTextSelected
+                          ]}
+                        >
+                          {interest}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </>
+            ) : (
+              <>
+                <Text style={styles.title}>{item.title}</Text>
+                <Text style={styles.subtitle}>{item.subtitle}</Text>
+                <Text style={styles.desc}>{item.desc}</Text>
+              </>
+            )}
+
           </LinearGradient>
         </Animated.View>
       </GestureDetector>
@@ -144,12 +221,10 @@ export default function Onboarding() {
         ))}
       </View>
 
-      {/* 🔥 Glassy Black Button */}
+      {/* Button */}
       <TouchableOpacity style={styles.button} onPress={goNext}>
         <Text style={styles.buttonText}>
-          {index === DATA.length - 1
-            ? "Get Started"
-            : "Continue →"}
+          {index === DATA.length - 1 ? "Get Started" : "Continue →"}
         </Text>
       </TouchableOpacity>
     </View>
@@ -173,20 +248,19 @@ const styles = StyleSheet.create({
 
   gradient: {
     flex: 1,
-    justifyContent: "center",
     alignItems: "center",
     padding: 20
   },
 
   title: {
-    fontSize: 24,
+    fontSize: 22,
     color: "#fff",
     fontWeight: "700",
     textAlign: "center"
   },
 
   subtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: "#fff",
     marginTop: 10,
     textAlign: "center"
@@ -194,8 +268,37 @@ const styles = StyleSheet.create({
 
   desc: {
     color: "#eee",
-    marginTop: 10,
+    marginTop: 5,
     textAlign: "center"
+  },
+
+  interestContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginTop: 20,
+    justifyContent: "center"
+  },
+
+  chip: {
+    backgroundColor: "rgba(255,255,255,0.2)",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    margin: 5
+  },
+
+  chipSelected: {
+    backgroundColor: "#fff"
+  },
+
+  chipText: {
+    color: "#fff",
+    fontSize: 12
+  },
+
+  chipTextSelected: {
+    color: "#000",
+    fontWeight: "600"
   },
 
   dots: {
@@ -216,19 +319,18 @@ const styles = StyleSheet.create({
     width: 20
   },
 
-  // 🔥 UPDATED BUTTON
   button: {
-  position: "absolute",
-  bottom: 40,
-  backgroundColor: "#000", // ✅ simple black
-  padding: 15,
-  borderRadius: 25,
-  width: "80%",
-  alignItems: "center"
-},
+    position: "absolute",
+    bottom: 40,
+    backgroundColor: "#000",
+    padding: 15,
+    borderRadius: 25,
+    width: "80%",
+    alignItems: "center"
+  },
 
   buttonText: {
-  color: "#fff",
-  fontWeight: "600"
-},
+    color: "#fff",
+    fontWeight: "600"
+  }
 });
