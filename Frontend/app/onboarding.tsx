@@ -112,7 +112,7 @@ export default function Onboarding() {
       setIndex((prev) => prev + 1);
       translateX.value = 0;
     } else {
-      router.replace("/");
+      router.replace("/(tabs)" as any);
     }
   };
 
