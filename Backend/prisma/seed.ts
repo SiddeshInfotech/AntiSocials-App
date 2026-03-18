@@ -73,6 +73,117 @@ const taskSeed = [
     parameter: LifeCircleParameter.AWARENESS,
     points: 20,
   },
+  // AWARENESS
+  {
+    title: "Morning intention",
+    description: "Write one clear intention for the day ahead.",
+    level: 2,
+    parameter: LifeCircleParameter.AWARENESS,
+    points: 8,
+  },
+  {
+    title: "Mindful observation",
+    description: "Spend 10 minutes observing your surroundings without judgment.",
+    level: 3,
+    parameter: LifeCircleParameter.AWARENESS,
+    points: 12,
+  },
+
+  // ATTENTION
+  {
+    title: "Single-task for 1 hour",
+    description: "Work on only one thing for a full hour, no switching.",
+    level: 3,
+    parameter: LifeCircleParameter.ATTENTION,
+    points: 12,
+  },
+  {
+    title: "Read for 20 minutes",
+    description: "Read a book or article without any distractions.",
+    level: 2,
+    parameter: LifeCircleParameter.ATTENTION,
+    points: 8,
+  },
+
+  // BODY
+  {
+    title: "10-minute stretch",
+    description: "Do a full body stretching routine for 10 minutes.",
+    level: 1,
+    parameter: LifeCircleParameter.BODY,
+    points: 5,
+  },
+  {
+    title: "Drink 8 glasses of water",
+    description: "Track and complete your daily water intake goal.",
+    level: 1,
+    parameter: LifeCircleParameter.BODY,
+    points: 5,
+  },
+
+  // EMOTIONAL
+  {
+    title: "Gratitude list",
+    description: "Write down 5 things you are genuinely grateful for today.",
+    level: 2,
+    parameter: LifeCircleParameter.EMOTIONAL,
+    points: 8,
+  },
+  {
+    title: "Forgiveness note",
+    description: "Write a short note forgiving yourself for one mistake.",
+    level: 3,
+    parameter: LifeCircleParameter.EMOTIONAL,
+    points: 12,
+  },
+
+  // CONNECTION
+  {
+    title: "Active listening",
+    description: "Have a conversation where you only listen, no advice.",
+    level: 3,
+    parameter: LifeCircleParameter.CONNECTION,
+    points: 12,
+  },
+  {
+    title: "Express appreciation",
+    description: "Tell someone specifically what you appreciate about them.",
+    level: 2,
+    parameter: LifeCircleParameter.CONNECTION,
+    points: 8,
+  },
+
+  // COURAGE
+  {
+    title: "Share your opinion",
+    description: "Speak up and share your honest opinion in a conversation.",
+    level: 2,
+    parameter: LifeCircleParameter.COURAGE,
+    points: 8,
+  },
+  {
+    title: "Try something new",
+    description: "Do one thing today you have never done before.",
+    level: 3,
+    parameter: LifeCircleParameter.COURAGE,
+    points: 12,
+  },
+
+  // MEANING
+  {
+    title: "Define your why",
+    description: "Write one paragraph about why your current goal matters.",
+    level: 2,
+    parameter: LifeCircleParameter.MEANING,
+    points: 8,
+  },
+  {
+    title: "Review your values",
+    description: "List your top 3 personal values and rate how well you lived them today.",
+    level: 4,
+    parameter: LifeCircleParameter.MEANING,
+    points: 15,
+  },
 ];
 
 async function main(): Promise<void> {

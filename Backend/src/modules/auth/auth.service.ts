@@ -28,7 +28,7 @@ export async function registerWithEmail(
           email: normalizedEmail,
           passwordHash,
           timezone: input.timezone || env.DEFAULT_TIMEZONE,
-        },
+        }
       });
 
       await tx.authIdentity.create({

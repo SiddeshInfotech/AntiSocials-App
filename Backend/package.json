@@ -12,6 +12,9 @@
     "prisma:seed": "tsx prisma/seed.ts",
     "test": "echo \"No tests yet\""
   },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",

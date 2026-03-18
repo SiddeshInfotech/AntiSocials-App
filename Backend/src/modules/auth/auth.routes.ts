@@ -21,3 +21,4 @@ authRouter.post(
   validate(loginEmailSchema),
   loginEmailController,
 );
+
