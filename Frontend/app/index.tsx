@@ -1,286 +1,220 @@
-import { useRouter } from "expo-router";
-import React, { useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  Image,
-  Alert
-} from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import * as ImagePicker from "expo-image-picker";
+import React, { useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
+import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-export default function Signup() {
+export default function LoginScreen() {
   const router = useRouter();
-
-  const [profileName, setProfileName] = useState("");
-  const [username, setUsername] = useState("");
-  const [profession, setProfession] = useState("");
-  const [about, setAbout] = useState("");
-  const [image, setImage] = useState<string | null>(null);
-
-  // 👉 SAVE FUNCTION
-  const handleSave = () => {
-    if (!profileName || !username || !profession) {
-      Alert.alert("Error", "Please fill all required fields");
-      return;
-    }
-
-    // 👉 Go to onboarding
-    router.replace("/onboarding");
-  };
-
-  // 👉 MAIN PICK FUNCTION
-  const pickImage = () => {
-    Alert.alert("Select Image", "Choose an option", [
-      { text: "Camera", onPress: openCamera },
-      { text: "Gallery", onPress: openGallery },
-      { text: "Cancel", style: "cancel" }
-    ]);
-  };
-
-  // 👉 CAMERA
-  const openCamera = async () => {
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
-
-    if (permission.status !== "granted") {
-      alert("Camera permission is required!");
-      return;
-    }
-
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 1,
-      allowsEditing: true,
-      aspect: [1, 1]
-    });
-
-    if (!result.canceled) {
-      setImage(result.assets[0].uri);
-    }
-  };
-
-  // 👉 GALLERY
-  const openGallery = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (permission.status !== "granted") {
-      alert("Gallery permission is required!");
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 1,
-      allowsEditing: true,
-      aspect: [1, 1]
-    });
-
-    if (!result.canceled) {
-      setImage(result.assets[0].uri);
-    }
-  };
+  const [phoneNumber, setPhoneNumber] = useState('');
 
   return (
-    <LinearGradient colors={["#9C27FF", "#3F51FF"]} style={styles.container}>
-      <View style={styles.card}>
-        <ScrollView showsVerticalScrollIndicator={false}>
-          <Text style={styles.title}>Let people know the real you</Text>
+    <View style={styles.container}>
+      <StatusBar style="light" />
+      <LinearGradient
+        colors={['#8A2BE2', '#3B82F6']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.background}
+      />
+      
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
+      >
+        <SafeAreaView style={styles.safeArea}>
+          <View style={styles.card}>
+            {/* Icon */}
+            <View style={styles.iconContainer}>
+              <Feather name="phone" size={24} color="#9333EA" />
+            </View>
 
-          <Text style={styles.subtitle}>
-            Add a photo and basic details to help others recognise and trust you.
-          </Text>
+            {/* Headers */}
+            <Text style={styles.title}>Welcome back</Text>
+            <Text style={styles.subtitle}>or join AntiSocial</Text>
 
-          <Text style={styles.label}>Profile Photo</Text>
+            {/* Description Texts */}
+            <Text style={styles.descriptionLabel}>Enter your mobile number to continue.</Text>
+            <Text style={styles.descriptionText}>
+              Your number helps us keep the community safe. We never spam or
+              share your data.
+            </Text>
 
-          {/* Image Picker */}
-          <TouchableOpacity style={styles.imageCircle} onPress={pickImage}>
-            {image ? (
-              <Image source={{ uri: image }} style={styles.image} />
-            ) : (
-              <Text style={styles.camera}>📷</Text>
-            )}
-          </TouchableOpacity>
+            {/* Input Container */}
+            <View style={styles.inputContainer}>
+              <View style={styles.prefixBox}>
+                <Text style={styles.prefixText}>+91</Text>
+              </View>
+              <TextInput
+                style={styles.inputField}
+                placeholder="12345 67890"
+                placeholderTextColor="#A1A1AA"
+                keyboardType="phone-pad"
+                value={phoneNumber}
+                onChangeText={setPhoneNumber}
+                maxLength={10}
+              />
+            </View>
 
-          <TouchableOpacity style={styles.photoButton} onPress={pickImage}>
-            <Text style={styles.photoText}>Add Photo</Text>
-          </TouchableOpacity>
+            {/* Button */}
+            <TouchableOpacity 
+              style={[
+                styles.button, 
+                phoneNumber.length === 10 ? styles.buttonActive : styles.buttonDisabled
+              ]}
+              disabled={phoneNumber.length !== 10}
+              onPress={() => router.push({ pathname: '/otp', params: { phone: phoneNumber } } as any)}
+            >
+              <Text style={[
+                styles.buttonText,
+                phoneNumber.length === 10 ? styles.buttonTextActive : styles.buttonTextDisabled
+              ]}>
+                Send OTP
+              </Text>
+            </TouchableOpacity>
 
-          <Text style={styles.helper}>
-            Face clearly visible. No filters recommended.
-          </Text>
-
-          {/* Profile Name */}
-          <Text style={styles.label}>Profile Name *</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="e.g. Name & Surname"
-            value={profileName}
-            onChangeText={setProfileName}
-          />
-
-          <Text style={styles.helper}>
-            This is how people will see you.
-          </Text>
-
-          {/* Username */}
-          <Text style={styles.label}>Username *</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="@username"
-            value={username}
-            onChangeText={setUsername}
-          />
-
-          <Text style={styles.helper}>
-            Cannot be changed later.
-          </Text>
-
-          {/* Profession */}
-          <Text style={styles.label}>Profession *</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="e.g. Interior Designer"
-            value={profession}
-            onChangeText={setProfession}
-          />
-
-          {/* About */}
-          <Text style={styles.label}>About you (optional)</Text>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            placeholder="Interior designer | Loves coffee & morning walks"
-            value={about}
-            onChangeText={setAbout}
-            multiline
-          />
-
-          {/* Buttons */}
-          <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-            <Text style={styles.saveText}>Save & Continue →</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.skipBtn}
-            onPress={() => router.replace("/")}
-          >
-            <Text style={styles.skipText}>Skip for now</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </View>
-    </LinearGradient>
+            {/* Footer */}
+            <Text style={styles.footerText}>
+              By continuing, you agree to our{' '}
+              <Text style={styles.linkText}>Terms & Privacy Policy.</Text>
+            </Text>
+          </View>
+        </SafeAreaView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center"
   },
-
+  background: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+  },
+  keyboardView: {
+    flex: 1,
+  },
+  safeArea: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
   card: {
-    width: "85%",
-    height: "90%",
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 20
+    backgroundColor: '#FFFFFF',
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: 24,
+    padding: 32,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 10,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 10,
   },
-
+  iconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#F3E8FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'center',
+    marginBottom: 24,
+  },
   title: {
-    fontSize: 24,
-    fontWeight: "600",
-    textAlign: "center",
-    marginBottom: 10
+    fontSize: 28,
+    fontWeight: '500',
+    color: '#111827',
+    textAlign: 'center',
+    marginBottom: 8,
   },
-
   subtitle: {
-    textAlign: "center",
-    color: "#666",
-    marginBottom: 20
+    fontSize: 16,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 32,
   },
-
-  label: {
-    fontWeight: "600",
-    marginBottom: 6
+  descriptionLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
+    marginBottom: 8,
   },
-
-  imageCircle: {
-    height: 120,
-    width: 120,
-    borderRadius: 60,
-    backgroundColor: "#EDE9FF",
-    justifyContent: "center",
-    alignItems: "center",
-    alignSelf: "center"
+  descriptionText: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    lineHeight: 20,
+    marginBottom: 24,
   },
-
-  camera: {
-    fontSize: 40
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 24,
   },
-
-  image: {
-    height: 120,
-    width: 120,
-    borderRadius: 60
+  prefixBox: {
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderRadius: 12,
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-
-  photoButton: {
-    backgroundColor: "#E9D5FF",
-    padding: 10,
-    borderRadius: 20,
-    alignSelf: "center",
-    marginTop: 10
+  prefixText: {
+    fontSize: 16,
+    color: '#4B5563',
+    fontWeight: '500',
   },
-
-  photoText: {
-    color: "#7B61FF",
-    fontWeight: "600"
+  inputField: {
+    flex: 1,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    fontSize: 16,
+    color: '#111827',
   },
-
-  helper: {
-    textAlign: "center",
+  button: {
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  buttonDisabled: {
+    backgroundColor: '#E5E7EB',
+  },
+  buttonActive: {
+    backgroundColor: '#9333EA',
+  },
+  buttonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  buttonTextDisabled: {
+    color: '#9CA3AF',
+  },
+  buttonTextActive: {
+    color: '#FFFFFF',
+  },
+  footerText: {
     fontSize: 12,
-    color: "#777",
-    marginBottom: 20,
-    marginTop: 5
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 18,
   },
-
-  input: {
-    borderWidth: 1,
-    borderColor: "#E6E6E6",
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 10
+  linkText: {
+    color: '#9333EA',
+    fontWeight: '500',
   },
-
-  textArea: {
-    height: 80,
-    textAlignVertical: "top"
-  },
-
-  saveBtn: {
-    backgroundColor: "#7B61FF",
-    padding: 15,
-    borderRadius: 10,
-    alignItems: "center",
-    marginTop: 20
-  },
-
-  saveText: {
-    color: "#fff",
-    fontWeight: "600"
-  },
-
-  skipBtn: {
-    padding: 15,
-    alignItems: "center"
-  },
-
-  skipText: {
-    color: "#777"
-  }
 });

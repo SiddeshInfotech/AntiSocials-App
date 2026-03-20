@@ -1,50 +1,46 @@
-# Welcome to your Expo app 👋
+# AntiSocials - Frontend
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Welcome to the frontend repository for **AntiSocials**. 
+A social platform designed to minimize endless scrolling and maximize real-life connections, activities, and experiences.
 
-## Get started
+## 🚀 Branch: `frontend-dev`
+This branch contains all the latest merged UI features and frontend layouts currently in development.
 
-1. Install dependencies
+### Core Features & Workflows
+* **Authentication Flow:** Phone Number Login and OTP verification (`app/index.tsx` & `app/otp.tsx`).
+* **Profile Setup:** "Let people know the real you" registration page (`app/signup.tsx`).
+* **Interactive Onboarding:** Reanimated, gesture-driven horizontal swipe carousel explaining the app's core values (`app/onboarding.tsx`).
+* **Main Dashboard & Layouts:** Expo-Router configured tab layout (`app/(tabs)/`).
+* **Activities Feed:** Discover and join nearby activities, dynamic tab switching between 'Discover' and 'Joined', and a 'Create Activity' screen (`app/(tabs)/activities.tsx` & `app/create-activity.tsx`).
+* **Comprehensive Profile:** A rich interactive profile tracking Streaks, Ranks, Badges, Habits, and Activity metrics (`app/(tabs)/profile.tsx`).
+* **Account Configurations:** Screens for modifying personal data including Edit Profile, Privacy Settings, Notifications, and Interests (`app/edit-profile.tsx`, `app/privacy-settings.tsx`, etc.).
 
+## 🛠️ Tech Stack
+* **Framework:** [Expo](https://expo.dev) / React Native
+* **Navigation:** Expo Router (File-based routing)
+* **Styling:** React Native StyleSheet & `expo-linear-gradient`
+* **Icons:** `@expo/vector-icons` (Feather)
+* **Animations:** `react-native-reanimated` & `react-native-gesture-handler`
+
+## 📦 Getting Started
+
+1. **Install Dependencies**
    ```bash
    npm install
    ```
 
-2. Start the app
-
+2. **Start the Application**
    ```bash
    npx expo start
    ```
+   Or to explicitly target a specific port or clear cache:
+   ```bash
+   npx expo start -c
+   ```
 
-In the output, you'll find options to open the app in a
+   In the output, simply scan the QR code via the **Expo Go** app on your physical device, or press `a`/`i` to start your Android/iOS emulator directly from the terminal prompts.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## 🤝 Development
+* Do your development work on scoped feature branches (e.g., `feature/<your-name>`).
+* Ensure code compiles correctly without Typescript errors using `npx tsc --noEmit` before opening Pull Requests.
+* Make sure you avoid library version mismatches by running `npx expo install <package-name>` when adding native packages.
