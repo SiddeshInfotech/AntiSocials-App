@@ -1,10 +1,11 @@
-import { View, Text, StyleSheet } from "react-native";
+import { Text, StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function HomeScreen() {
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <Text style={styles.text}>Home Screen ✅</Text>
-    </View>
+    </SafeAreaView>
   );
 }
 
