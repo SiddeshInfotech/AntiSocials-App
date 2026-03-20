@@ -109,7 +109,7 @@ export default function OTPScreen() {
                 isComplete ? styles.buttonActive : styles.buttonDisabled
               ]}
               disabled={!isComplete}
-              onPress={() => router.replace('/signup' as any)}
+              onPress={() => router.replace('/(tabs)' as any)}
             >
               <Text style={[
                 styles.buttonText,

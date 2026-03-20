@@ -75,6 +75,14 @@ export default function LoginScreen() {
               </Text>
             </TouchableOpacity>
 
+            {/* Signup Link */}
+            <View style={styles.signupContainer}>
+              <Text style={styles.signupText}>Don't have an account? </Text>
+              <TouchableOpacity onPress={() => router.push('/signup')}>
+                <Text style={styles.signupLink}>Sign up</Text>
+              </TouchableOpacity>
+            </View>
+
             {/* Footer */}
             <Text style={styles.footerText}>
               By continuing, you agree to our{' '}
@@ -206,6 +214,20 @@ const styles = StyleSheet.create({
   },
   buttonTextActive: {
     color: '#FFFFFF',
+  },
+  signupContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 24,
+  },
+  signupText: {
+    color: '#6B7280',
+    fontSize: 14,
+  },
+  signupLink: {
+    color: '#9333EA',
+    fontSize: 14,
+    fontWeight: '600',
   },
   footerText: {
     fontSize: 12,
