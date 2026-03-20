@@ -1,0 +1,303 @@
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, SafeAreaView, KeyboardAvoidingView, Platform, Switch } from 'react-native';
+import { Feather } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+
+export default function EditProfileScreen() {
+  const router = useRouter();
+
+  const [name, setName] = useState('Ameya Shimpi');
+  const [handle, setHandle] = useState('ameya.designs');
+  const [title, setTitle] = useState('Interior Designer');
+  const [bio, setBio] = useState('Loves coffee & morning walks');
+  const [isPrivate, setIsPrivate] = useState(false);
+  const [emailNotifications, setEmailNotifications] = useState(true);
+
+  const handleSave = () => {
+    // Usually you'd dispatch this to an API or global state,
+    console.log("Profile Updated", { name, handle, title, bio, isPrivate, emailNotifications });
+    router.back();
+  };
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+        style={styles.keyboardView}
+      >
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Feather name="arrow-left" size={24} color="#111827" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Edit Profile</Text>
+          <TouchableOpacity onPress={handleSave}>
+            <Text style={styles.saveButtonText}>Save</Text>
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+          <View style={styles.contentContainer}>
+            
+            {/* Avatar Edit */}
+            <View style={styles.avatarSection}>
+              <View style={styles.avatarPlaceholder}>
+                <Feather name="user" size={40} color="#4B2488" />
+                <TouchableOpacity style={styles.editAvatarBadge}>
+                  <Feather name="camera" size={14} color="#FFF" />
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity>
+                <Text style={styles.changePhotoText}>Change Profile Photo</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Basic Info */}
+            <Text style={styles.sectionTitle}>Basic Info</Text>
+            
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Full Name</Text>
+              <TextInput
+                style={styles.input}
+                value={name}
+                onChangeText={setName}
+                placeholder="Your Name"
+                placeholderTextColor="#9CA3AF"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Username</Text>
+              <View style={styles.inputWithIcon}>
+                <Text style={styles.prefixText}>@</Text>
+                <TextInput
+                  style={styles.inputInner}
+                  value={handle}
+                  onChangeText={setHandle}
+                  placeholder="username"
+                  placeholderTextColor="#9CA3AF"
+                  autoCapitalize="none"
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Job Title or Role</Text>
+              <TextInput
+                style={styles.input}
+                value={title}
+                onChangeText={setTitle}
+                placeholder="What do you do?"
+                placeholderTextColor="#9CA3AF"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Bio</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                value={bio}
+                onChangeText={setBio}
+                placeholder="Write a short bio about yourself..."
+                placeholderTextColor="#9CA3AF"
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+                maxLength={150}
+              />
+              <Text style={styles.charCount}>{bio.length}/150</Text>
+            </View>
+
+            {/* Privacy & Settings */}
+            <Text style={styles.sectionTitle}>Privacy & Preferences</Text>
+            
+            <View style={styles.switchRow}>
+              <View style={styles.switchTextContainer}>
+                <Text style={styles.switchTitle}>Private Account</Text>
+                <Text style={styles.switchSubtitle}>Only verified connections can see your activity.</Text>
+              </View>
+              <Switch
+                value={isPrivate}
+                onValueChange={setIsPrivate}
+                trackColor={{ false: '#E5E7EB', true: '#C084FC' }}
+                thumbColor={isPrivate ? '#8B00FF' : '#F9FAFB'}
+                ios_backgroundColor="#3e3e3e"
+              />
+            </View>
+
+            <View style={[styles.switchRow, { borderBottomWidth: 0, marginBottom: 40 }]}>
+              <View style={styles.switchTextContainer}>
+                <Text style={styles.switchTitle}>Email Notifications</Text>
+                <Text style={styles.switchSubtitle}>Receive updates about joined activities.</Text>
+              </View>
+              <Switch
+                value={emailNotifications}
+                onValueChange={setEmailNotifications}
+                trackColor={{ false: '#E5E7EB', true: '#C084FC' }}
+                thumbColor={emailNotifications ? '#8B00FF' : '#F9FAFB'}
+                ios_backgroundColor="#3e3e3e"
+              />
+            </View>
+
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  keyboardView: {
+    flex: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  backButton: {
+    padding: 4,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  saveButtonText: {
+    color: '#8B00FF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  contentContainer: {
+    padding: 20,
+  },
+  avatarSection: {
+    alignItems: 'center',
+    marginBottom: 32,
+    marginTop: 16,
+  },
+  avatarPlaceholder: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#FAF5FF',
+    borderWidth: 2,
+    borderColor: '#E9D5FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+    marginBottom: 16,
+  },
+  editAvatarBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#8B00FF',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  changePhotoText: {
+    color: '#8B00FF',
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 16,
+    marginTop: 8,
+  },
+  inputGroup: {
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#4B5563',
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: '#111827',
+  },
+  inputWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+  },
+  prefixText: {
+    fontSize: 16,
+    color: '#9CA3AF',
+    marginRight: 4,
+  },
+  inputInner: {
+    flex: 1,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: '#111827',
+  },
+  textArea: {
+    minHeight: 100,
+  },
+  charCount: {
+    textAlign: 'right',
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginTop: 6,
+  },
+  switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    marginBottom: 8,
+  },
+  switchTextContainer: {
+    flex: 1,
+    paddingRight: 16,
+  },
+  switchTitle: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  switchSubtitle: {
+    fontSize: 13,
+    color: '#6B7280',
+    lineHeight: 18,
+  },
+});
