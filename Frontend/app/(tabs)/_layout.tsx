@@ -72,7 +72,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <Feather size={24} name="user" color={color} />,
         }}
       />
-      {/* Hidden explore tab if we still want to keep the file accessible but not in tabs */}
+      {/* Hidden explore tab */}
       <Tabs.Screen
         name="explore"
         options={{
