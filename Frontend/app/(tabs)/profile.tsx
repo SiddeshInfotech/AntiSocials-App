@@ -222,7 +222,7 @@ export default function ProfileScreen() {
           </View>
 
           {/* Log Out Button */}
-          <TouchableOpacity style={styles.logoutButton}>
+          <TouchableOpacity style={styles.logoutButton} onPress={() => router.replace('/' as any)}>
             <Feather name="log-out" size={20} color="#EF4444" style={styles.logoutIcon} />
             <Text style={styles.logoutText}>Log Out</Text>
           </TouchableOpacity>
