@@ -29,3 +29,6 @@ coverage/
 
 # temp files
 *.tmp
+
+# github
+.github/
