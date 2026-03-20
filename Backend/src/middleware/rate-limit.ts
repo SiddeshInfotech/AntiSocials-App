@@ -22,3 +22,14 @@ export const taskCompletionRateLimit = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+export const otpRateLimit = rateLimit({
+  windowMs: env.RATE_LIMIT_WINDOW_MS,
+  max: Math.max(5, Math.floor(env.RATE_LIMIT_MAX / 4)),
+  message: {
+    success: false,
+    message: "Too many OTP requests. Please try again later.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});

@@ -1,11 +1,18 @@
 import { Router } from "express";
-import { authRateLimit } from "../../middleware/rate-limit";
+import { authRateLimit, otpRateLimit } from "../../middleware/rate-limit";
 import { validate } from "../../middleware/validate";
 import {
   loginEmailController,
   registerEmailController,
+  sendOtpController,
+  verifyOtpController,
 } from "./auth.controller";
-import { loginEmailSchema, registerEmailSchema } from "./auth.schema";
+import {
+  loginEmailSchema,
+  registerEmailSchema,
+  sendOtpSchema,
+  verifyOtpSchema,
+} from "./auth.schema";
 
 export const authRouter = Router();
 
@@ -22,3 +29,15 @@ authRouter.post(
   loginEmailController,
 );
 
+authRouter.post(
+  "/send-otp",
+  otpRateLimit,
+  validate(sendOtpSchema),
+  sendOtpController,
+);
+authRouter.post(
+  "/verify-otp",
+  otpRateLimit,
+  validate(verifyOtpSchema),
+  verifyOtpController,
+);
