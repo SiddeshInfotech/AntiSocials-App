@@ -10,7 +10,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useIsFocused } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 
 export default function TasksScreen() {
   const insets = useSafeAreaInsets();
@@ -38,15 +38,24 @@ export default function TasksScreen() {
     <View style={styles.container}>
       {isFocused && <StatusBar style="light" />}
       
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 50 }}>
-        
-        {/* --- Header Gradient Section --- */}
-        <LinearGradient 
-          colors={['#4f46e5', '#9333ea']} 
-          start={{ x: 0, y: 0 }} 
-          end={{ x: 1, y: 0 }} 
-          style={[styles.headerGradient, { paddingTop: insets.top + 20 }]}
-        >
+      {/* Top Safe Area Background for the status bar */}
+      <LinearGradient 
+        colors={['#4f46e5', '#9333ea']} 
+        start={{ x: 0, y: 0 }} 
+        end={{ x: 1, y: 0 }} 
+        style={{ height: insets.top, position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}
+      />
+      
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 50 }}>
+          
+          {/* --- Header Gradient Section --- */}
+          <LinearGradient 
+            colors={['#4f46e5', '#9333ea']} 
+            start={{ x: 0, y: 0 }} 
+            end={{ x: 1, y: 0 }} 
+            style={[styles.headerGradient, { paddingTop: 20 }]}
+          >
           <Text style={styles.headerTitle}>Your Journey</Text>
 
           {/* Stats Boxes */}
@@ -216,6 +225,7 @@ export default function TasksScreen() {
         ))}
 
       </ScrollView>
+      </SafeAreaView>
     </View>
   );
 }
