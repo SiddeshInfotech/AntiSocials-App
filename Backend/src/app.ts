@@ -6,6 +6,8 @@ import { tasksRouter } from "./modules/tasks/tasks.routes";
 import { walletRouter } from "./modules/wallet/wallet.routes";
 import { streakRouter } from "./modules/streak/streak.routes";
 import { lifeCircleRouter } from "./modules/lifeCircle/lifeCircle.routes";
+import { profileRouter } from "./modules/profile/profile.routes";
+import { activitiesRouter } from "./modules/activities/activities.routes";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler";
 
 export const app = express();
@@ -25,6 +27,8 @@ app.use("/tasks", tasksRouter);
 app.use("/wallet", walletRouter);
 app.use("/streak", streakRouter);
 app.use("/life-circle", lifeCircleRouter);
+app.use("/profile", profileRouter);
+app.use("/activities", activitiesRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
