@@ -5,13 +5,14 @@ import {
   StyleSheet, 
   ScrollView, 
   TouchableOpacity, 
-  SafeAreaView, 
-  StatusBar,
   Alert,
   Image,
   Dimensions,
   Platform
 } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
+import { StatusBar } from 'expo-status-bar';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { Feather } from '@expo/vector-icons';
 import Svg, { Circle, Line, G } from 'react-native-svg';
@@ -41,7 +42,9 @@ const DOMAINS = [
 ];
 
 export default function HomeScreen() {
+  const insets = useSafeAreaInsets();
   const [myStories, setMyStories] = useState<string[]>([]);
+  const isFocused = useIsFocused();
 
   const handleAddStory = async () => {
     if (Platform.OS === 'web') {
@@ -122,11 +125,11 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      {isFocused && <StatusBar style="dark" backgroundColor="#ffffff" />}
       
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
         {/* Top Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: Math.max(insets.top, 25) }]}>
           <View style={styles.stats}>
             <Text style={styles.statItem}>🔥 12</Text>
             <Text style={styles.statItem}>⚡ 3450</Text>
@@ -187,12 +190,12 @@ export default function HomeScreen() {
               Smile is 310 deg. Buddy is 60 deg. 
               The EXACT midpoint between 310 and 60 is strictly 5 degrees!
             */}
-            {renderTaskItem('Smile',   '😊', 310)}     {/* Top Right */}
-            {renderTaskItem('Reflect', '✍️', 255)}    {/* Top left */}
-            {renderTaskItem('Outside', '👀', 195)}    {/* Mid left */}
-            {renderTaskItem('Stretch', '🧘', 145)}    {/* Bottom left */}
-            {renderTaskItem('Silent',  '🤫', 100)}    {/* Bottom center */}
-            {renderTaskItem('Breathe', '▯',  5)}      {/* EXACTLY Center Right */}
+            {renderTaskItem('Smile',   '😊', 310)}
+            {renderTaskItem('Reflect', '✍️', 255)}
+            {renderTaskItem('Outside', '👀', 195)}
+            {renderTaskItem('Stretch', '🧘', 145)}
+            {renderTaskItem('Silent',  '🤫', 100)}
+            {renderTaskItem('Breathe', '▯',  5)}
 
             {/* Teddy bear mapped precisely to 60 degrees! */}
             <View style={[

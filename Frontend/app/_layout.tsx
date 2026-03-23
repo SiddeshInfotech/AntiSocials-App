@@ -24,7 +24,7 @@ export default function RootLayout() {
             <Stack.Screen name="notifications" options={{ headerShown: false }} />
             <Stack.Screen name="create-activity" options={{ headerShown: false }} />
           </Stack>
-          <StatusBar style="auto" />
+          <StatusBar style="dark" />
         </ThemeProvider>
       </GestureHandlerRootView>
     </SafeAreaProvider>
