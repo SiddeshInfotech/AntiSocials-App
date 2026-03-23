@@ -4,13 +4,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
+import { useIsFocused } from '@react-navigation/native';
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const isFocused = useIsFocused();
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-      <StatusBar style="light" />
+      {isFocused && <StatusBar style="light" />}
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         {/* Purple Header Section */}
         <View style={styles.headerBackground}>
