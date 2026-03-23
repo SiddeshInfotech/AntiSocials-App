@@ -1,49 +1,54 @@
-# AntiSocials App 🚀
+<div align="center">
+  
+# 🚀 AntiSocials 
 
-Welcome to the **AntiSocials App** monorepo! This application is designed to help users step away from endless scrolling and build real-world connections, hit their life goals (Mind, Body, Spirit, etc.), and monitor their healthy habits using specialized interconnected dashboards.
+**Less scrolling. More living.**
 
----
+AntiSocials is not just another social media app designed to keep you glued to your screen. It is a revolutionary platform built to get you *off* your phone and into the real world. We help you track your personal growth, build healthy offline habits, and connect with verified, like-minded people in your local community.
 
-## 🛠️ Recent Core Features & Technical Fixes 
-
-This branch features some massive UI integrations and squashes some of the peskiest React Native routing bugs. Here is a comprehensive overview of everything recently implemented in the codebase:
-
-### 1. 🤝 Seamless Complex Merge Resolution
-Successfully resolved deep additive and structural merge conflicts across `frontend-dev` and `feature/mahim`. 
-* **The Best of Both Worlds:** Merged the highly complex, mathematically calculated SVG Life Domains Dashboard (including interactive vector animals and ring nodes) with the robust bottom tab sub-routing for `[Profile, Heart, People, Tasks, Activities]`.
-* **Dependency Upgrades:** Safely integrated `react-native-svg` to power the complex vector interfaces while resolving `package.json` lockfile conflicts.
-
-### 2. 📸 Advanced Native Image Picker (Profile Edit)
-Fully overhauled the `edit-profile.tsx` screen to act and feel like a professional native application.
-* **Intelligent Action Sheets:** Tapping the user avatar (or "Change Photo") now opens a beautiful selection prompt asking you to explicitly pick between taking a live photo with your **Camera** or selecting an existing photo from the **Device Gallery**.
-* **Permissions Handling:** Securely handles hardware system queries (requesting camera and media access) through `expo-image-picker` prior to launching the native view. 
-* **Instant Native Feedback:** The UI dynamically registers the returned local URI from the camera and overlays the new cropped image flawlessly over your placeholder.
-
-### 3. 💥 Zero-Crash Whitespace Safety
-Combated the notorious `Text strings must be rendered within a <Text> component.` crash that crippled the Home Screen layout:
-* Hunted down rogue trailing string spaces in heavily commented JSX mapping routines (`renderTaskItem`).
-* Stripped unsafe `{/* */}` block patterns that were breaking Babel evaluations of `<View>` wrappers, making the entire `index.tsx` completely crash-safe.
-
-### 4. 📱 Fluid Safe Area Context Injection 
-Ripped out the deprecated, buggy local `react-native` `SafeAreaView` functionality that let the App UI violently collide with the clock and battery icons on modern hardware notches/islands.
-* Transitioned the overarching framework explicitly to `react-native-safe-area-context`.
-* Used the advanced `useSafeAreaInsets()` hook to programmatically push the Dashboard header padding down by exactly the height of the user's explicit device status bar. 
-
-### 5. 🌗 Bulletproof Dynamic Status Bar Toggling
-Obliterated an annoying routing bug where rendering a light-icon status bar on the purple `Profile` screen caused the icons to become permanently invisible/white when shifting back over to the white `Home` screen.
-* Imported the `useIsFocused` hook perfectly from `@react-navigation/native` alongside `expo-status-bar`.
-* Forced the `index.tsx` Home Screen to strictly apply `<StatusBar style="dark" />` conditionally upon active component focus.
-* Forced the `profile.tsx` dashboard to conditionally apply `<StatusBar style="light" />` allowing for safe tear-down when unmounted, keeping your clock and battery legible 100% of the time, regardless of what Tab you are interacting with.
+</div>
 
 ---
 
-## 📂 Project Structure
+## 🌟 Why AntiSocials?
+In a world dominated by endless feeds and digital fatigue, AntiSocials acts as your personal bridge back to reality. It encourages you to show up for yourself first before interacting with the broader digital community. 
 
-```text
-AntiSocials-App/
-├── Frontend/           # React Native / Expo Router Codebase 
-├── Backend/            # API, Authentication, and Database Logic 
-└── README.md           # Overarching Project Overview (You are here)
-```
+Our core philosophy is simple: **Complete real-world tasks to unlock social features.** Until you invest time in your physical, mental, or spiritual growth, the community feed remains locked! 
 
-Thank you for contributing to AntiSocials, creating a world where your daily habits build lasting real-life connections!
+---
+
+## 🔥 Key Features
+
+### 🎯 The Wheel of Life Domains
+Visually track your holistic progress across 8 essential life categories using our dynamic SVG charts:
+- **Mental & Spiritual:** Meditation, silent reflection, or reading.
+- **Physical & Health:** Gym sessions, running, or active stretching.
+- **Social & Interpersonal:** Spending quality time with real people.
+- **Financial & Career:** Hitting milestones or learning new skills.
+
+### 🐻 AntiSocial Buddy
+Meet your adorable digital companion! Our unique interactive bear sits right in your dashboard keeping you company. Tap any quick tasks around your Buddy to instantly start a mindful session (like taking deep breaths, stepping outside, or smiling) so you never feel alone on your journey to betterment.
+
+### 📸 Authentic Daily Stories
+Capture raw, unfiltered moments straight from your device's native Camera or Gallery. Easily upload short highlights from your daily walks, study sessions, or coffee breaks. No filters. No fake highlights. Just real life.
+
+### 🤝 Real Connections & Activities
+Say goodbye to strangers hiding behind screens.
+- **Discover Events:** Browse and join curated local activities (like morning yoga or photography walks) based strictly on your shared interests.
+- **Verified Humans:** Ensure safety and authenticity with our Verified Tier System. Connect only with real people creating real memories!
+- **Build Streaks:** Maintain an active streak every day you check in and complete a task, unlocking exclusive profile badges like the "21-Day Builder" or "First Meet" champion!
+
+---
+
+## 🛠️ How It Works
+
+1. **Focus on Yourself:** Tap on a life domain to log an activity. Did you go for a walk? Did you stretch?
+2. **Unlock the Community:** Your social feed is locked by default. Complete at least 1 personal growth task today to unlock it!
+3. **Show Off Your Badges:** Check your Profile to view your beautiful Gold Rings, your highest level rank (e.g., "Lvl 4 Connector"), and your upcoming goals.
+4. **Grow Together:** Join a local event from the "Activities" tab and meet your new squad in person!
+
+---
+
+<div align="center">
+  <p><i>Start showing up for yourself today!</i></p>
+</div>
