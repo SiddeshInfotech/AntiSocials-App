@@ -1,15 +1,18 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, Platform, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Image } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
+import { useIsFocused } from '@react-navigation/native';
 
 export default function ProfileScreen() {
   const router = useRouter();
+  const isFocused = useIsFocused();
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar style="light" />
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      {isFocused && <StatusBar style="light" />}
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         {/* Purple Header Section */}
         <View style={styles.headerBackground}>
@@ -222,7 +225,7 @@ export default function ProfileScreen() {
           </View>
 
           {/* Log Out Button */}
-          <TouchableOpacity style={styles.logoutButton}>
+          <TouchableOpacity style={styles.logoutButton} onPress={() => router.replace('/' as any)}>
             <Feather name="log-out" size={20} color="#EF4444" style={styles.logoutIcon} />
             <Text style={styles.logoutText}>Log Out</Text>
           </TouchableOpacity>
