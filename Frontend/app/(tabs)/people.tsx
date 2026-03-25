@@ -1,44 +1,80 @@
-import { useState } from "react";
-import ConnectionGraph from "../../components/ConnectionGraph";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  PanResponder,
-} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useRef, useState } from "react";
+import {
+  PanResponder,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import ConnectionGraph from "../../components/ConnectionGraph";
+import { StatusBar } from "expo-status-bar";
+import { useIsFocused } from "@react-navigation/native";
 
 export default function People() {
+  const isFocused = useIsFocused();
   const [showInfo, setShowInfo] = useState(false);
   const [zoom, setZoom] = useState(1);
-
-  // 🔥 Drag state
   const [position, setPosition] = useState({ x: 0, y: 0 });
 
-  // 🔥 PanResponder (drag)
-  const panResponder = PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponder: () => true,
+  const lastState = useRef({ x: 0, y: 0, zoom: 1, pinchDist: 0 });
 
-    onPanResponderMove: (evt, gestureState) => {
-      setPosition({
-        x: gestureState.dx,
-        y: gestureState.dy,
-      });
-    },
-  });
+  const getDistance = (touches: any) => {
+    if (touches.length < 2) return 0;
+    const dx = touches[0].pageX - touches[1].pageX;
+    const dy = touches[0].pageY - touches[1].pageY;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+
+      onPanResponderGrant: (evt) => {
+        const touches = evt.nativeEvent.touches;
+        lastState.current.x = position.x;
+        lastState.current.y = position.y;
+        lastState.current.zoom = zoom;
+
+        if (touches.length >= 2) {
+          lastState.current.pinchDist = getDistance(touches);
+        } else {
+          lastState.current.pinchDist = 0;
+        }
+      },
+
+      onPanResponderMove: (evt, gestureState) => {
+        const touches = evt.nativeEvent.touches;
+
+        if (touches.length >= 2) {
+          const newDist = getDistance(touches);
+          if (lastState.current.pinchDist > 0) {
+            const scaleFactor = newDist / lastState.current.pinchDist;
+            const newZoom = Math.min(
+              Math.max(lastState.current.zoom * scaleFactor, 0.4),
+              3.5,
+            );
+            setZoom(newZoom);
+          }
+        } else if (touches.length === 1 && lastState.current.pinchDist === 0) {
+          setPosition({
+            x: lastState.current.x + gestureState.dx,
+            y: lastState.current.y + gestureState.dy,
+          });
+        }
+      },
+    }),
+  ).current;
 
   return (
     <View style={styles.container}>
-      
+      {isFocused && <StatusBar style="light" backgroundColor="#000000" />}
       {/* Header */}
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>Connections</Text>
-          <Text style={styles.subtitle}>
-            23 connections across 3 tiers
-          </Text>
+          <Text style={styles.subtitle}>23 connections across 3 tiers</Text>
         </View>
 
         <TouchableOpacity
@@ -89,7 +125,7 @@ export default function People() {
             style={[
               styles.graphInner,
               {
-                width: 800,   // 🔥 FIX: same as SVG
+                width: 800, // 🔥 FIX: same as SVG
                 height: 800,
                 transform: [
                   { translateX: position.x },
@@ -108,7 +144,7 @@ export default function People() {
       <View style={styles.zoomControls}>
         <TouchableOpacity
           style={styles.zoomBtn}
-          onPress={() => setZoom((prev) => Math.min(prev + 0.2, 2))}
+          onPress={() => setZoom((prev) => Math.min(prev + 0.3, 3))}
         >
           <Ionicons name="add" size={20} color="#fff" />
         </TouchableOpacity>
