@@ -1,82 +1,83 @@
 import { Tabs } from 'expo-router';
-import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import React from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { HapticTab } from '@/components/haptic-tab';
+import { Feather } from '@expo/vector-icons';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function TabLayout() {
+  const colorScheme = useColorScheme();
+  const insets = useSafeAreaInsets();
+
   return (
     <Tabs
       screenOptions={{
+        tabBarActiveTintColor: '#9333EA', // Purple active color as in design
+        tabBarInactiveTintColor: '#6B7280',
         headerShown: false,
-        tabBarActiveTintColor: '#8b5cf6', // Active purple colour
-        tabBarInactiveTintColor: '#9ca3af',
+        tabBarButton: HapticTab,
         tabBarStyle: {
-          paddingBottom: 10,
-          paddingTop: 10,
-          height: 60,
-          backgroundColor: '#ffffff',
-          borderTopWidth: 0,
-          elevation: 0, // Android shadow
-          shadowOpacity: 0, // iOS shadow
+          borderTopWidth: 1,
+          borderTopColor: '#E5E7EB',
+          height: 60 + insets.bottom,
+          paddingBottom: 8 + insets.bottom,
+          paddingTop: 8,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: '500',
         }
-      }}
-    >
+      }}>
       <Tabs.Screen
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="home" size={22} color={color} />
-          ),
+          tabBarIcon: ({ color }) => <Feather size={24} name="home" color={color} />,
         }}
       />
       <Tabs.Screen
         name="people"
         options={{
           title: 'People',
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="users" size={22} color={color} />
-          ),
+          tabBarIcon: ({ color }) => <Feather size={24} name="users" color={color} />,
         }}
       />
       <Tabs.Screen
         name="tasks"
         options={{
           title: 'Tasks',
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="target" size={22} color={color} />
-          ),
+          tabBarIcon: ({ color }) => <Feather size={24} name="target" color={color} />,
         }}
       />
       <Tabs.Screen
         name="activities"
         options={{
           title: 'Activities',
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="calendar" size={22} color={color} />
-          ),
+          tabBarIcon: ({ color }) => <Feather size={24} name="calendar" color={color} />,
         }}
       />
       <Tabs.Screen
         name="heart"
         options={{
           title: 'Heart',
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="heart" size={22} color={color} />
-          ),
+          tabBarIcon: ({ color }) => <Feather size={24} name="heart" color={color} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="user" size={22} color={color} />
-          ),
+          tabBarIcon: ({ color }) => <Feather size={24} name="user" color={color} />,
         }}
       />
     </Tabs>
   );
 }
+<Tabs.Screen
+  name="connections"
+  options={{
+    title: "Connections",
+  }}
+/>

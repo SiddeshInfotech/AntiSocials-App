@@ -1,5 +1,32 @@
+import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import 'react-native-reanimated';
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function RootLayout() {
-  return <Stack screenOptions={{ headerShown: false }} />;
+  const colorScheme = useColorScheme();
+
+  return (
+    <SafeAreaProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <Stack>
+            <Stack.Screen name="index" options={{ headerShown: false }} />
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+            <Stack.Screen name="edit-profile" options={{ headerShown: false }} />
+            <Stack.Screen name="your-interests" options={{ headerShown: false }} />
+            <Stack.Screen name="privacy-settings" options={{ headerShown: false }} />
+            <Stack.Screen name="notifications" options={{ headerShown: false }} />
+            <Stack.Screen name="create-activity" options={{ headerShown: false }} />
+          </Stack>
+          <StatusBar style="dark" />
+        </ThemeProvider>
+      </GestureHandlerRootView>
+    </SafeAreaProvider>
+  );
 }
