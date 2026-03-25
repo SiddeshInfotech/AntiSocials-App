@@ -1,57 +1,40 @@
-import { LifeCircleParameter, Task } from "@prisma/client";
-import {
-  LIFE_CIRCLE_PARAMETERS,
-  TASK_LEVEL_SEQUENCE,
-  TASKS_PER_DAY,
-} from "../../constants/tasks";
+import { Task } from "@prisma/client";
 
 function randomPick<T>(items: T[]): T {
   return items[Math.floor(Math.random() * items.length)];
 }
 
-export function buildDailyTaskSet(
+export function pickTaskForLevel(
   tasks: Task[],
+  level: number,
   recentTaskIds: Set<string>,
-): Task[] {
-  const available = tasks.filter((task) => !recentTaskIds.has(task.id));
-  const pool = available.length >= TASKS_PER_DAY ? available : tasks;
+): Task {
+  const exactLevel = tasks.filter((task) => task.level === level);
+  const exactWithoutRecent = exactLevel.filter(
+    (task) => !recentTaskIds.has(task.id),
+  );
 
-  const selected: Task[] = [];
-  const usedIds = new Set<string>();
-
-  for (let i = 0; i < TASKS_PER_DAY; i += 1) {
-    const targetLevel = TASK_LEVEL_SEQUENCE[i];
-    const targetParameter = LIFE_CIRCLE_PARAMETERS[
-      i % LIFE_CIRCLE_PARAMETERS.length
-    ] as LifeCircleParameter;
-
-    const candidates = pool.filter(
-      (task) =>
-        task.level === targetLevel &&
-        task.parameter === targetParameter &&
-        !usedIds.has(task.id),
-    );
-
-    const fallbackByLevel = pool.filter(
-      (task) => task.level === targetLevel && !usedIds.has(task.id),
-    );
-    const fallbackAny = pool.filter((task) => !usedIds.has(task.id));
-
-    const bucket =
-      candidates.length > 0
-        ? candidates
-        : fallbackByLevel.length > 0
-          ? fallbackByLevel
-          : fallbackAny;
-
-    if (bucket.length === 0) {
-      break;
-    }
-
-    const chosen = randomPick(bucket);
-    selected.push(chosen);
-    usedIds.add(chosen.id);
+  if (exactWithoutRecent.length > 0) {
+    return randomPick(exactWithoutRecent);
   }
 
-  return selected;
+  if (exactLevel.length > 0) {
+    return randomPick(exactLevel);
+  }
+
+  const sortedByLevelDistance = [...tasks].sort((a, b) => {
+    const aDistance = Math.abs(a.level - level);
+    const bDistance = Math.abs(b.level - level);
+    return aDistance - bDistance;
+  });
+
+  const nearestWithoutRecent = sortedByLevelDistance.filter(
+    (task) => !recentTaskIds.has(task.id),
+  );
+
+  if (nearestWithoutRecent.length > 0) {
+    return randomPick(nearestWithoutRecent);
+  }
+
+  return randomPick(sortedByLevelDistance);
 }

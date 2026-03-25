@@ -34,6 +34,28 @@ enum LifeCircleParameter {
   MEANING
 }
 
+enum DevicePlatform {
+  ANDROID
+  IOS
+  WEB
+}
+
+enum NotificationType {
+  TASK_REMINDER
+  TASK_COMPLETED_CONGRATS
+  TASK_MISSED_NUDGE
+  STREAK_BROKEN
+  STREAK_RECOVERY_NUDGE
+  STREAK_RESTORED
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  CANCELED
+}
+
 model User {
   id                String   @id @default(uuid())
   email             String?  @unique
@@ -50,13 +72,15 @@ model User {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  authIdentities   AuthIdentity[]
-  wallet           UserWallet?
-  streak           UserStreak?
-  lifeCircleScores LifeCircleScore[]
-  dailyTasks       UserDailyTask[]
-  communityMembers CommunityMember[]
-  ownedCommunities Community[]     @relation(name: "CommunityOwner")
+  authIdentities     AuthIdentity[]
+  wallet             UserWallet?
+  streak             UserStreak?
+  lifeCircleScores   LifeCircleScore[]
+  dailyTasks         UserDailyTask[]
+  deviceTokens       UserDeviceToken[]
+  notificationEvents NotificationEvent[]
+  communityMembers   CommunityMember[]
+  ownedCommunities   Community[]         @relation(name: "CommunityOwner")
 
   @@index([createdAt])
   @@index([interests])
@@ -66,7 +90,7 @@ model Community {
   id          String    @id @default(uuid())
   title       String
   description String?
-  category    String    // Maps to interests e.g., "Volunteering"
+  category    String // Maps to interests e.g., "Volunteering"
   date        DateTime?
   location    String?
   maxMembers  Int?
@@ -90,7 +114,6 @@ model CommunityMember {
 
   @@unique([userId, communityId]) // A user can only join a specific community once
 }
-
 
 model AuthIdentity {
   id         String     @id @default(uuid())
@@ -146,7 +169,8 @@ model UserDailyTask {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   task Task @relation(fields: [taskId], references: [id], onDelete: Restrict)
 
-  completion UserTaskCompletion?
+  completion         UserTaskCompletion?
+  notificationEvents NotificationEvent[]
 
   @@unique([userId, taskId, assignedDate])
   @@index([userId, assignedDate])
@@ -188,13 +212,25 @@ model WalletTransaction {
 }
 
 model UserStreak {
-  id               String    @id @default(uuid())
-  userId           String    @unique
-  currentStreak    Int       @default(0)
-  bestStreak       Int       @default(0)
-  journeyDay       Int       @default(1)
-  lastActivityDate DateTime?
-  updatedAt        DateTime  @updatedAt
+  id                    String    @id @default(uuid())
+  userId                String    @unique
+  currentStreak         Int       @default(0)
+  bestStreak            Int       @default(0)
+  currentMonthStreak    Int       @default(0)
+  bestMonthStreak       Int       @default(0)
+  currentYearStreak     Int       @default(0)
+  bestYearStreak        Int       @default(0)
+  monthKey              String?
+  yearKey               Int?
+  journeyDay            Int       @default(1)
+  completedTaskCount    Int       @default(0)
+  currentLevel          Int       @default(1)
+  isInRecovery          Boolean   @default(false)
+  recoverySourceStreak  Int?
+  recoveryCompletedDays Int       @default(0)
+  lastBreakDate         DateTime?
+  lastActivityDate      DateTime?
+  updatedAt             DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -211,4 +247,42 @@ model LifeCircleScore {
 
   @@unique([userId, parameter])
   @@index([userId, lastActivityDate])
+}
+
+model UserDeviceToken {
+  id         String         @id @default(uuid())
+  userId     String
+  token      String         @unique
+  platform   DevicePlatform
+  isActive   Boolean        @default(true)
+  lastUsedAt DateTime?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isActive])
+}
+
+model NotificationEvent {
+  id              String             @id @default(uuid())
+  userId          String
+  userDailyTaskId String?
+  type            NotificationType
+  title           String
+  body            String
+  scheduledAt     DateTime
+  sentAt          DateTime?
+  status          NotificationStatus @default(PENDING)
+  retryCount      Int                @default(0)
+  lastError       String?
+  idempotencyKey  String             @unique
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userDailyTask UserDailyTask? @relation(fields: [userDailyTaskId], references: [id], onDelete: SetNull)
+
+  @@index([status, scheduledAt])
+  @@index([userId, type])
 }

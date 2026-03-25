@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { AppError } from "../../middleware/error-handler";
+import { getStreak } from "../streak/streak.service";
 import { completeTask, getTodayTasks } from "./tasks.service";
 
 export async function getTodayTasksController(
@@ -10,12 +11,26 @@ export async function getTodayTasksController(
     throw new AppError("Unauthorized", 401);
   }
 
-  const tasks = await getTodayTasks(req.userId);
+  const [tasks, streak] = await Promise.all([
+    getTodayTasks(req.userId),
+    getStreak(req.userId),
+  ]);
+
+  const progress = streak
+    ? {
+        currentLevel: streak.currentLevel,
+        currentLevelTaskPoints: streak.currentLevelTaskPoints,
+        currentLevelPoolTarget: streak.currentLevelPoolTarget,
+        currentLevelPoolEarned: streak.currentLevelPoolEarned,
+        completedTasksInCurrentLevel: streak.completedTasksInCurrentLevel,
+      }
+    : null;
 
   res.status(200).json({
     success: true,
     message: "Today's tasks",
     data: tasks,
+    progress,
   });
 }
 

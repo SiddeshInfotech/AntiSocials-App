@@ -4,185 +4,82 @@ const prisma = new PrismaClient();
 
 const taskSeed = [
   {
-    title: "5-minute breath reset",
-    description: "Sit quietly and breathe slowly for 5 minutes.",
+    title: "Drink water every hour",
+    description: "Stay hydrated by drinking water once every hour.",
+    level: 1,
+    parameter: LifeCircleParameter.BODY,
+    points: 5,
+  },
+  {
+    title: "No social media for one hour",
+    description: "Avoid social media for one focused hour.",
+    level: 1,
+    parameter: LifeCircleParameter.ATTENTION,
+    points: 5,
+  },
+  {
+    title: "Breathing for 3 mins",
+    description: "Take a calm breathing break for 3 minutes.",
     level: 1,
     parameter: LifeCircleParameter.AWARENESS,
     points: 5,
   },
   {
-    title: "No-phone breakfast",
-    description: "Eat one meal without using your phone.",
-    level: 2,
-    parameter: LifeCircleParameter.ATTENTION,
-    points: 8,
-  },
-  {
-    title: "15-minute walk",
-    description: "Take a brisk walk for 15 minutes.",
-    level: 2,
-    parameter: LifeCircleParameter.BODY,
-    points: 8,
-  },
-  {
-    title: "Name your emotion",
-    description: "Write down what you feel and why in 3 lines.",
-    level: 1,
-    parameter: LifeCircleParameter.EMOTIONAL,
-    points: 5,
-  },
-  {
-    title: "Meaningful check-in",
-    description: "Call or text one person you care about.",
+    title: "Call an old friend",
+    description: "Reconnect with an old friend through a quick call.",
     level: 2,
     parameter: LifeCircleParameter.CONNECTION,
-    points: 8,
+    points: 10,
   },
   {
-    title: "Do one avoided task",
-    description: "Finish one small task you have postponed.",
+    title: "Spend 20 minutes offline with someone",
+    description: "Spend quality offline time with someone close to you.",
+    level: 2,
+    parameter: LifeCircleParameter.CONNECTION,
+    points: 10,
+  },
+  {
+    title: "Take a hour tech free break",
+    description: "Take one complete hour away from all technology.",
     level: 3,
-    parameter: LifeCircleParameter.COURAGE,
-    points: 12,
-  },
-  {
-    title: "Reflective journaling",
-    description: "Write 10 lines on what mattered today.",
-    level: 3,
-    parameter: LifeCircleParameter.MEANING,
-    points: 12,
-  },
-  {
-    title: "Cold finish shower",
-    description: "Finish your shower with 30 seconds cold water.",
-    level: 4,
-    parameter: LifeCircleParameter.COURAGE,
-    points: 15,
-  },
-  {
-    title: "Focused deep work",
-    description: "Do 30 minutes of uninterrupted work.",
-    level: 4,
     parameter: LifeCircleParameter.ATTENTION,
-    points: 15,
-  },
-  {
-    title: "Digital sunset",
-    description: "No social media for 2 hours before bed.",
-    level: 5,
-    parameter: LifeCircleParameter.AWARENESS,
     points: 20,
   },
-  // AWARENESS
   {
-    title: "Morning intention",
-    description: "Write one clear intention for the day ahead.",
-    level: 2,
-    parameter: LifeCircleParameter.AWARENESS,
-    points: 8,
-  },
-  {
-    title: "Mindful observation",
-    description: "Spend 10 minutes observing your surroundings without judgment.",
-    level: 3,
-    parameter: LifeCircleParameter.AWARENESS,
-    points: 12,
-  },
-
-  // ATTENTION
-  {
-    title: "Single-task for 1 hour",
-    description: "Work on only one thing for a full hour, no switching.",
-    level: 3,
-    parameter: LifeCircleParameter.ATTENTION,
-    points: 12,
-  },
-  {
-    title: "Read for 20 minutes",
-    description: "Read a book or article without any distractions.",
-    level: 2,
-    parameter: LifeCircleParameter.ATTENTION,
-    points: 8,
-  },
-
-  // BODY
-  {
-    title: "10-minute stretch",
-    description: "Do a full body stretching routine for 10 minutes.",
-    level: 1,
-    parameter: LifeCircleParameter.BODY,
-    points: 5,
-  },
-  {
-    title: "Drink 8 glasses of water",
-    description: "Track and complete your daily water intake goal.",
-    level: 1,
-    parameter: LifeCircleParameter.BODY,
-    points: 5,
-  },
-
-  // EMOTIONAL
-  {
-    title: "Gratitude list",
-    description: "Write down 5 things you are genuinely grateful for today.",
-    level: 2,
-    parameter: LifeCircleParameter.EMOTIONAL,
-    points: 8,
-  },
-  {
-    title: "Forgiveness note",
-    description: "Write a short note forgiving yourself for one mistake.",
-    level: 3,
-    parameter: LifeCircleParameter.EMOTIONAL,
-    points: 12,
-  },
-
-  // CONNECTION
-  {
-    title: "Active listening",
-    description: "Have a conversation where you only listen, no advice.",
+    title: "Meet one friend in real life",
+    description: "Meet a friend in person and spend time together.",
     level: 3,
     parameter: LifeCircleParameter.CONNECTION,
-    points: 12,
+    points: 20,
   },
   {
-    title: "Express appreciation",
-    description: "Tell someone specifically what you appreciate about them.",
-    level: 2,
-    parameter: LifeCircleParameter.CONNECTION,
-    points: 8,
-  },
-
-  // COURAGE
-  {
-    title: "Share your opinion",
-    description: "Speak up and share your honest opinion in a conversation.",
-    level: 2,
+    title: "Help someone offline",
+    description: "Help someone in your surroundings through real-world action.",
+    level: 4,
     parameter: LifeCircleParameter.COURAGE,
-    points: 8,
+    points: 35,
   },
   {
-    title: "Try something new",
-    description: "Do one thing today you have never done before.",
-    level: 3,
-    parameter: LifeCircleParameter.COURAGE,
-    points: 12,
-  },
-
-  // MEANING
-  {
-    title: "Define your why",
-    description: "Write one paragraph about why your current goal matters.",
-    level: 2,
-    parameter: LifeCircleParameter.MEANING,
-    points: 8,
-  },
-  {
-    title: "Review your values",
-    description: "List your top 3 personal values and rate how well you lived them today.",
+    title: "Volunteer for 1 hour",
+    description:
+      "Volunteer your time to support a person or cause for one hour.",
     level: 4,
     parameter: LifeCircleParameter.MEANING,
-    points: 15,
+    points: 35,
+  },
+  {
+    title: "Organise a cleanup drive",
+    description: "Plan and lead a local cleanup effort.",
+    level: 5,
+    parameter: LifeCircleParameter.COURAGE,
+    points: 50,
+  },
+  {
+    title: "Plan one day group trip",
+    description: "Plan a one-day trip with friends or family.",
+    level: 5,
+    parameter: LifeCircleParameter.CONNECTION,
+    points: 50,
   },
 ];
 

@@ -8,6 +8,7 @@ import { streakRouter } from "./modules/streak/streak.routes";
 import { lifeCircleRouter } from "./modules/lifeCircle/lifeCircle.routes";
 import { profileRouter } from "./modules/profile/profile.routes";
 import { activitiesRouter } from "./modules/activities/activities.routes";
+import { notificationsRouter } from "./modules/notifications/notifications.routes";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler";
 
 export const app = express();
@@ -29,6 +30,7 @@ app.use("/streak", streakRouter);
 app.use("/life-circle", lifeCircleRouter);
 app.use("/profile", profileRouter);
 app.use("/activities", activitiesRouter);
+app.use("/notifications", notificationsRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
