@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -10,7 +10,8 @@ import {
   Alert,
   Image,
   Dimensions,
-  Platform
+  Platform,
+  Animated
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Feather } from '@expo/vector-icons';
@@ -42,6 +43,22 @@ const DOMAINS = [
 
 export default function HomeScreen() {
   const [myStories, setMyStories] = useState<string[]>([]);
+  
+  // Animation refs for the scrolling eye blink
+  const eyeScale = useRef(new Animated.Value(1)).current;
+  const isBlinking = useRef(false);
+
+  const handleScrollToBlink = () => {
+    if (!isBlinking.current) {
+      isBlinking.current = true;
+      Animated.sequence([
+        Animated.timing(eyeScale, { toValue: 0.1, duration: 80, useNativeDriver: true }),
+        Animated.timing(eyeScale, { toValue: 1, duration: 80, useNativeDriver: true })
+      ]).start(() => {
+         setTimeout(() => { isBlinking.current = false; }, 600);
+      });
+    }
+  };
 
   const handleAddStory = async () => {
     if (Platform.OS === 'web') {
@@ -124,7 +141,12 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false} 
+        contentContainerStyle={{ paddingBottom: 40 }}
+        onScroll={handleScrollToBlink}
+        scrollEventThrottle={32}
+      >
         {/* Top Header */}
         <View style={styles.header}>
           <View style={styles.stats}>
@@ -306,12 +328,12 @@ export default function HomeScreen() {
                     <View style={styles.owlEarNewLeft} />
                     <View style={styles.owlEarNewRight} />
                     <View style={styles.owlEyesRow}>
-                        <View style={styles.owlNewEye}>
+                        <Animated.View style={[styles.owlNewEye, { transform: [{ scaleY: eyeScale }] }]}>
                             <View style={styles.owlNewPupil} />
-                        </View>
-                        <View style={styles.owlNewEye}>
+                        </Animated.View>
+                        <Animated.View style={[styles.owlNewEye, { transform: [{ scaleY: eyeScale }] }]}>
                             <View style={styles.owlNewPupil} />
-                        </View>
+                        </Animated.View>
                     </View>
                     <View style={styles.owlNewBeak} />
                  </View>
