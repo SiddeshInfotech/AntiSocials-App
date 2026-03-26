@@ -2,7 +2,7 @@ import { LifeCircleParameter } from "@prisma/client";
 
 export const TASKS_PER_DAY = 1;
 export const RECENT_TASK_EXCLUSION_DAYS = 5;
-export const TASKS_PER_LEVEL = 20;
+export const TASKS_PER_LEVEL = 2;
 export const STREAK_RECOVERY_DAYS_REQUIRED = 3;
 
 export const MAX_TASK_LEVEL = 5;
