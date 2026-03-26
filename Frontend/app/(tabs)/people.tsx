@@ -1,11 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import {
   PanResponder,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
+  Animated,
 } from "react-native";
 import ConnectionGraph from "../../components/ConnectionGraph";
 import { StatusBar } from "expo-status-bar";
@@ -14,10 +15,27 @@ import { useIsFocused } from "@react-navigation/native";
 export default function People() {
   const isFocused = useIsFocused();
   const [showInfo, setShowInfo] = useState(false);
-  const [zoom, setZoom] = useState(1);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
 
-  const lastState = useRef({ x: 0, y: 0, zoom: 1, pinchDist: 0 });
+  // 🔥 Extremely fast native Animated hooks to replace lagging states!
+  const pan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+  const zoomAnim = useRef(new Animated.Value(1)).current;
+
+  // Track values without triggering ANY re-renders!
+  const stateValues = useRef({ x: 0, y: 0, zoom: 1, pinchDist: 0 });
+
+  useEffect(() => {
+    const panId = pan.addListener((value) => {
+      stateValues.current.x = value.x;
+      stateValues.current.y = value.y;
+    });
+    const zoomId = zoomAnim.addListener(({ value }) => {
+      stateValues.current.zoom = value;
+    });
+    return () => {
+      pan.removeListener(panId);
+      zoomAnim.removeListener(zoomId);
+    };
+  }, [pan, zoomAnim]);
 
   const getDistance = (touches: any) => {
     if (touches.length < 2) return 0;
@@ -33,14 +51,18 @@ export default function People() {
 
       onPanResponderGrant: (evt) => {
         const touches = evt.nativeEvent.touches;
-        lastState.current.x = position.x;
-        lastState.current.y = position.y;
-        lastState.current.zoom = zoom;
+        
+        // Prevent layout jumping seamlessly bridging offsets
+        pan.setOffset({
+          x: stateValues.current.x,
+          y: stateValues.current.y
+        });
+        pan.setValue({ x: 0, y: 0 });
 
         if (touches.length >= 2) {
-          lastState.current.pinchDist = getDistance(touches);
+          stateValues.current.pinchDist = getDistance(touches);
         } else {
-          lastState.current.pinchDist = 0;
+          stateValues.current.pinchDist = 0;
         }
       },
 
@@ -49,21 +71,24 @@ export default function People() {
 
         if (touches.length >= 2) {
           const newDist = getDistance(touches);
-          if (lastState.current.pinchDist > 0) {
-            const scaleFactor = newDist / lastState.current.pinchDist;
+          if (stateValues.current.pinchDist > 0) {
+            const scaleFactor = newDist / stateValues.current.pinchDist;
             const newZoom = Math.min(
-              Math.max(lastState.current.zoom * scaleFactor, 0.4),
+              Math.max(stateValues.current.zoom * scaleFactor, 0.4),
               3.5,
             );
-            setZoom(newZoom);
+            // Drive updates immediately on the native graphic buffer
+            zoomAnim.setValue(newZoom);
           }
-        } else if (touches.length === 1 && lastState.current.pinchDist === 0) {
-          setPosition({
-            x: lastState.current.x + gestureState.dx,
-            y: lastState.current.y + gestureState.dy,
-          });
+        } else if (touches.length === 1 && stateValues.current.pinchDist === 0) {
+          // Native physics panning avoiding react mapping
+          pan.setValue({ x: gestureState.dx, y: gestureState.dy });
         }
       },
+      
+      onPanResponderRelease: () => {
+        pan.flattenOffset();
+      }
     }),
   ).current;
 
@@ -120,23 +145,23 @@ export default function People() {
       {/* 🔥 GRAPH */}
       <View style={styles.graphArea}>
         <View style={styles.graphWrapper}>
-          <View
+          <Animated.View
             {...panResponder.panHandlers}
             style={[
               styles.graphInner,
               {
-                width: 800, // 🔥 FIX: same as SVG
+                width: 800, 
                 height: 800,
                 transform: [
-                  { translateX: position.x },
-                  { translateY: position.y },
-                  { scale: zoom },
+                  { translateX: pan.x },
+                  { translateY: pan.y },
+                  { scale: zoomAnim },
                 ],
               },
             ]}
           >
             <ConnectionGraph />
-          </View>
+          </Animated.View>
         </View>
       </View>
 
@@ -144,14 +169,24 @@ export default function People() {
       <View style={styles.zoomControls}>
         <TouchableOpacity
           style={styles.zoomBtn}
-          onPress={() => setZoom((prev) => Math.min(prev + 0.3, 3))}
+          onPress={() => {
+            Animated.spring(zoomAnim, {
+              toValue: Math.min(stateValues.current.zoom + 0.3, 3.5),
+              useNativeDriver: true,
+            }).start();
+          }}
         >
           <Ionicons name="add" size={20} color="#fff" />
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.zoomBtn}
-          onPress={() => setZoom((prev) => Math.max(prev - 0.2, 0.6))}
+          onPress={() => {
+            Animated.spring(zoomAnim, {
+              toValue: Math.max(stateValues.current.zoom - 0.3, 0.4),
+              useNativeDriver: true,
+            }).start();
+          }}
         >
           <Ionicons name="remove" size={20} color="#fff" />
         </TouchableOpacity>
@@ -159,8 +194,10 @@ export default function People() {
         <TouchableOpacity
           style={styles.zoomBtn}
           onPress={() => {
-            setZoom(1);
-            setPosition({ x: 0, y: 0 });
+            Animated.parallel([
+               Animated.spring(zoomAnim, { toValue: 1, useNativeDriver: true }),
+               Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: true })
+            ]).start();
           }}
         >
           <Ionicons name="expand" size={20} color="#fff" />
