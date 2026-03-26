@@ -70,6 +70,12 @@ export default function TasksScreen() {
                 else if (task.title === "Drink a glass of water mindfully") {
                   router.push("/drink-task"); // ✅ NEW
                 }
+                else if (task.title === "Write 1 word about how you feel") {
+                  router.push("/write-task" as any);
+                }
+                else if (task.title === "Smile intentionally") {
+                  router.push("/smile-task" as any);
+                }
               }}
             >
               <Text style={styles.taskEmoji}>{task.emoji}</Text>

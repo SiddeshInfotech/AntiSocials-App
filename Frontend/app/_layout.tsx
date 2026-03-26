@@ -23,6 +23,11 @@ export default function RootLayout() {
             <Stack.Screen name="privacy-settings" options={{ headerShown: false }} />
             <Stack.Screen name="notifications" options={{ headerShown: false }} />
             <Stack.Screen name="create-activity" options={{ headerShown: false }} />
+            <Stack.Screen name="write-task" options={{ headerShown: false }} />
+            <Stack.Screen name="share-thoughts" options={{ headerShown: false }} />
+            <Stack.Screen name="task-success" options={{ headerShown: false }} />
+            <Stack.Screen name="smile-task" options={{ headerShown: false }} />
+            <Stack.Screen name="smile-confirm" options={{ headerShown: false }} />
           </Stack>
           <StatusBar style="dark" />
         </ThemeProvider>

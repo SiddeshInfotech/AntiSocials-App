@@ -75,9 +75,3 @@ export default function TabLayout() {
     </Tabs>
   );
 }
-<Tabs.Screen
-  name="connections"
-  options={{
-    title: "Connections",
-  }}
-/>
