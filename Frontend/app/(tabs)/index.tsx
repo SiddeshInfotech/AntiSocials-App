@@ -352,6 +352,113 @@ const AnimatedOwl = () => {
   );
 };
 
+const AnimatedBuddyContainer = ({
+  activeTask,
+  onStartTask,
+}: {
+  activeTask: string | null;
+  onStartTask: (task: string) => void;
+}) => {
+  return (
+    <View style={styles.buddyCenter}>
+      <AnimatedBuddy />
+      {activeTask ? (
+        <TouchableOpacity
+          style={styles.startHeroBtn}
+          onPress={() => onStartTask(activeTask)}
+        >
+          <Text style={styles.startHeroBtnText}>Start {activeTask} ✨</Text>
+        </TouchableOpacity>
+      ) : (
+        <Text style={styles.buddyTextFlex}>Sitting quietly with you</Text>
+      )}
+    </View>
+  );
+};
+
+const AnimatedBuddy = () => {
+  const floatAnim = React.useRef(new Animated.Value(0)).current;
+  const blinkAnim = React.useRef(new Animated.Value(1)).current;
+
+  React.useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim, {
+          toValue: -5,
+          duration: 2500,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(floatAnim, {
+          toValue: 0,
+          duration: 2500,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+    ).start();
+
+    const blink = () => {
+      Animated.sequence([
+        Animated.timing(blinkAnim, {
+          toValue: 0.15,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+        Animated.timing(blinkAnim, {
+          toValue: 1,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    };
+
+    const interval = setInterval(() => {
+      blink();
+      if (Math.random() > 0.7) {
+        setTimeout(blink, 150);
+      }
+    }, 3500);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <Animated.View
+      style={[
+        {
+          alignItems: "center",
+          justifyContent: "center",
+        },
+        { transform: [{ translateY: floatAnim }] },
+      ]}
+    >
+      <View style={styles.buddyRelative}>
+        <View style={styles.buddyEarLeft} />
+        <View style={styles.buddyEarRight} />
+        <View style={styles.buddyArmLeft} />
+        <View style={styles.buddyArmRight} />
+        <View style={styles.buddyBody}>
+          <View style={styles.buddyFace}>
+            <Animated.View
+              style={[styles.buddyEye, { transform: [{ scaleY: blinkAnim }] }]}
+            />
+            <View style={styles.buddyNasalWrap}>
+              <View style={styles.buddyNose} />
+              <View style={styles.buddyMouthLine} />
+            </View>
+            <Animated.View
+              style={[styles.buddyEye, { transform: [{ scaleY: blinkAnim }] }]}
+            />
+          </View>
+        </View>
+        <View style={styles.buddyLegLeft} />
+        <View style={styles.buddyLegRight} />
+      </View>
+    </Animated.View>
+  );
+};
+
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const [myStories, setMyStories] = useState<string[]>([]);
@@ -537,7 +644,7 @@ export default function HomeScreen() {
               // Circle is always centered on the full container dimensions
               const cx = circleSize.w / 2;
               const cy = circleSize.h / 2;
-              const radius = Math.min(cx, cy) * 0.56;
+              const radius = Math.min(cx, cy) * 0.82;
               const COUNT = ITEMS.length;
               const START_ANGLE = -120 * (Math.PI / 180);
 
@@ -559,49 +666,20 @@ export default function HomeScreen() {
               });
             })()}
 
-            {/* Bear — independently positioned in bottom-right quadrant, NOT the circle center */}
-            <View style={styles.buddyBottomRight}>
-              <View style={styles.buddyRelative}>
-                <View style={styles.buddyEarLeft} />
-                <View style={styles.buddyEarRight} />
-                <View style={styles.buddyArmLeft} />
-                <View style={styles.buddyBody}>
-                  <View style={styles.buddyFace}>
-                    <View style={styles.buddyEye} />
-                    <View style={styles.buddyNasalWrap}>
-                      <View style={styles.buddyNose} />
-                      <View style={styles.buddyMouthLine} />
-                    </View>
-                    <View style={styles.buddyEye} />
-                  </View>
-                </View>
-                <View style={styles.buddyLegLeft} />
-                <View style={styles.buddyLegRight} />
-              </View>
-              {activeTask ? (
-                <TouchableOpacity
-                  style={styles.startHeroBtn}
-                  onPress={() => {
-                    Haptics.notificationAsync(
-                      Haptics.NotificationFeedbackType.Success,
-                    );
-                    Alert.alert(
-                      `Started ${activeTask}`,
-                      `You are now focusing on this moment. Have a peaceful time!`,
-                    );
-                    setActiveTask(null);
-                  }}
-                >
-                  <Text style={styles.startHeroBtnText}>
-                    Start {activeTask} ✨
-                  </Text>
-                </TouchableOpacity>
-              ) : (
-                <Text style={styles.buddyTextFlex}>
-                  Sitting quietly with you
-                </Text>
-              )}
-            </View>
+            {/* Bear with animations */}
+            <AnimatedBuddyContainer
+              activeTask={activeTask}
+              onStartTask={(task) => {
+                Haptics.notificationAsync(
+                  Haptics.NotificationFeedbackType.Success,
+                );
+                Alert.alert(
+                  `Started ${task}`,
+                  `You are now focusing on this moment. Have a peaceful time!`,
+                );
+                setActiveTask(null);
+              }}
+            />
           </View>
         </View>
 
@@ -918,7 +996,7 @@ const styles = StyleSheet.create({
   circularItemWrapper: {
     position: "absolute",
     alignItems: "center",
-    zIndex: 10, // emojis always on top
+    zIndex: 10,
   },
   buddyBottomRight: {
     position: "absolute",
@@ -936,6 +1014,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: "center",
     alignItems: "center",
+    zIndex: 1,
   },
   // Legacy row styles kept for reference but no longer rendered
   flexRow1: {
@@ -996,102 +1075,148 @@ const styles = StyleSheet.create({
   },
   buddyRelative: {
     position: "relative",
-    width: 140,
-    height: 155,
+    width: 160,
+    height: 180,
     alignItems: "center",
     justifyContent: "center",
   },
   buddyBody: {
-    width: 140,
-    height: 155,
-    backgroundColor: "#e6c3a0",
-    borderTopLeftRadius: 75,
-    borderTopRightRadius: 75,
-    borderBottomLeftRadius: 65,
-    borderBottomRightRadius: 65,
+    width: 160,
+    height: 180,
+    backgroundColor: "#d4a574",
+    borderRadius: 90,
     justifyContent: "center",
     alignItems: "center",
     zIndex: 2,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 5,
   },
   buddyFace: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 16,
-    marginTop: -20,
+    gap: 20,
+    marginTop: -5,
   },
   buddyEye: {
-    width: 12,
-    height: 16,
-    borderRadius: 6,
-    backgroundColor: "#2d1e18",
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: "#1a1a1a",
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1,
   },
   buddyNasalWrap: {
     alignItems: "center",
     justifyContent: "center",
+    marginTop: 6,
   },
   buddyNose: {
-    width: 14,
-    height: 9,
-    borderRadius: 7,
-    backgroundColor: "#2d1e18",
-    marginTop: 2,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: "#1a1a1a",
+    marginBottom: 4,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1,
   },
   buddyMouthLine: {
-    width: 22,
-    height: 2,
-    backgroundColor: "#2d1e18",
-    marginTop: 3,
+    width: 24,
+    height: 3,
+    backgroundColor: "#1a1a1a",
+    borderRadius: 1.5,
+    marginTop: 4,
   },
   buddyEarLeft: {
     position: "absolute",
-    width: 40,
-    height: 40,
-    backgroundColor: "#e6c3a0",
-    borderRadius: 20,
-    top: -5,
-    left: 10,
-    zIndex: 1,
+    width: 36,
+    height: 36,
+    backgroundColor: "#d4a574",
+    borderRadius: 18,
+    top: -8,
+    left: 20,
+    zIndex: 3,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   buddyEarRight: {
     position: "absolute",
-    width: 40,
-    height: 40,
-    backgroundColor: "#e6c3a0",
-    borderRadius: 20,
-    top: -5,
-    right: 10,
-    zIndex: 1,
+    width: 36,
+    height: 36,
+    backgroundColor: "#d4a574",
+    borderRadius: 18,
+    top: -8,
+    right: 20,
+    zIndex: 3,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   buddyArmLeft: {
     position: "absolute",
-    width: 30,
-    height: 30,
-    backgroundColor: "#e6c3a0",
-    borderRadius: 15,
-    top: 75,
-    left: -12,
+    width: 24,
+    height: 28,
+    backgroundColor: "#d4a574",
+    borderRadius: 12,
+    top: 90,
+    left: -8,
     zIndex: 1,
+    shadowColor: "#000000",
+    shadowOffset: { width: -2, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+  },
+  buddyArmRight: {
+    position: "absolute",
+    width: 24,
+    height: 28,
+    backgroundColor: "#d4a574",
+    borderRadius: 12,
+    top: 90,
+    right: -8,
+    zIndex: 1,
+    shadowColor: "#000000",
+    shadowOffset: { width: 2, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
   buddyLegLeft: {
     position: "absolute",
-    width: 25,
-    height: 35,
-    backgroundColor: "#e6c3a0",
-    borderRadius: 12.5,
-    bottom: -12,
-    left: 35,
+    width: 22,
+    height: 32,
+    backgroundColor: "#d4a574",
+    borderRadius: 11,
+    bottom: -10,
+    left: 40,
     zIndex: 1,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
   buddyLegRight: {
     position: "absolute",
-    width: 25,
-    height: 35,
-    backgroundColor: "#e6c3a0",
-    borderRadius: 12.5,
-    bottom: -12,
-    right: 35,
+    width: 22,
+    height: 32,
+    backgroundColor: "#d4a574",
+    borderRadius: 11,
+    bottom: -10,
+    right: 40,
     zIndex: 1,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
   buddyTextFlex: {
     color: "#9ca3af",
