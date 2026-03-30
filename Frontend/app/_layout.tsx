@@ -36,6 +36,9 @@ export default function RootLayout() {
             <Stack.Screen name="start-exercise" options={{ headerShown: false }} />
             <Stack.Screen name="task-detail" options={{ headerShown: false }} />
             <Stack.Screen name="task-complete" options={{ headerShown: false }} />
+            <Stack.Screen name="exercise-complete" options={{ headerShown: false }} />
+            <Stack.Screen name="exercise-detail" options={{ headerShown: false }} />
+            <Stack.Screen name="drink-active" options={{ headerShown: false }} />
           </Stack>
           <StatusBar style="dark" />
         </ThemeProvider>
