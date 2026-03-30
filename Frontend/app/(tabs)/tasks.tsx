@@ -81,7 +81,6 @@ export default function TasksScreen() {
       points: "+100 points",
       route: "/smile-task",
     },
-    // 🔥 NEW LEVEL 2 TASKS
     {
       emoji: "📞",
       difficulty: "medium",
@@ -98,8 +97,6 @@ export default function TasksScreen() {
       points: "+500 points",
       route: "/offline-time",
     },
-
-    // 🔥 LEVEL 3: MEDIUM TASKS
     {
       emoji: "🌙",
       difficulty: "hard",
@@ -294,6 +291,12 @@ export default function TasksScreen() {
               onPress={() => {
                 if (task.route) {
                   router.push(task.route as any);
+                }
+                else if (task.title.includes('Volunteer')) {
+                  router.push("/volunteer-interest" as any);
+                }
+                else if (task.title.includes('Help someone')) {
+                  router.push("/help-intro" as any);
                 }
               }}
             >
