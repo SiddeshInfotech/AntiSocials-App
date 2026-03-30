@@ -1,10 +1,10 @@
 import { useRouter } from "expo-router";
 import React from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
   TouchableOpacity
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -32,10 +32,10 @@ export default function TasksScreen() {
     <View style={styles.container}>
       {isFocused && <StatusBar style="light" />}
 
-      <LinearGradient 
-        colors={['#4f46e5', '#9333ea']} 
-        start={{ x: 0, y: 0 }} 
-        end={{ x: 1, y: 0 }} 
+      <LinearGradient
+        colors={['#4f46e5', '#9333ea']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
         style={{ height: insets.top, position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}
       />
 
@@ -43,10 +43,10 @@ export default function TasksScreen() {
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 50 }}>
 
           {/* Header */}
-          <LinearGradient 
-            colors={['#4f46e5', '#9333ea']} 
-            start={{ x: 0, y: 0 }} 
-            end={{ x: 1, y: 0 }} 
+          <LinearGradient
+            colors={['#4f46e5', '#9333ea']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
             style={[styles.headerGradient, { paddingTop: 20 }]}
           >
             <Text style={styles.headerTitle}>Your Journey</Text>
@@ -59,16 +59,22 @@ export default function TasksScreen() {
 
           {/* ✅ UPDATED NAVIGATION */}
           {tasksData.map((task, idx) => (
-            <TouchableOpacity 
-              key={idx} 
-              style={styles.taskCard} 
+            <TouchableOpacity
+              key={idx}
+              style={styles.taskCard}
               activeOpacity={0.7}
               onPress={() => {
                 if (task.title === "Breathe consciously for 3 minutes") {
-                  router.push("/task-detail");
-                } 
+                  router.push("/task-detail"); // Warning: Overwritten previously 
+                }
                 else if (task.title === "Drink a glass of water mindfully") {
-                  router.push("/drink-task"); // ✅ NEW
+                  router.push("/drink-task");
+                }
+                else if (task.title.includes('Sit without phone')) {
+                  router.push('/start-task');
+                }
+                else if (task.title.includes('Stretch')) {
+                  router.push('/start-exercise' as never);
                 }
                 else if (task.title === "Write 1 word about how you feel") {
                   router.push("/write-task" as any);
@@ -81,11 +87,11 @@ export default function TasksScreen() {
               <Text style={styles.taskEmoji}>{task.emoji}</Text>
 
               <View style={styles.taskCardContent}>
-                <View style={[styles.difficultyPill, { 
-                  backgroundColor: task.difficulty === 'easy' ? '#dcfce7' : '#fef08a' 
+                <View style={[styles.difficultyPill, {
+                  backgroundColor: task.difficulty === 'easy' ? '#dcfce7' : '#fef08a'
                 }]}>
-                  <Text style={[styles.difficultyText, { 
-                    color: task.difficulty === 'easy' ? '#16a34a' : '#ca8a04' 
+                  <Text style={[styles.difficultyText, {
+                    color: task.difficulty === 'easy' ? '#16a34a' : '#ca8a04'
                   }]}>
                     {task.difficulty}
                   </Text>
