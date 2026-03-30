@@ -82,7 +82,7 @@ export default function OTPScreen() {
 
             {/* Description Text */}
             <Text style={styles.descriptionText}>
-              This helps us confirm it's really you.
+              This helps us confirm its really you.
             </Text>
 
             {/* OTP Inputs */}
@@ -109,7 +109,7 @@ export default function OTPScreen() {
                 isComplete ? styles.buttonActive : styles.buttonDisabled
               ]}
               disabled={!isComplete}
-              onPress={() => router.replace('/signup' as any)}
+              onPress={() => router.replace('/(tabs)' as any)}
             >
               <Text style={[
                 styles.buttonText,
