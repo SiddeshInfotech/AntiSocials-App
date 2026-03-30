@@ -8,7 +8,7 @@ import Svg, { Circle, Line } from 'react-native-svg';
 export default function TaskDetailScreen() {
   const router = useRouter();
   
-  const [timeLeft, setTimeLeft] = useState(300); 
+  const [timeLeft, setTimeLeft] = useState(3600); 
   const [isActive, setIsActive] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   
@@ -59,7 +59,7 @@ export default function TaskDetailScreen() {
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  const progressPercentage = ((300 - timeLeft) / 300) * 100;
+  const progressPercentage = ((3600 - timeLeft) / 3600) * 100;
 
   return (
     <SafeAreaView style={styles.container}>

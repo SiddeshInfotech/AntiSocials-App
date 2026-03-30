@@ -21,11 +21,13 @@ export default function TasksScreen() {
   const tasksData = [
     { emoji: '🫁', difficulty: 'easy', title: 'Breathe consciously for 3 minutes', subtitle: 'Guided breathing animation + timer', points: '+100 points' },
     { emoji: '💧', difficulty: 'easy', title: 'Drink a glass of water mindfully', subtitle: '60s timer + confirm', points: '+150 points' },
-    { emoji: '🤫', difficulty: 'medium', title: 'Sit without phone for 2 minutes', subtitle: 'Lock-screen mode', points: '+200 points' },
+    { emoji: '🤫', difficulty: 'medium', title: 'Sit without phone for 1 hour', subtitle: 'Lock-screen mode', points: '+200 points' },
     { emoji: '🧘‍♀️', difficulty: 'medium', title: 'Stretch neck & shoulders', subtitle: 'Animation + timer', points: '+250 points' },
     { emoji: '👀', difficulty: 'easy', title: 'Look outside for 2 minutes', subtitle: 'Timer', points: '+150 points' },
     { emoji: '✍️', difficulty: 'medium', title: 'Write 1 word about how you feel', subtitle: 'Text input', points: '+300 points' },
     { emoji: '😊', difficulty: 'easy', title: 'Smile intentionally', subtitle: 'Self-confirm button', points: '+100 points' },
+    { emoji: '🤝', difficulty: 'hard', title: 'Help someone offline', subtitle: 'Uplift', points: '+200 points' },
+    { emoji: '🫂', difficulty: 'hard', title: 'Volunteer for 1 hour', subtitle: 'Dedicate', points: '+200 points' },
   ];
 
   return (
@@ -81,6 +83,12 @@ export default function TasksScreen() {
                 }
                 else if (task.title === "Smile intentionally") {
                   router.push("/smile-task" as any);
+                }
+                else if (task.title.includes('Volunteer')) {
+                  router.push("/volunteer-interest" as any);
+                }
+                else if (task.title.includes('Help someone')) {
+                  router.push("/help-intro" as any);
                 }
               }}
             >
