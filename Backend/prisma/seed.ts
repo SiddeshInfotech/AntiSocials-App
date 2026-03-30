@@ -11,6 +11,13 @@ const taskSeed = [
     points: 5,
   },
   {
+    title: "No social media for one hour",
+    description: "Avoid social media for one focused hour.",
+    level: 1,
+    parameter: LifeCircleParameter.ATTENTION,
+    points: 5,
+  },
+  {
     title: "Breathing for 3 mins",
     description: "Take a calm breathing break for 3 minutes.",
     level: 1,
