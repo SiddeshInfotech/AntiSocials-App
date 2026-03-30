@@ -156,7 +156,7 @@ export default function CallFriendTaskScreen() {
 
   return (
     <AnimatedSafeArea style={[styles.container, { backgroundColor: bgColorData }]}>
-      <StatusBar style={isActive ? "light" : "dark"} />
+      <StatusBar style={isActive ? "light" : "dark"} backgroundColor={isActive ? "#0f172a" : "#fafafa"} />
       
       <View style={[styles.headerLight, { paddingTop: Math.max(insets.top, 5) }]}>
         <TouchableOpacity 

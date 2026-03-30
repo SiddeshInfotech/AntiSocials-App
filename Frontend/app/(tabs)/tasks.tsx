@@ -98,6 +98,24 @@ export default function TasksScreen() {
       points: "+500 points",
       route: "/offline-time",
     },
+
+    // 🔥 LEVEL 3: MEDIUM TASKS
+    {
+      emoji: "🌙",
+      difficulty: "hard",
+      title: "Take an hour tech-free break",
+      subtitle: "No screens. Just you and the moment.",
+      points: "+600 points",
+      route: "",
+    },
+    {
+      emoji: "🧑‍🤝‍🧑",
+      difficulty: "hard",
+      title: "Meet one friend in real life",
+      subtitle: "A walk, a coffee — in person counts.",
+      points: "+700 points",
+      route: "",
+    },
   ];
 
   return (
@@ -285,14 +303,20 @@ export default function TasksScreen() {
                   style={[
                     styles.difficultyPill,
                     {
-                      backgroundColor: task.difficulty === "easy" ? "#dcfce7" : "#fef08a",
+                      backgroundColor:
+                        task.difficulty === "easy" ? "#dcfce7" :
+                        task.difficulty === "hard" ? "#fee2e2" : "#fef08a",
                     },
                   ]}
                 >
                   <Text
                     style={[
                       styles.difficultyText,
-                      { color: task.difficulty === "easy" ? "#16a34a" : "#ca8a04" },
+                      {
+                        color:
+                          task.difficulty === "easy" ? "#16a34a" :
+                          task.difficulty === "hard" ? "#dc2626" : "#ca8a04",
+                      },
                     ]}
                   >
                     {task.difficulty}
@@ -300,7 +324,14 @@ export default function TasksScreen() {
                 </View>
                 <Text style={styles.taskTitle}>{task.title}</Text>
                 <Text style={styles.taskSubtitle}>{task.subtitle}</Text>
-                <Text style={styles.taskPoints}>{task.points}</Text>
+                <View style={styles.taskBottomRow}>
+                  <Text style={styles.taskPoints}>{task.points}</Text>
+                  {!task.route && (
+                    <View style={styles.comingSoonBadge}>
+                      <Text style={styles.comingSoonText}>🔒 Coming Soon</Text>
+                    </View>
+                  )}
+                </View>
               </View>
             </TouchableOpacity>
           ))}
@@ -652,5 +683,26 @@ const styles = StyleSheet.create({
     marginTop: 5,
     fontSize: 13,
     fontWeight: "500"
+  },
+  taskBottomRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 5,
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  comingSoonBadge: {
+    backgroundColor: "#f1f5f9",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  comingSoonText: {
+    fontSize: 10,
+    color: "#64748b",
+    fontWeight: "600",
   },
 });

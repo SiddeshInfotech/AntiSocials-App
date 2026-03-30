@@ -28,6 +28,14 @@ export default function RootLayout() {
             <Stack.Screen name="task-success" options={{ headerShown: false }} />
             <Stack.Screen name="smile-task" options={{ headerShown: false }} />
             <Stack.Screen name="smile-confirm" options={{ headerShown: false }} />
+            <Stack.Screen name="offline-time" options={{ headerShown: false }} />
+            <Stack.Screen name="call-friend" options={{ headerShown: false }} />
+            <Stack.Screen name="outside-task" options={{ headerShown: false }} />
+            <Stack.Screen name="drink-task" options={{ headerShown: false }} />
+            <Stack.Screen name="start-task" options={{ headerShown: false }} />
+            <Stack.Screen name="start-exercise" options={{ headerShown: false }} />
+            <Stack.Screen name="task-detail" options={{ headerShown: false }} />
+            <Stack.Screen name="task-complete" options={{ headerShown: false }} />
           </Stack>
           <StatusBar style="dark" />
         </ThemeProvider>

@@ -128,7 +128,7 @@ export default function OfflineTaskScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <StatusBar style={isActive ? 'light' : 'dark'} />
+      <StatusBar style={isActive ? 'light' : 'dark'} backgroundColor={isActive ? '#0f172a' : '#fafafa'} />
 
       {/* Dynamic background */}
       {isActive ? (
@@ -143,13 +143,14 @@ export default function OfflineTaskScreen() {
         />
       )}
 
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: Math.max(insets.top - 20, 5) }]}>
+
+      {/* Header with back button */}
+      <View style={styles.header}>
         <TouchableOpacity
           style={[styles.backBtn, isActive && { backgroundColor: 'rgba(255,255,255,0.12)' }]}
           onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/tasks')}
         >
-          <Feather name="arrow-left" size={22} color={isActive ? '#fff' : '#111'} />
+          <Feather name="arrow-left" size={22} color={isActive ? '#ffffff' : '#111111'} />
         </TouchableOpacity>
 
         {isActive && (
