@@ -18,12 +18,12 @@ export async function getTodayTasksController(
 
   const progress = streak
     ? {
-      currentLevel: streak.currentLevel,
-      currentLevelTaskPoints: streak.currentLevelTaskPoints,
-      currentLevelPoolTarget: streak.currentLevelPoolTarget,
-      currentLevelPoolEarned: streak.currentLevelPoolEarned,
-      completedTasksInCurrentLevel: streak.completedTasksInCurrentLevel,
-    }
+        currentLevel: streak.currentLevel,
+        currentLevelTaskPoints: streak.currentLevelTaskPoints,
+        currentLevelPoolTarget: streak.currentLevelPoolTarget,
+        currentLevelPoolEarned: streak.currentLevelPoolEarned,
+        completedTasksInCurrentLevel: streak.completedTasksInCurrentLevel,
+      }
     : null;
 
   res.status(200).json({
