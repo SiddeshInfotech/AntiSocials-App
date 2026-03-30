@@ -44,6 +44,7 @@ export default function RootLayout() {
             <Stack.Screen name="help-complete" options={{ headerShown: false }} />
             <Stack.Screen name="volunteer-interest" options={{ headerShown: false }} />
             <Stack.Screen name="volunteer-task" options={{ headerShown: false }} />
+            <Stack.Screen name="breath-task" options={{ headerShown: false }} />
           </Stack>
           <StatusBar style="dark" />
         </ThemeProvider>

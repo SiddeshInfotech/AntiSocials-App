@@ -135,14 +135,24 @@ export default function TaskDetailScreen() {
                 </View>
               </View>
 
-              {/* Pause Button */}
-              <TouchableOpacity 
-                style={styles.pauseBtn} 
-                onPress={() => setIsPaused(!isPaused)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.pauseBtnText}>{isPaused ? 'Resume' : 'Pause'}</Text>
-              </TouchableOpacity>
+              {/* Buttons Row */}
+              <View style={{ gap: 12, marginTop: 15, width: '100%' }}>
+                <TouchableOpacity 
+                  style={styles.pauseBtn} 
+                  onPress={() => setIsPaused(!isPaused)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.pauseBtnText}>{isPaused ? 'Resume' : 'Pause'}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[styles.pauseBtn, { backgroundColor: '#10b981', borderColor: '#059669' }]} 
+                  onPress={() => router.replace({ pathname: '/task-success', params: { points: '200' } } as any)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.pauseBtnText, { color: '#ffffff' }]}>Done Challenge</Text>
+                </TouchableOpacity>
+              </View>
               
             </Animated.View>
           ) : (

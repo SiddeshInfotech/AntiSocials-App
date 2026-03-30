@@ -31,7 +31,7 @@ export default function TasksScreen() {
       title: "Breathe consciously for 3 minutes",
       subtitle: "Guided breathing animation + timer",
       points: "+100 points",
-      route: "/task-detail",
+      route: "/breath-task",
     },
     {
       emoji: "💧",

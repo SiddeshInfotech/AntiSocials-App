@@ -151,10 +151,10 @@ export default function DrinkActive() {
         <TouchableOpacity
           style={styles.button}
           onPress={() =>
-            router.push({
-              pathname: "/task-complete",
-              params: { type: "water" }
-            })
+            router.replace({
+              pathname: "/task-success",
+              params: { points: "150" }
+            } as any)
           }
         >
           <Text style={styles.buttonText}>Done Drinking</Text>
