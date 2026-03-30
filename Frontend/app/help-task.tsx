@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Animated, Easing, TextInput, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Animated, Easing, TextInput, ScrollView, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Feather, FontAwesome5 } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Speech from 'expo-speech';
+import * as ImagePicker from 'expo-image-picker';
 
 // ─── Step-based mission flow ─────────────────────────────────────────────────
 const STEPS = [
@@ -42,6 +43,7 @@ export default function HelpTaskScreen() {
   const [experienceText, setExperienceText] = useState('');
   const [showError, setShowError] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [imageUri, setImageUri] = useState<string | null>(null);
 
   // Animations
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -84,6 +86,20 @@ export default function HelpTaskScreen() {
   useEffect(() => {
     return () => { Speech.stop(); };
   }, [currentStep]);
+
+  // Handle image picking
+  const pickImage = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      setImageUri(result.assets[0].uri);
+    }
+  };
 
   // ── Text-to-Speech ─────────────────────────────────────────────────────────
   const toggleSpeech = async () => {
@@ -254,6 +270,26 @@ export default function HelpTaskScreen() {
                   {isValid && <Feather name="check-circle" size={16} color="#10b981" style={{ marginLeft: 6 }} />}
                 </View>
 
+                {/* Photo attachment section */}
+                <View style={styles.photoContainer}>
+                  {imageUri ? (
+                    <View style={styles.imageWrapper}>
+                      <Image source={{ uri: imageUri }} style={styles.attachedImage} />
+                      <TouchableOpacity 
+                        style={styles.removeImageBtn} 
+                        onPress={() => setImageUri(null)}
+                      >
+                        <Feather name="x" size={16} color="#fff" />
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <TouchableOpacity style={styles.addPhotoBtn} onPress={pickImage} activeOpacity={0.7}>
+                      <Feather name="camera" size={20} color={accentColour} />
+                      <Text style={[styles.addPhotoText, { color: accentColour }]}>Add a Photo (Optional)</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
                 {/* Error message */}
                 {showError && (
                   <View style={styles.errorBox}>
@@ -359,6 +395,22 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(239,68,68,0.25)',
   },
   errorText: { color: '#fca5a5', fontSize: 13, fontWeight: '600', marginLeft: 10, flex: 1 },
+
+  // ── Photo Attachment ──
+  photoContainer: { marginTop: 24, marginBottom: 10, width: '100%' },
+  addPhotoBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 14, borderRadius: 16, borderWidth: 1, borderStyle: 'dashed',
+    borderColor: '#3f3f46', backgroundColor: 'rgba(255,255,255,0.02)'
+  },
+  addPhotoText: { marginLeft: 10, fontSize: 15, fontWeight: '600' },
+  imageWrapper: { position: 'relative', width: '100%', height: 200, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#2d2d38' },
+  attachedImage: { width: '100%', height: '100%' },
+  removeImageBtn: {
+    position: 'absolute', top: 12, right: 12, width: 32, height: 32,
+    borderRadius: 16, backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center', justifyContent: 'center'
+  },
 
   // ── Bottom ──
   bottomArea: { paddingHorizontal: 24, paddingBottom: 36, paddingTop: 8 },

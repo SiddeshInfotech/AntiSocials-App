@@ -113,6 +113,22 @@ export default function TasksScreen() {
       points: "+700 points",
       route: "",
     },
+    {
+      emoji: "🤝",
+      difficulty: "hard",
+      title: "Help someone offline",
+      subtitle: "Uplift",
+      points: "+200 points",
+      route: "/help-intro",
+    },
+    {
+      emoji: "🫂",
+      difficulty: "hard",
+      title: "Volunteer for 1 hour",
+      subtitle: "Dedicate",
+      points: "+200 points",
+      route: "/volunteer-interest",
+    },
   ];
 
   return (
