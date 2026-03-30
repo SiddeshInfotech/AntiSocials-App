@@ -73,8 +73,8 @@ export default function EditProfileScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
         <View style={styles.header}>
@@ -89,7 +89,7 @@ export default function EditProfileScreen() {
 
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
           <View style={styles.contentContainer}>
-            
+
             {/* Avatar Edit */}
             <View style={styles.avatarSection}>
               <TouchableOpacity onPress={showImageOptions} style={styles.avatarPlaceholderContainer}>
@@ -111,7 +111,7 @@ export default function EditProfileScreen() {
 
             {/* Basic Info */}
             <Text style={styles.sectionTitle}>Basic Info</Text>
-            
+
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Full Name</Text>
               <TextInput
@@ -167,7 +167,7 @@ export default function EditProfileScreen() {
 
             {/* Privacy & Settings */}
             <Text style={styles.sectionTitle}>Privacy & Preferences</Text>
-            
+
             <View style={styles.switchRow}>
               <View style={styles.switchTextContainer}>
                 <Text style={styles.switchTitle}>Private Account</Text>
