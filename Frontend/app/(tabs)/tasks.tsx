@@ -106,7 +106,7 @@ export default function TasksScreen() {
       title: "Take an hour tech-free break",
       subtitle: "No screens. Just you and the moment.",
       points: "+600 points",
-      route: "",
+      route: "/tech-break-task",
     },
     {
       emoji: "🧑‍🤝‍🧑",
@@ -114,7 +114,7 @@ export default function TasksScreen() {
       title: "Meet one friend in real life",
       subtitle: "A walk, a coffee — in person counts.",
       points: "+700 points",
-      route: "",
+      route: "/meet-task",
     },
   ];
 
