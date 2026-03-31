@@ -15,7 +15,7 @@ export default function SmileConfirmScreen() {
       Animated.spring(btnScale, { toValue: 0.93, useNativeDriver: true }),
       Animated.spring(btnScale, { toValue: 1, useNativeDriver: true }),
     ]).start(() => {
-      router.push({ pathname: '/task-success', params: { points: '100' } } as any);
+      router.replace({ pathname: '/task-success', params: { points: '100' } } as any);
     });
   };
 

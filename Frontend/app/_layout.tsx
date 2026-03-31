@@ -39,6 +39,12 @@ export default function RootLayout() {
             <Stack.Screen name="exercise-complete" options={{ headerShown: false }} />
             <Stack.Screen name="exercise-detail" options={{ headerShown: false }} />
             <Stack.Screen name="drink-active" options={{ headerShown: false }} />
+            <Stack.Screen name="help-intro" options={{ headerShown: false }} />
+            <Stack.Screen name="help-task" options={{ headerShown: false }} />
+            <Stack.Screen name="help-complete" options={{ headerShown: false }} />
+            <Stack.Screen name="volunteer-interest" options={{ headerShown: false }} />
+            <Stack.Screen name="volunteer-task" options={{ headerShown: false }} />
+            <Stack.Screen name="breath-task" options={{ headerShown: false }} />
           </Stack>
           <StatusBar style="dark" />
         </ThemeProvider>

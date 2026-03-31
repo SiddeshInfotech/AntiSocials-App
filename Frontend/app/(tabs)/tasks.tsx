@@ -31,7 +31,7 @@ export default function TasksScreen() {
       title: "Breathe consciously for 3 minutes",
       subtitle: "Guided breathing animation + timer",
       points: "+100 points",
-      route: "/task-detail",
+      route: "/breath-task",
     },
     {
       emoji: "💧",
@@ -81,7 +81,6 @@ export default function TasksScreen() {
       points: "+100 points",
       route: "/smile-task",
     },
-    // 🔥 NEW LEVEL 2 TASKS
     {
       emoji: "📞",
       difficulty: "medium",
@@ -98,8 +97,6 @@ export default function TasksScreen() {
       points: "+500 points",
       route: "/offline-time",
     },
-
-    // 🔥 LEVEL 3: MEDIUM TASKS
     {
       emoji: "🌙",
       difficulty: "hard",
@@ -115,6 +112,22 @@ export default function TasksScreen() {
       subtitle: "A walk, a coffee — in person counts.",
       points: "+700 points",
       route: "",
+    },
+    {
+      emoji: "🤝",
+      difficulty: "hard",
+      title: "Help someone offline",
+      subtitle: "Uplift",
+      points: "+200 points",
+      route: "/help-intro",
+    },
+    {
+      emoji: "🫂",
+      difficulty: "hard",
+      title: "Volunteer for 1 hour",
+      subtitle: "Dedicate",
+      points: "+200 points",
+      route: "/volunteer-interest",
     },
   ];
 
@@ -294,6 +307,12 @@ export default function TasksScreen() {
               onPress={() => {
                 if (task.route) {
                   router.push(task.route as any);
+                }
+                else if (task.title.includes('Volunteer')) {
+                  router.push("/volunteer-interest" as any);
+                }
+                else if (task.title.includes('Help someone')) {
+                  router.push("/help-intro" as any);
                 }
               }}
             >

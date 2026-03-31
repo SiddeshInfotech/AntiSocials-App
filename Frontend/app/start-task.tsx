@@ -71,7 +71,7 @@ export default function StartTaskScreen() {
         </View>
 
         <Text style={styles.title}>Sit without phone</Text>
-        <Text style={styles.duration}>5 Minutes</Text>
+        <Text style={styles.duration}>1 Hour</Text>
         <Text style={styles.subtitle}>Lock-screen observation mode</Text>
 
         {/* Premium Information Card */}
@@ -101,7 +101,7 @@ export default function StartTaskScreen() {
             onPress={handleStart}
             activeOpacity={0.9}
           >
-            <Text style={styles.startBtnText}>Start 5-Minute Timer</Text>
+            <Text style={styles.startBtnText}>Start 1-Hour Timer</Text>
             <Feather name="arrow-right" size={20} color="#ffffff" style={{ marginLeft: 8 }} />
           </TouchableOpacity>
         </Animated.View>
