@@ -7,7 +7,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
  */
 export default function TaskCompleteScreen() {
   const router = useRouter();
-  const { type } = useLocalSearchParams();
+  const { type, points } = useLocalSearchParams<{ type?: string; points?: string }>();
 
   // 🎯 Assign points based on task
   const getPoints = () => {
@@ -20,6 +20,8 @@ export default function TaskCompleteScreen() {
         return '200';
       case 'tech':
         return '600';
+      case 'meet':
+        return '700';
       default:
         return '100';
     }
@@ -30,10 +32,10 @@ export default function TaskCompleteScreen() {
       pathname: '/task-success',
       params: {
         type: type || 'default',
-        points: getPoints(),
+        points: points || getPoints(),
       },
     } as any);
-  }, []);
+  }, [points, router, type]);
 
   return null;
 }
