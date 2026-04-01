@@ -129,6 +129,22 @@ export default function TasksScreen() {
       points: "+200 points",
       route: "/volunteer-interest",
     },
+    {
+      emoji: "🌍",
+      difficulty: "ultra",
+      title: "Organise a cleanup drive",
+      subtitle: "Local Impact",
+      points: "+1000 points",
+      route: "/cleanup-task",
+    },
+    {
+      emoji: "🚗",
+      difficulty: "ultra",
+      title: "Plan one day group trip",
+      subtitle: "Adventure Time",
+      points: "+1200 points",
+      route: "/group-trip",
+    },
   ];
 
   return (
