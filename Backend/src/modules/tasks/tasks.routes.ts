@@ -5,16 +5,23 @@ import { validate } from "../../middleware/validate";
 import {
   completeTaskController,
   getTodayTasksController,
+  getTaskSubtasksController,
 } from "./tasks.controller";
-import { completeTaskSchema } from "./tasks.schema";
+import { completeTaskSchema, completeTaskPayloadSchema } from "./tasks.schema";
 
 export const tasksRouter = Router();
 
 tasksRouter.get("/today", requireAuth, getTodayTasksController);
+tasksRouter.get(
+  "/:id/subtasks",
+  requireAuth,
+  validate(completeTaskSchema),
+  getTaskSubtasksController,
+);
 tasksRouter.post(
   "/:id/complete",
   requireAuth,
   taskCompletionRateLimit,
-  validate(completeTaskSchema),
+  validate(completeTaskPayloadSchema),
   completeTaskController,
 );

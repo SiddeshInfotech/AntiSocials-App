@@ -83,8 +83,53 @@ const taskSeed = [
   },
 ];
 
+const volunteerSubtasks = [
+  {
+    title: "Older People",
+    description: "Help and support for elderly individuals",
+    icon: "👴",
+  },
+  {
+    title: "Community",
+    description: "Community development and support",
+    icon: "🤝",
+  },
+  {
+    title: "Crisis and Welfare",
+    description: "Crisis support and welfare services",
+    icon: "🙏",
+  },
+  {
+    title: "Animal Welfare",
+    description: "Care and support for animals",
+    icon: "🐕",
+  },
+  {
+    title: "Sport, Art and Culture",
+    description: "Sports, arts, and cultural initiatives",
+    icon: "🎨",
+  },
+  {
+    title: "Young People and Children",
+    description: "Support for youth and children",
+    icon: "👶",
+  },
+  {
+    title: "Health and Social Care",
+    description: "Healthcare and social services",
+    icon: "❤️",
+  },
+  {
+    title: "Sustainability, Heritage and Environment",
+    description: "Environmental and heritage conservation",
+    icon: "🌍",
+  },
+];
+
 async function main(): Promise<void> {
   for (const task of taskSeed) {
+    const isVolunteerTask = task.title === "Volunteer for 1 hour";
+
     await prisma.task.upsert({
       where: {
         id: `${task.parameter}-${task.level}-${task.title}`
@@ -96,6 +141,8 @@ async function main(): Promise<void> {
         level: task.level,
         parameter: task.parameter,
         points: task.points,
+        requiresSubtask: isVolunteerTask,
+        requiresPhotoVerification: isVolunteerTask,
         isActive: true,
       },
       create: {
@@ -107,12 +154,56 @@ async function main(): Promise<void> {
         level: task.level,
         parameter: task.parameter,
         points: task.points,
+        requiresSubtask: isVolunteerTask,
+        requiresPhotoVerification: isVolunteerTask,
         isActive: true,
       },
     });
   }
 
   console.log(`Seeded ${taskSeed.length} tasks`);
+
+  // Seed subtasks for Volunteer task
+  const volunteerTask = await prisma.task.findUnique({
+    where: {
+      id: "meaning-4-volunteer-for-1-hour",
+    },
+  });
+
+  if (volunteerTask) {
+    for (const subtask of volunteerSubtasks) {
+      await prisma.subtask.upsert({
+        where: {
+          id: `${volunteerTask.id}-${subtask.title}`
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-"),
+        },
+        update: {
+          title: subtask.title,
+          description: subtask.description,
+          icon: subtask.icon,
+          isActive: true,
+        },
+        create: {
+          id: `${volunteerTask.id}-${subtask.title}`
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-"),
+          taskId: volunteerTask.id,
+          title: subtask.title,
+          description: subtask.description,
+          icon: subtask.icon,
+          isActive: true,
+        },
+      });
+    }
+    console.log(
+      `Seeded ${volunteerSubtasks.length} subtasks for Volunteer task`,
+    );
+  } else {
+    console.warn(
+      "Volunteer task not found. Skipping subtasks seeding. Make sure the Volunteer task exists.",
+    );
+  }
 }
 
 main()

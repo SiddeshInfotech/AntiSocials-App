@@ -142,19 +142,37 @@ model OTPVerification {
 }
 
 model Task {
-  id          String              @id @default(uuid())
-  title       String
-  description String?
-  actionType  String?
-  level       Int
-  parameter   LifeCircleParameter
-  points      Int
-  isActive    Boolean             @default(true)
-  createdAt   DateTime            @default(now())
+  id                        String              @id @default(uuid())
+  title                     String
+  description               String?
+  actionType                String?
+  level                     Int
+  parameter                 LifeCircleParameter
+  points                    Int
+  requiresSubtask           Boolean             @default(false)
+  requiresPhotoVerification Boolean             @default(false)
+  isActive                  Boolean             @default(true)
+  createdAt                 DateTime            @default(now())
 
   userDailyTasks UserDailyTask[]
+  subtasks       Subtask[]
 
   @@index([parameter, level])
+}
+
+model Subtask {
+  id          String   @id @default(uuid())
+  taskId      String
+  title       String
+  description String?
+  icon        String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  task            Task                 @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskCompletions UserTaskCompletion[]
+
+  @@index([taskId, isActive])
 }
 
 model UserDailyTask {
@@ -177,12 +195,16 @@ model UserDailyTask {
 }
 
 model UserTaskCompletion {
-  id              String   @id @default(uuid())
-  userDailyTaskId String   @unique
+  id              String    @id @default(uuid())
+  userDailyTaskId String    @unique
+  subtaskId       String?
   pointsEarned    Int
-  completedAt     DateTime @default(now())
+  photoBase64     String?
+  photoUploadedAt DateTime?
+  completedAt     DateTime  @default(now())
 
   userDailyTask UserDailyTask @relation(fields: [userDailyTaskId], references: [id], onDelete: Cascade)
+  subtask       Subtask?      @relation(fields: [subtaskId], references: [id], onDelete: SetNull)
 }
 
 model UserWallet {

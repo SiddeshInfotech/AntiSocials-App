@@ -25,6 +25,8 @@ import {
   localDateTimeToUtc,
 } from "../../utils/date";
 import { pickTaskForLevel } from "./tasks.engine";
+import { validateImage } from "../../utils/imageValidation";
+import { CompleteTaskPayload } from "./tasks.schema";
 
 function getDaysBetween(start: Date, end: Date): number {
   const startDay = new Date(start.toISOString().slice(0, 10));
@@ -220,7 +222,11 @@ export async function getTodayTasks(userId: string) {
   return [assigned];
 }
 
-export async function completeTask(userId: string, userDailyTaskId: string) {
+export async function completeTask(
+  userId: string,
+  userDailyTaskId: string,
+  payload?: CompleteTaskPayload,
+) {
   const user = await getUserOrThrow(userId);
   const now = new Date();
   const todayLocal = getLocalDateString(now, user.timezone);
@@ -241,6 +247,52 @@ export async function completeTask(userId: string, userDailyTaskId: string) {
 
   if (assigned.status === TaskStatus.COMPLETED) {
     throw new AppError("Task already completed", 409);
+  }
+
+  // Enforce completion requirements using Task-level flags.
+  let subtaskRecord = null;
+  if (
+    assigned.task.requiresSubtask ||
+    assigned.task.requiresPhotoVerification
+  ) {
+    if (assigned.task.requiresSubtask && !payload?.subtaskId) {
+      throw new AppError("Subtask selection is required for this task", 400);
+    }
+
+    if (assigned.task.requiresPhotoVerification && !payload?.photoBase64) {
+      throw new AppError("Photo verification is required for this task", 400);
+    }
+
+    // Validate subtask exists and belongs to this task
+    if (payload?.subtaskId) {
+      subtaskRecord = await prisma.subtask.findUnique({
+        where: { id: payload.subtaskId },
+      });
+
+      if (!subtaskRecord) {
+        throw new AppError("Invalid subtask selection", 404);
+      }
+
+      if (subtaskRecord.taskId !== assigned.taskId) {
+        throw new AppError("Subtask does not belong to this task", 400);
+      }
+
+      if (!subtaskRecord.isActive) {
+        throw new AppError("Selected subtask is no longer available", 410);
+      }
+    }
+
+    // Validate image
+    if (payload?.photoBase64) {
+      try {
+        validateImage(payload.photoBase64, 10 * 1024 * 1024); // 10MB max
+      } catch (error) {
+        if (error instanceof AppError) {
+          throw error;
+        }
+        throw new AppError("Image validation failed", 400);
+      }
+    }
   }
 
   const awardedPoints = getPointsPerLevel(assigned.task.level);
@@ -336,13 +388,17 @@ export async function completeTask(userId: string, userDailyTaskId: string) {
     completedTasksInCurrentLevel * currentLevelTaskPoints;
 
   const localDateForEvent = getLocalDateString(now, user.timezone);
+  const photoUploadedAt = payload?.photoBase64 ? now : null;
 
   try {
     await prisma.$transaction([
       prisma.userTaskCompletion.create({
         data: {
           userDailyTaskId: assigned.id,
+          subtaskId: payload?.subtaskId || null,
           pointsEarned: awardedPoints,
+          photoBase64: payload?.photoBase64 || null,
+          photoUploadedAt,
         },
       }),
       prisma.userDailyTask.update({
@@ -407,7 +463,9 @@ export async function completeTask(userId: string, userDailyTaskId: string) {
           userDailyTaskId: assigned.id,
           type: NotificationType.TASK_COMPLETED_CONGRATS,
           title: "Task Completed",
-          body: `Great job! You completed: ${assigned.task.title}`,
+          body: `Great job! You completed: ${assigned.task.title}${
+            subtaskRecord ? ` - ${subtaskRecord.title}` : ""
+          } +${awardedPoints} points`,
           scheduledAt: now,
           idempotencyKey: buildNotificationIdempotencyKey(
             NotificationType.TASK_COMPLETED_CONGRATS,
@@ -468,6 +526,15 @@ export async function completeTask(userId: string, userDailyTaskId: string) {
     currentLevelPoolTarget,
     currentLevelPoolEarned,
     completedTasksInCurrentLevel,
+    selectedSubtask: subtaskRecord
+      ? {
+          id: subtaskRecord.id,
+          title: subtaskRecord.title,
+          icon: subtaskRecord.icon,
+        }
+      : null,
+    photoUploadedAt,
+    completedAt: now,
     recovery: {
       isInRecovery,
       daysCompleted: recoveryCompletedDays,
