@@ -1,5 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { useIsFocused } from "@react-navigation/native";
+import TasksJourneySection from "../../components/TasksJourneySection";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
@@ -430,6 +431,8 @@ export default function HomeScreen() {
             />
           </View>
         </View>
+
+        <TasksJourneySection />
 
         {/* --- Feed Locked Section --- */}
         <View style={styles.feedLockedContainer}>
