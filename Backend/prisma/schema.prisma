@@ -34,6 +34,12 @@ enum LifeCircleParameter {
   MEANING
 }
 
+enum TaskDifficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
 enum DevicePlatform {
   ANDROID
   IOS
@@ -147,6 +153,7 @@ model Task {
   description               String?
   actionType                String?
   level                     Int
+  difficulty                TaskDifficulty      @default(MEDIUM)
   parameter                 LifeCircleParameter
   points                    Int
   requiresSubtask           Boolean             @default(false)
@@ -245,6 +252,9 @@ model UserStreak {
   monthKey              String?
   yearKey               Int?
   journeyDay            Int       @default(1)
+  cycleDay              Int       @default(1)
+  journeyStartDate      DateTime  @default(now())
+  currentLevelStartDate DateTime  @default(now())
   completedTaskCount    Int       @default(0)
   currentLevel          Int       @default(1)
   isInRecovery          Boolean   @default(false)

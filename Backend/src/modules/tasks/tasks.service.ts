@@ -7,6 +7,8 @@ import {
   WalletTransactionType,
 } from "@prisma/client";
 import {
+  DAYS_PER_LEVEL,
+  getHardTaskTarget,
   getLevelPoolTarget,
   getPointsPerLevel,
   LIFE_CIRCLE_SCORE_INCREMENT,
@@ -24,7 +26,7 @@ import {
   getLocalDateString,
   localDateTimeToUtc,
 } from "../../utils/date";
-import { pickTaskForLevel } from "./tasks.engine";
+import { pickTasksForToday } from "./tasks.engine";
 import { validateImage } from "../../utils/imageValidation";
 import { CompleteTaskPayload } from "./tasks.schema";
 
@@ -49,12 +51,13 @@ async function getUserOrThrow(
   return user;
 }
 
-function getLevelFromCompletedCount(
-  completedTaskCount: number,
-  maxAvailableLevel: number,
-): number {
-  const baseLevel = Math.floor(completedTaskCount / TASKS_PER_LEVEL) + 1;
-  return Math.min(MAX_TASK_LEVEL, Math.min(maxAvailableLevel, baseLevel));
+function getLevelFromJourneyDays(daysSinceJourneyStart: number): number {
+  const baseLevel = Math.floor(daysSinceJourneyStart / DAYS_PER_LEVEL) + 1;
+  return Math.min(MAX_TASK_LEVEL, baseLevel);
+}
+
+function getCycleDayFromJourneyDays(daysSinceJourneyStart: number): number {
+  return (daysSinceJourneyStart % DAYS_PER_LEVEL) + 1;
 }
 
 function buildNotificationIdempotencyKey(
@@ -129,11 +132,11 @@ async function queueTaskReminderEvent(params: {
   });
 }
 
-async function pickSingleTaskForToday(input: {
+async function pickTasksForTodayAssignment(input: {
   userId: string;
   assignedDate: Date;
-  completedTaskCount: number;
-}): Promise<Task> {
+  targetLevel: number;
+}): Promise<Task[]> {
   const recentWindow = new Date(input.assignedDate);
   recentWindow.setDate(recentWindow.getDate() - RECENT_TASK_EXCLUSION_DAYS);
 
@@ -156,17 +159,19 @@ async function pickSingleTaskForToday(input: {
     throw new AppError("Task seed catalog is too small", 500);
   }
 
-  const maxAvailableLevel = Math.max(...tasks.map((task) => task.level));
-  const targetLevel = getLevelFromCompletedCount(
-    input.completedTaskCount,
-    maxAvailableLevel,
-  );
-
-  return pickTaskForLevel(
+  const selected = pickTasksForToday({
     tasks,
-    targetLevel,
-    new Set(recent.map((t) => t.taskId)),
-  );
+    level: input.targetLevel,
+    recentTaskIds: new Set(recent.map((item) => item.taskId)),
+    totalCount: TASKS_PER_DAY,
+    hardCountTarget: getHardTaskTarget(input.targetLevel),
+  });
+
+  if (selected.length < TASKS_PER_DAY) {
+    throw new AppError("Not enough tasks to assign the daily task set", 500);
+  }
+
+  return selected;
 }
 
 export async function getTodayTasks(userId: string) {
@@ -195,31 +200,51 @@ export async function getTodayTasks(userId: string) {
     throw new AppError("Streak profile not found", 500);
   }
 
-  const selectedTask = await pickSingleTaskForToday({
+  const journeyStartLocal = getLocalDateString(
+    streak.journeyStartDate,
+    user.timezone,
+  );
+  const assignedLocalDate = getLocalDateString(assignedDate, user.timezone);
+  const daysSinceJourneyStart = Math.max(
+    0,
+    getDaysBetween(new Date(journeyStartLocal), new Date(assignedLocalDate)),
+  );
+
+  const targetLevel = getLevelFromJourneyDays(daysSinceJourneyStart);
+
+  const selectedTasks = await pickTasksForTodayAssignment({
     userId,
     assignedDate,
-    completedTaskCount: streak.completedTaskCount,
+    targetLevel,
   });
 
-  const assigned = await prisma.userDailyTask.create({
-    data: {
-      userId,
-      taskId: selectedTask.id,
-      assignedDate,
-      status: TaskStatus.PENDING,
-    },
-    include: { task: true },
-  });
+  const assigned = await prisma.$transaction(
+    selectedTasks.map((task) =>
+      prisma.userDailyTask.create({
+        data: {
+          userId,
+          taskId: task.id,
+          assignedDate,
+          status: TaskStatus.PENDING,
+        },
+        include: { task: true },
+      }),
+    ),
+  );
 
-  await queueTaskReminderEvent({
-    userId,
-    userDailyTaskId: assigned.id,
-    taskTitle: assigned.task.title,
-    timezone: user.timezone,
-    assignedDate,
-  });
+  await Promise.all(
+    assigned.map((item) =>
+      queueTaskReminderEvent({
+        userId,
+        userDailyTaskId: item.id,
+        taskTitle: item.task.title,
+        timezone: user.timezone,
+        assignedDate,
+      }),
+    ),
+  );
 
-  return [assigned];
+  return assigned;
 }
 
 export async function completeTask(
@@ -377,10 +402,18 @@ export async function completeTask(
   }
 
   const nextCompletedTaskCount = streak.completedTaskCount + 1;
-  const nextLevel = Math.min(
-    MAX_TASK_LEVEL,
-    Math.floor(nextCompletedTaskCount / TASKS_PER_LEVEL) + 1,
+  const journeyStartLocal = getLocalDateString(
+    streak.journeyStartDate,
+    user.timezone,
   );
+  const todayLocalDate = getLocalDateString(now, user.timezone);
+  const daysSinceJourneyStart = Math.max(
+    0,
+    getDaysBetween(new Date(journeyStartLocal), new Date(todayLocalDate)),
+  );
+
+  const nextLevel = getLevelFromJourneyDays(daysSinceJourneyStart);
+  const cycleDay = getCycleDayFromJourneyDays(daysSinceJourneyStart);
   const currentLevelTaskPoints = getPointsPerLevel(nextLevel);
   const currentLevelPoolTarget = getLevelPoolTarget(nextLevel);
   const completedTasksInCurrentLevel = nextCompletedTaskCount % TASKS_PER_LEVEL;
@@ -434,6 +467,12 @@ export async function completeTask(
           bestYearStreak: Math.max(streak.bestYearStreak, currentYearStreak),
           monthKey: todayMonthKey,
           yearKey: todayYearKey,
+          journeyDay: daysSinceJourneyStart + 1,
+          cycleDay,
+          currentLevelStartDate:
+            nextLevel !== streak.currentLevel
+              ? dayStartUtcFromTimezone(now, user.timezone)
+              : streak.currentLevelStartDate,
           completedTaskCount: nextCompletedTaskCount,
           currentLevel: nextLevel,
           isInRecovery,

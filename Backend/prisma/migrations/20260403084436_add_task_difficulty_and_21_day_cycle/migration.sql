@@ -1,0 +1,10 @@
+-- CreateEnum
+CREATE TYPE "TaskDifficulty" AS ENUM ('EASY', 'MEDIUM', 'HARD');
+
+-- AlterTable
+ALTER TABLE "Task" ADD COLUMN     "difficulty" "TaskDifficulty" NOT NULL DEFAULT 'MEDIUM';
+
+-- AlterTable
+ALTER TABLE "UserStreak" ADD COLUMN     "currentLevelStartDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ADD COLUMN     "cycleDay" INTEGER NOT NULL DEFAULT 1,
+ADD COLUMN     "journeyStartDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
