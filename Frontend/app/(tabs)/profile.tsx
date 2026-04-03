@@ -1,17 +1,25 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Image } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Feather } from '@expo/vector-icons';
-import { StatusBar } from 'expo-status-bar';
-import { useRouter } from 'expo-router';
-import { useIsFocused } from '@react-navigation/native';
-
+import React from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Platform,
+  Image,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Feather } from "@expo/vector-icons";
+import { StatusBar } from "expo-status-bar";
+import { useRouter } from "expo-router";
+import { useIsFocused } from "@react-navigation/native";
+import LifeDomainsChart from "../../components/LifeDomainsChart";
 export default function ProfileScreen() {
   const router = useRouter();
   const isFocused = useIsFocused();
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
       {isFocused && <StatusBar style="light" />}
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         {/* Purple Header Section */}
@@ -24,7 +32,7 @@ export default function ProfileScreen() {
               <Feather name="check" size={12} color="#FFF" />
             </View>
           </View>
-          
+
           <Text style={styles.userName}>Ameya Shimpi</Text>
           <Text style={styles.userHandle}>@ameya.designs</Text>
           <Text style={styles.userTitle}>Interior Designer</Text>
@@ -39,7 +47,12 @@ export default function ProfileScreen() {
               <View>
                 <Text style={styles.rankLabel}>Life Living Rank</Text>
                 <View style={styles.rankTitleRow}>
-                  <Feather name="award" size={24} color="#D97706" style={styles.crownIcon} />
+                  <Feather
+                    name="award"
+                    size={24}
+                    color="#D97706"
+                    style={styles.crownIcon}
+                  />
                   <Text style={styles.rankName}>Connector</Text>
                 </View>
                 <Text style={styles.rankSubtitle}>Real relationships</Text>
@@ -50,24 +63,41 @@ export default function ProfileScreen() {
             <View style={styles.progressBarContainer}>
               <View style={styles.progressBarFill} />
             </View>
-            <Text style={styles.progressText}>Next: Contributor • Giving back</Text>
+            <Text style={styles.progressText}>
+              Next: Contributor • Giving back
+            </Text>
           </View>
 
           {/* Your Streaks */}
           <Text style={styles.sectionTitle}>Your Streaks</Text>
           <View style={styles.streaksRow}>
-            <View style={[styles.streakBox, { borderColor: '#FED7AA' }]}>
-              <Feather name="droplet" size={24} color="#EA580C" style={styles.streakIcon} />
+            <View style={[styles.streakBox, { borderColor: "#FED7AA" }]}>
+              <Feather
+                name="droplet"
+                size={24}
+                color="#EA580C"
+                style={styles.streakIcon}
+              />
               <Text style={styles.streakValue}>26</Text>
               <Text style={styles.streakLabel}>Current</Text>
             </View>
-            <View style={[styles.streakBox, { borderColor: '#FEF08A' }]}>
-              <Feather name="award" size={24} color="#D97706" style={styles.streakIcon} />
+            <View style={[styles.streakBox, { borderColor: "#FEF08A" }]}>
+              <Feather
+                name="award"
+                size={24}
+                color="#D97706"
+                style={styles.streakIcon}
+              />
               <Text style={styles.streakValue}>61</Text>
               <Text style={styles.streakLabel}>Best Ever</Text>
             </View>
-            <View style={[styles.streakBox, { borderColor: '#BBF7D0' }]}>
-              <Feather name="trending-up" size={24} color="#16A34A" style={styles.streakIcon} />
+            <View style={[styles.streakBox, { borderColor: "#BBF7D0" }]}>
+              <Feather
+                name="trending-up"
+                size={24}
+                color="#16A34A"
+                style={styles.streakIcon}
+              />
               <Text style={styles.streakValue}>92%</Text>
               <Text style={styles.streakLabel}>Monthly</Text>
             </View>
@@ -84,24 +114,45 @@ export default function ProfileScreen() {
             <Text style={styles.ringTitle}>
               <Text style={styles.ringTitleBold}>Consistent</Text> • Gold Ring
             </Text>
-            <Text style={styles.ringSubtitle}>+25% point bonus • Keep it going!</Text>
+            <Text style={styles.ringSubtitle}>
+              +25% point bonus • Keep it going!
+            </Text>
           </View>
+
+          <LifeDomainsChart />
 
           {/* Your Activity */}
           <View style={styles.activityCard}>
-            <Text style={[styles.sectionTitle, { marginTop: 0, paddingHorizontal: 0 }]}>Your Activity</Text>
-            
+            <Text
+              style={[
+                styles.sectionTitle,
+                { marginTop: 0, paddingHorizontal: 0 },
+              ]}
+            >
+              Your Activity
+            </Text>
+
             <View style={styles.activityRow}>
               <View style={styles.activityRowLeft}>
-                <Feather name="calendar" size={20} color="#EA580C" style={styles.activityIcon} />
+                <Feather
+                  name="calendar"
+                  size={20}
+                  color="#EA580C"
+                  style={styles.activityIcon}
+                />
                 <Text style={styles.activityText}>Activities Joined</Text>
               </View>
               <Text style={styles.activityValue}>15</Text>
             </View>
-            
+
             <View style={styles.activityRow}>
               <View style={styles.activityRowLeft}>
-                <Feather name="disc" size={20} color="#16A34A" style={styles.activityIcon} />
+                <Feather
+                  name="disc"
+                  size={20}
+                  color="#16A34A"
+                  style={styles.activityIcon}
+                />
                 <Text style={styles.activityText}>Tasks Completed</Text>
               </View>
               <Text style={styles.activityValue}>127</Text>
@@ -109,15 +160,30 @@ export default function ProfileScreen() {
 
             <View style={styles.activityRow}>
               <View style={styles.activityRowLeft}>
-                <Feather name="users" size={20} color="#3B82F6" style={styles.activityIcon} />
+                <Feather
+                  name="users"
+                  size={20}
+                  color="#3B82F6"
+                  style={styles.activityIcon}
+                />
                 <Text style={styles.activityText}>Connections</Text>
               </View>
               <Text style={styles.activityValue}>48</Text>
             </View>
 
-            <View style={[styles.activityRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
+            <View
+              style={[
+                styles.activityRow,
+                { borderBottomWidth: 0, paddingBottom: 0 },
+              ]}
+            >
               <View style={styles.activityRowLeft}>
-                <Feather name="award" size={20} color="#9333EA" style={styles.activityIcon} />
+                <Feather
+                  name="award"
+                  size={20}
+                  color="#9333EA"
+                  style={styles.activityIcon}
+                />
                 <Text style={styles.activityText}>Total Points</Text>
               </View>
               <Text style={styles.activityValue}>1,250</Text>
@@ -141,7 +207,7 @@ export default function ProfileScreen() {
             </View>
             <View style={styles.badgeItem}>
               <Text style={styles.badgeEmoji}>👥</Text>
-              <Text style={styles.badgeText}>Community{'\n'}Member</Text>
+              <Text style={styles.badgeText}>Community{"\n"}Member</Text>
             </View>
             <View style={styles.badgeItem}>
               <Text style={styles.badgeEmoji}>🎯</Text>
@@ -161,7 +227,7 @@ export default function ProfileScreen() {
               <Text style={styles.badgeEmoji}>🗺️</Text>
             </View>
           </View>
-          
+
           <TouchableOpacity style={styles.viewAllBadges}>
             <Text style={styles.viewAllBadgesText}>View all badges</Text>
             <Feather name="chevron-right" size={16} color="#9333EA" />
@@ -170,54 +236,98 @@ export default function ProfileScreen() {
           {/* Your Habits */}
           <Text style={styles.sectionTitle}>Your Habits</Text>
           <View style={styles.pillsContainer}>
-            {['Morning walks', 'Meditation', 'Reading', 'Gym', 'Digital detox', 'Early riser', 'Healthy eating'].map((habit, index) => (
+            {[
+              "Morning walks",
+              "Meditation",
+              "Reading",
+              "Gym",
+              "Digital detox",
+              "Early riser",
+              "Healthy eating",
+            ].map((habit, index) => (
               <View key={index} style={styles.habitPill}>
                 <Text style={styles.habitPillText}>{habit}</Text>
               </View>
             ))}
           </View>
-          <Text style={styles.visibilityNote}>Visible to Tier 1 & 2 connections</Text>
+          <Text style={styles.visibilityNote}>
+            Visible to Tier 1 & 2 connections
+          </Text>
 
           {/* Your Interests */}
           <Text style={styles.sectionTitle}>Your Interests</Text>
           <View style={styles.pillsContainer}>
-            {['Cycling', 'Cricket', 'Meditation & Mindfulness'].map((interest, index) => (
-              <View key={index} style={styles.interestPill}>
-                <Text style={styles.interestPillText}>{interest}</Text>
-              </View>
-            ))}
+            {["Cycling", "Cricket", "Meditation & Mindfulness"].map(
+              (interest, index) => (
+                <View key={index} style={styles.interestPill}>
+                  <Text style={styles.interestPillText}>{interest}</Text>
+                </View>
+              ),
+            )}
           </View>
 
           {/* Settings */}
           <Text style={styles.sectionTitle}>Settings</Text>
           <View style={styles.settingsCard}>
-            <TouchableOpacity style={styles.settingsRow} onPress={() => router.push('/edit-profile' as any)}>
+            <TouchableOpacity
+              style={styles.settingsRow}
+              onPress={() => router.push("/edit-profile" as any)}
+            >
               <View style={styles.settingsRowLeft}>
-                <Feather name="settings" size={20} color="#6B7280" style={styles.settingsIcon} />
+                <Feather
+                  name="settings"
+                  size={20}
+                  color="#6B7280"
+                  style={styles.settingsIcon}
+                />
                 <Text style={styles.settingsText}>Edit Profile</Text>
               </View>
               <Feather name="chevron-right" size={20} color="#9CA3AF" />
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.settingsRow} onPress={() => router.push('/your-interests' as any)}>
+            <TouchableOpacity
+              style={styles.settingsRow}
+              onPress={() => router.push("/your-interests" as any)}
+            >
               <View style={styles.settingsRowLeft}>
-                <Feather name="disc" size={20} color="#6B7280" style={styles.settingsIcon} />
+                <Feather
+                  name="disc"
+                  size={20}
+                  color="#6B7280"
+                  style={styles.settingsIcon}
+                />
                 <Text style={styles.settingsText}>Your Interests</Text>
               </View>
               <Feather name="chevron-right" size={20} color="#9CA3AF" />
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.settingsRow} onPress={() => router.push('/privacy-settings' as any)}>
+            <TouchableOpacity
+              style={styles.settingsRow}
+              onPress={() => router.push("/privacy-settings" as any)}
+            >
               <View style={styles.settingsRowLeft}>
-                <Feather name="settings" size={20} color="#6B7280" style={styles.settingsIcon} />
+                <Feather
+                  name="settings"
+                  size={20}
+                  color="#6B7280"
+                  style={styles.settingsIcon}
+                />
                 <Text style={styles.settingsText}>Privacy Settings</Text>
               </View>
               <Feather name="chevron-right" size={20} color="#9CA3AF" />
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.settingsRow, { borderBottomWidth: 0 }]} onPress={() => router.push('/notifications' as any)}>
+            <TouchableOpacity
+              style={[styles.settingsRow, { borderBottomWidth: 0 }]}
+              onPress={() => router.push("/notifications" as any)}
+            >
               <View style={styles.settingsRowLeft}>
-                <Feather name="settings" size={20} color="#6B7280" style={styles.settingsIcon} />
+                <Feather
+                  name="settings"
+                  size={20}
+                  color="#6B7280"
+                  style={styles.settingsIcon}
+                />
                 <Text style={styles.settingsText}>Notifications</Text>
               </View>
               <Feather name="chevron-right" size={20} color="#9CA3AF" />
@@ -225,15 +335,25 @@ export default function ProfileScreen() {
           </View>
 
           {/* Log Out Button */}
-          <TouchableOpacity style={styles.logoutButton} onPress={() => router.replace('/' as any)}>
-            <Feather name="log-out" size={20} color="#EF4444" style={styles.logoutIcon} />
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={() => router.replace("/" as any)}
+          >
+            <Feather
+              name="log-out"
+              size={20}
+              color="#EF4444"
+              style={styles.logoutIcon}
+            />
             <Text style={styles.logoutText}>Log Out</Text>
           </TouchableOpacity>
 
           {/* Footer */}
           <View style={styles.footerContainer}>
             <Text style={styles.footerVersion}>AntiSocial v1.0</Text>
-            <Text style={styles.footerTagline}>Less scrolling. More living.</Text>
+            <Text style={styles.footerTagline}>
+              Less scrolling. More living.
+            </Text>
           </View>
 
           <View style={{ height: 60 }} />
@@ -246,80 +366,80 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#8B00FF', // Match header purple to extend to status bar appropriately
+    backgroundColor: "#8B00FF", // Match header purple to extend to status bar appropriately
   },
   container: {
     flex: 1,
-    backgroundColor: '#FAFAFB',
+    backgroundColor: "#FAFAFB",
   },
   headerBackground: {
-    backgroundColor: '#8B00FF', // Deep purple
-    alignItems: 'center',
+    backgroundColor: "#8B00FF", // Deep purple
+    alignItems: "center",
     paddingTop: 40,
     paddingBottom: 80, // Extra padding for overlapping card
   },
   avatarContainer: {
-    position: 'relative',
+    position: "relative",
     marginBottom: 16,
   },
   avatarPlaceholder: {
     width: 90,
     height: 90,
     borderRadius: 45,
-    backgroundColor: '#A855F7',
+    backgroundColor: "#A855F7",
     borderWidth: 3,
-    borderColor: '#C084FC',
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderColor: "#C084FC",
+    justifyContent: "center",
+    alignItems: "center",
   },
   verifiedBadge: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     right: 0,
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#3B82F6',
+    backgroundColor: "#3B82F6",
     borderWidth: 2,
-    borderColor: '#8B00FF',
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderColor: "#8B00FF",
+    justifyContent: "center",
+    alignItems: "center",
   },
   userName: {
     fontSize: 24,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontWeight: "600",
+    color: "#FFFFFF",
     marginBottom: 4,
   },
   userHandle: {
     fontSize: 14,
-    color: '#E9D5FF',
+    color: "#E9D5FF",
     marginBottom: 4,
   },
   userTitle: {
     fontSize: 14,
-    color: '#E9D5FF',
+    color: "#E9D5FF",
     marginBottom: 12,
   },
   userBio: {
     fontSize: 14,
-    color: '#FFFFFF',
-    fontStyle: 'italic',
+    color: "#FFFFFF",
+    fontStyle: "italic",
     marginBottom: 16,
   },
   memberSince: {
     fontSize: 12,
-    color: '#D8B4FE',
+    color: "#D8B4FE",
   },
   contentContainer: {
     paddingHorizontal: 20,
     marginTop: -50, // Overlap the purple header
   },
   rankCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 20,
     padding: 20,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
@@ -327,19 +447,19 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   rankHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 20,
   },
   rankLabel: {
     fontSize: 13,
-    color: '#6B7280',
+    color: "#6B7280",
     marginBottom: 4,
   },
   rankTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 4,
   },
   crownIcon: {
@@ -347,56 +467,56 @@ const styles = StyleSheet.create({
   },
   rankName: {
     fontSize: 20,
-    fontWeight: '600',
-    color: '#111827',
+    fontWeight: "600",
+    color: "#111827",
   },
   rankSubtitle: {
     fontSize: 14,
-    color: '#6B7280',
+    color: "#6B7280",
   },
   levelText: {
     fontSize: 28,
-    fontWeight: '400',
-    color: '#111827',
+    fontWeight: "400",
+    color: "#111827",
   },
   progressBarContainer: {
     height: 8,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: "#F3F4F6",
     borderRadius: 4,
     marginBottom: 12,
   },
   progressBarFill: {
-    width: '60%',
-    height: '100%',
-    backgroundColor: '#A855F7',
+    width: "60%",
+    height: "100%",
+    backgroundColor: "#A855F7",
     borderRadius: 4,
   },
   progressText: {
     fontSize: 13,
-    color: '#6B7280',
-    textAlign: 'center',
+    color: "#6B7280",
+    textAlign: "center",
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '500',
-    color: '#111827',
+    fontWeight: "500",
+    color: "#111827",
     marginBottom: 16,
     marginTop: 8,
   },
   streaksRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 16,
   },
   streakBox: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 16,
     paddingVertical: 16,
-    alignItems: 'center',
+    alignItems: "center",
     borderWidth: 1,
     marginHorizontal: 4,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
@@ -407,21 +527,21 @@ const styles = StyleSheet.create({
   },
   streakValue: {
     fontSize: 24,
-    fontWeight: '400',
-    color: '#111827',
+    fontWeight: "400",
+    color: "#111827",
     marginBottom: 4,
   },
   streakLabel: {
     fontSize: 12,
-    color: '#6B7280',
+    color: "#6B7280",
   },
   streakRingCard: {
-    backgroundColor: '#FFFBEB',
+    backgroundColor: "#FFFBEB",
     borderRadius: 16,
     padding: 20,
-    alignItems: 'center',
+    alignItems: "center",
     borderWidth: 1,
-    borderColor: '#FEF3C7',
+    borderColor: "#FEF3C7",
     marginBottom: 32,
   },
   ringContainer: {
@@ -432,45 +552,45 @@ const styles = StyleSheet.create({
     height: 64,
     borderRadius: 32,
     borderWidth: 3,
-    borderColor: '#EA580C',
-    borderTopColor: '#FDBA74',
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderColor: "#EA580C",
+    borderTopColor: "#FDBA74",
+    justifyContent: "center",
+    alignItems: "center",
   },
   ringTitle: {
     fontSize: 15,
-    color: '#111827',
+    color: "#111827",
     marginBottom: 4,
   },
   ringTitleBold: {
-    fontWeight: '600',
+    fontWeight: "600",
   },
   ringSubtitle: {
     fontSize: 13,
-    color: '#6B7280',
+    color: "#6B7280",
   },
   activityCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 16,
     padding: 20,
     marginBottom: 32,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
   },
   activityRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: "#F3F4F6",
   },
   activityRowLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   activityIcon: {
     width: 24,
@@ -478,30 +598,30 @@ const styles = StyleSheet.create({
   },
   activityText: {
     fontSize: 16,
-    color: '#111827',
+    color: "#111827",
   },
   activityValue: {
     fontSize: 18,
-    fontWeight: '400',
-    color: '#111827',
+    fontWeight: "400",
+    color: "#111827",
   },
   badgesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
     marginBottom: 16,
   },
   badgeItem: {
-    width: '31%',
-    backgroundColor: '#FFFFFF',
+    width: "31%",
+    backgroundColor: "#FFFFFF",
     borderRadius: 16,
     paddingVertical: 16,
     paddingHorizontal: 8,
-    alignItems: 'center',
+    alignItems: "center",
     borderWidth: 1,
-    borderColor: '#E9D5FF',
+    borderColor: "#E9D5FF",
     marginBottom: 12,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
@@ -509,8 +629,8 @@ const styles = StyleSheet.create({
   },
   badgeItemFaded: {
     opacity: 0.5,
-    borderStyle: 'dashed',
-    borderColor: '#D1D5DB',
+    borderStyle: "dashed",
+    borderColor: "#D1D5DB",
   },
   badgeEmoji: {
     fontSize: 28,
@@ -518,28 +638,28 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     fontSize: 12,
-    color: '#111827',
-    textAlign: 'center',
+    color: "#111827",
+    textAlign: "center",
   },
   viewAllBadges: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 32,
   },
   viewAllBadgesText: {
-    color: '#9333EA',
+    color: "#9333EA",
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
     marginRight: 4,
   },
   pillsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     marginBottom: 8,
   },
   habitPill: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: "#EFF6FF",
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
@@ -547,17 +667,17 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   habitPillText: {
-    color: '#3B82F6',
+    color: "#3B82F6",
     fontSize: 14,
   },
   visibilityNote: {
     fontSize: 12,
-    color: '#6B7280',
-    fontStyle: 'italic',
+    color: "#6B7280",
+    fontStyle: "italic",
     marginBottom: 32,
   },
   interestPill: {
-    backgroundColor: '#FAF5FF',
+    backgroundColor: "#FAF5FF",
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
@@ -565,42 +685,42 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   interestPillText: {
-    color: '#9333EA',
+    color: "#9333EA",
     fontSize: 14,
   },
   settingsCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 16,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: "#E5E7EB",
   },
   settingsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: "#F3F4F6",
   },
   settingsRowLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   settingsIcon: {
     marginRight: 12,
   },
   settingsText: {
     fontSize: 16,
-    color: '#111827',
+    color: "#111827",
   },
   logoutButton: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: "#FECACA",
     borderRadius: 16,
     paddingVertical: 16,
     marginBottom: 32,
@@ -609,21 +729,21 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   logoutText: {
-    color: '#EF4444',
+    color: "#EF4444",
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   footerContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 20,
   },
   footerVersion: {
     fontSize: 14,
-    color: '#6B7280',
+    color: "#6B7280",
     marginBottom: 4,
   },
   footerTagline: {
     fontSize: 14,
-    color: '#9CA3AF',
+    color: "#9CA3AF",
   },
 });
