@@ -161,7 +161,7 @@ export default function CallFriendTaskScreen() {
       <View style={[styles.headerLight, { paddingTop: Math.max(insets.top, 5) }]}>
         <TouchableOpacity 
           style={[styles.backBtnLight, isActive && {backgroundColor: 'rgba(255,255,255,0.1)'}]} 
-          onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/tasks')}
+          onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')}
         >
           <Feather name="arrow-left" size={24} color={isActive ? "#ffffff" : "#111111"} />
         </TouchableOpacity>

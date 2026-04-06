@@ -116,11 +116,14 @@ const AnimatedBuddyContainer = ({
 }) => {
   return (
     <View style={styles.buddyCenter}>
-      <AnimatedBuddy />
+      <AnimatedBuddy activeTask={activeTask} />
       {activeTask ? (
         <TouchableOpacity
           style={styles.startHeroBtn}
-          onPress={() => onStartTask(activeTask)}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+            onStartTask(activeTask);
+          }}
         >
           <Text style={styles.startHeroBtnText}>Start {activeTask} ✨</Text>
         </TouchableOpacity>
@@ -131,22 +134,35 @@ const AnimatedBuddyContainer = ({
   );
 };
 
-const AnimatedBuddy = () => {
+const AnimatedBuddy = ({ activeTask }: { activeTask: string | null }) => {
   const floatAnim = React.useRef(new Animated.Value(0)).current;
   const blinkAnim = React.useRef(new Animated.Value(1)).current;
+
+  // Interaction animations
+  const breathAnim = React.useRef(new Animated.Value(1)).current; // Scale
+  const rotateAnim = React.useRef(new Animated.Value(0)).current; // Rotation
+  const lookAnimX = React.useRef(new Animated.Value(0)).current; // Eye pos X
+  const lookAnimY = React.useRef(new Animated.Value(0)).current; // Eye pos Y
+  const eyeSquintAnim = React.useRef(new Animated.Value(1)).current; // Eye scaleY for expression
+  const smileOpacity = React.useRef(new Animated.Value(0)).current;
+  const flatMouthOpacity = React.useRef(new Animated.Value(1)).current;
+
+  // Master loops to stop them properly
+  const breathLoop = React.useRef<Animated.CompositeAnimation | null>(null);
+  const lookLoop = React.useRef<Animated.CompositeAnimation | null>(null);
 
   React.useEffect(() => {
     Animated.loop(
       Animated.sequence([
         Animated.timing(floatAnim, {
-          toValue: -5,
-          duration: 2500,
+          toValue: -6,
+          duration: 3000,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
         Animated.timing(floatAnim, {
           toValue: 0,
-          duration: 2500,
+          duration: 3000,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
@@ -154,9 +170,12 @@ const AnimatedBuddy = () => {
     ).start();
 
     const blink = () => {
+      if (activeTask === "Silent") return; // Keep eyes closed
+      if (activeTask === "Smile") return; // Keep squint
+
       Animated.sequence([
         Animated.timing(blinkAnim, {
-          toValue: 0.15,
+          toValue: 0.1,
           duration: 100,
           useNativeDriver: true,
         }),
@@ -170,13 +189,174 @@ const AnimatedBuddy = () => {
 
     const interval = setInterval(() => {
       blink();
-      if (Math.random() > 0.7) {
-        setTimeout(blink, 150);
+      if (Math.random() > 0.6) {
+        setTimeout(blink, 200);
       }
-    }, 3500);
+    }, 4000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [activeTask]);
+
+  React.useEffect(() => {
+    // Reset/Stop Animations
+    if (breathLoop.current) {
+      breathLoop.current.stop();
+      breathLoop.current = null;
+    }
+    if (lookLoop.current) {
+      lookLoop.current.stop();
+      lookLoop.current = null;
+    }
+
+    Animated.spring(breathAnim, {
+      toValue: 1,
+      friction: 6,
+      useNativeDriver: true,
+    }).start();
+    Animated.spring(rotateAnim, {
+      toValue: 0,
+      friction: 6,
+      useNativeDriver: true,
+    }).start();
+    Animated.spring(lookAnimX, {
+      toValue: 0,
+      friction: 6,
+      useNativeDriver: true,
+    }).start();
+    Animated.spring(lookAnimY, {
+      toValue: 0,
+      friction: 6,
+      useNativeDriver: true,
+    }).start();
+    Animated.spring(eyeSquintAnim, {
+      toValue: 1,
+      friction: 6,
+      useNativeDriver: true,
+    }).start();
+    Animated.timing(smileOpacity, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+    Animated.timing(flatMouthOpacity, {
+      toValue: 1,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+
+    if (activeTask === "Smile") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      Animated.spring(eyeSquintAnim, {
+        toValue: 0.3,
+        useNativeDriver: true,
+      }).start();
+      Animated.timing(smileOpacity, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+      Animated.timing(flatMouthOpacity, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    } else if (activeTask === "Silent") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      Animated.spring(eyeSquintAnim, {
+        toValue: 0,
+        friction: 8,
+        useNativeDriver: true,
+      }).start();
+    } else if (activeTask === "Reflect") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      Animated.spring(rotateAnim, {
+        toValue: 12,
+        friction: 5,
+        useNativeDriver: true,
+      }).start();
+      Animated.spring(lookAnimX, { toValue: 6, useNativeDriver: true }).start();
+      Animated.spring(lookAnimY, {
+        toValue: -4,
+        useNativeDriver: true,
+      }).start();
+    } else if (activeTask === "Outside") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
+      lookLoop.current = Animated.loop(
+        Animated.sequence([
+          Animated.timing(lookAnimX, {
+            toValue: 8,
+            duration: 1500,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(lookAnimX, {
+            toValue: -8,
+            duration: 3000,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(lookAnimX, {
+            toValue: 0,
+            duration: 1500,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ]),
+      );
+      lookLoop.current.start();
+    } else if (activeTask === "Breathe") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
+      breathLoop.current = Animated.loop(
+        Animated.sequence([
+          Animated.timing(breathAnim, {
+            toValue: 1.05,
+            duration: 4000,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(breathAnim, {
+            toValue: 0.98,
+            duration: 4000,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ]),
+      );
+      breathLoop.current.start();
+    } else if (activeTask === "Stretch") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      Animated.sequence([
+        Animated.timing(breathAnim, {
+          toValue: 1.15,
+          duration: 500,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.spring(breathAnim, {
+          toValue: 1,
+          friction: 4,
+          useNativeDriver: true,
+        }),
+      ]).start();
+      Animated.sequence([
+        Animated.timing(rotateAnim, {
+          toValue: -8,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.spring(rotateAnim, {
+          toValue: 0,
+          friction: 4,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [activeTask]);
+
+  const rotationInterpolate = rotateAnim.interpolate({
+    inputRange: [-15, 15],
+    outputRange: ["-15deg", "15deg"],
+  });
 
   return (
     <Animated.View
@@ -185,28 +365,170 @@ const AnimatedBuddy = () => {
           alignItems: "center",
           justifyContent: "center",
         },
-        { transform: [{ translateY: floatAnim }] },
+        {
+          transform: [
+            { translateY: floatAnim },
+            { scale: breathAnim },
+            { rotate: rotationInterpolate },
+          ],
+        },
       ]}
     >
       <View style={styles.buddyRelative}>
-        <View style={styles.buddyEarLeft} />
-        <View style={styles.buddyEarRight} />
-        <View style={styles.buddyArmLeft} />
-        <View style={styles.buddyArmRight} />
-        <View style={styles.buddyBody}>
-          <View style={styles.buddyFace}>
-            <Animated.View
-              style={[styles.buddyEye, { transform: [{ scaleY: blinkAnim }] }]}
-            />
-            <View style={styles.buddyNasalWrap}>
-              <View style={styles.buddyNose} />
-              <View style={styles.buddyMouthLine} />
-            </View>
-            <Animated.View
-              style={[styles.buddyEye, { transform: [{ scaleY: blinkAnim }] }]}
-            />
-          </View>
+        {/* Soft glow / shadow underneath */}
+        <View style={styles.buddySoftGlow} />
+
+        {/* Pointy Cat Ears */}
+        <View style={styles.buddyEarLeft}>
+          <View style={styles.buddyEarInnerLeft} />
         </View>
+        <View style={styles.buddyEarRight}>
+          <View style={styles.buddyEarInnerRight} />
+        </View>
+
+        {/* Paws */}
+        <Animated.View
+          style={[
+            styles.buddyArmLeft,
+            {
+              transform: [
+                { rotate: activeTask === "Stretch" ? "-25deg" : "0deg" },
+              ],
+            },
+          ]}
+        >
+          <View style={styles.pawPadLeft} />
+        </Animated.View>
+        <Animated.View
+          style={[
+            styles.buddyArmRight,
+            {
+              transform: [
+                { rotate: activeTask === "Stretch" ? "25deg" : "0deg" },
+              ],
+            },
+          ]}
+        >
+          <View style={styles.pawPadRight} />
+        </Animated.View>
+
+        {/* Tail */}
+        <Animated.View
+          style={[
+            styles.catTail,
+            {
+              transform: [
+                {
+                  rotate:
+                    activeTask === "Smile"
+                      ? "15deg"
+                      : activeTask === "Stretch"
+                        ? "-10deg"
+                        : "5deg",
+                },
+              ],
+            },
+          ]}
+        />
+
+        {/* Main Body */}
+        <View style={styles.buddyBody}>
+          {/* Belly patch */}
+          <View style={styles.catBelly} />
+
+          <View style={styles.buddyFace}>
+            {/* Left Eye */}
+            <Animated.View
+              style={{
+                transform: [
+                  { translateX: lookAnimX },
+                  { translateY: lookAnimY },
+                ],
+              }}
+            >
+              <View style={styles.catEyeOuter}>
+                <Animated.View
+                  style={[
+                    styles.buddyEye,
+                    {
+                      transform: [
+                        {
+                          scaleY: Animated.multiply(blinkAnim, eyeSquintAnim),
+                        },
+                      ],
+                    },
+                  ]}
+                >
+                  <View style={styles.catPupil} />
+                </Animated.View>
+              </View>
+            </Animated.View>
+
+            <View style={styles.buddyNasalWrap}>
+              {/* Small pink cat nose (triangle) */}
+              <View style={styles.buddyNose} />
+
+              {/* Whiskers */}
+              <View style={styles.whiskersContainer}>
+                <View style={[styles.whisker, styles.whiskerTopLeft]} />
+                <View style={[styles.whisker, styles.whiskerBottomLeft]} />
+                <View style={[styles.whisker, styles.whiskerTopRight]} />
+                <View style={[styles.whisker, styles.whiskerBottomRight]} />
+              </View>
+
+              <View style={styles.mouthContainer}>
+                {/* Flat Mouth — cat "w" shape via two tiny arcs */}
+                <Animated.View
+                  style={[styles.buddyMouthLine, { opacity: flatMouthOpacity }]}
+                >
+                  <View style={styles.catMouthLeft} />
+                  <View style={styles.catMouthRight} />
+                </Animated.View>
+                {/* Smile / Happy Mouth */}
+                <Animated.View
+                  style={[styles.buddyMouthSmile, { opacity: smileOpacity }]}
+                />
+              </View>
+            </View>
+
+            {/* Right Eye */}
+            <Animated.View
+              style={{
+                transform: [
+                  { translateX: lookAnimX },
+                  { translateY: lookAnimY },
+                ],
+              }}
+            >
+              <View style={styles.catEyeOuter}>
+                <Animated.View
+                  style={[
+                    styles.buddyEye,
+                    {
+                      transform: [
+                        {
+                          scaleY: Animated.multiply(blinkAnim, eyeSquintAnim),
+                        },
+                      ],
+                    },
+                  ]}
+                >
+                  <View style={styles.catPupil} />
+                </Animated.View>
+              </View>
+            </Animated.View>
+          </View>
+
+          {/* Blush */}
+          <Animated.View
+            style={[styles.buddyBlushLeft, { opacity: smileOpacity }]}
+          />
+          <Animated.View
+            style={[styles.buddyBlushRight, { opacity: smileOpacity }]}
+          />
+        </View>
+
+        {/* Feet */}
         <View style={styles.buddyLegLeft} />
         <View style={styles.buddyLegRight} />
       </View>
@@ -415,7 +737,7 @@ export default function HomeScreen() {
               });
             })()}
 
-            {/* Bear with animations */}
+            {/* Cat with animations */}
             <AnimatedBuddyContainer
               activeTask={activeTask}
               onStartTask={(task) => {
@@ -671,158 +993,344 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     marginTop: 10,
   },
-  silentWrap: {
-    alignSelf: "center",
-  },
-
   buddyWrapFlex: {
     alignItems: "center",
     justifyContent: "flex-end",
   },
   buddyRelative: {
     position: "relative",
-    width: 160,
-    height: 180,
+    width: 180,
+    height: 200,
     alignItems: "center",
     justifyContent: "center",
   },
-  buddyBody: {
+  buddySoftGlow: {
+    position: "absolute",
     width: 160,
-    height: 180,
-    backgroundColor: "#d4a574",
-    borderRadius: 90,
+    height: 160,
+    backgroundColor: "rgba(245, 228, 200, 0.5)",
+    borderRadius: 80,
+    shadowColor: "#e8d5b5",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 8,
+    top: 25,
+  },
+  buddyBody: {
+    width: 150,
+    height: 150,
+    backgroundColor: "#F5E6CC", // Soft cream / light beige cat fur
+    borderRadius: 75,
     justifyContent: "center",
     alignItems: "center",
     zIndex: 2,
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 5,
+    borderWidth: 1.5,
+    borderColor: "rgba(0,0,0,0.04)",
+  },
+  catBelly: {
+    position: "absolute",
+    width: 80,
+    height: 60,
+    backgroundColor: "#FFF8EE", // Lighter cream belly
+    borderRadius: 40,
+    bottom: 20,
+    zIndex: 1,
   },
   buddyFace: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 20,
-    marginTop: -5,
+    gap: 18,
+    marginTop: -16,
+    zIndex: 4,
+  },
+  catEyeOuter: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.06)",
   },
   buddyEye: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#3A3A3A",
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
+  },
+  catPupil: {
+    width: 8,
+    height: 16,
+    borderRadius: 4,
     backgroundColor: "#1a1a1a",
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1,
   },
   buddyNasalWrap: {
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 6,
-  },
-  buddyNose: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: "#1a1a1a",
-    marginBottom: 4,
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1,
-  },
-  buddyMouthLine: {
-    width: 24,
-    height: 3,
-    backgroundColor: "#1a1a1a",
-    borderRadius: 1.5,
     marginTop: 4,
   },
+  buddyNose: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 6,
+    borderRightWidth: 6,
+    borderTopWidth: 8,
+    borderLeftColor: "transparent",
+    borderRightColor: "transparent",
+    borderTopColor: "#FFB0B0", // Pink triangle cat nose
+    marginBottom: 2,
+  },
+  whiskersContainer: {
+    position: "absolute",
+    width: 90,
+    height: 30,
+    top: 8,
+    left: -38,
+  },
+  whisker: {
+    position: "absolute",
+    width: 28,
+    height: 1.5,
+    backgroundColor: "#C9B99A",
+    borderRadius: 1,
+  },
+  whiskerTopLeft: {
+    left: 0,
+    top: 6,
+    transform: [{ rotate: "-15deg" }],
+  },
+  whiskerBottomLeft: {
+    left: 2,
+    top: 16,
+    transform: [{ rotate: "10deg" }],
+  },
+  whiskerTopRight: {
+    right: 0,
+    top: 6,
+    transform: [{ rotate: "15deg" }],
+  },
+  whiskerBottomRight: {
+    right: 2,
+    top: 16,
+    transform: [{ rotate: "-10deg" }],
+  },
+  mouthContainer: {
+    position: "relative",
+    width: 24,
+    height: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  buddyMouthLine: {
+    position: "absolute",
+    top: 0,
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+  catMouthLeft: {
+    width: 10,
+    height: 10,
+    borderBottomWidth: 2,
+    borderRightWidth: 2,
+    borderColor: "#7A6B5D",
+    borderBottomRightRadius: 8,
+    borderBottomLeftRadius: 0,
+    borderTopRightRadius: 0,
+    borderTopLeftRadius: 0,
+    borderTopWidth: 0,
+    borderLeftWidth: 0,
+  },
+  catMouthRight: {
+    width: 10,
+    height: 10,
+    borderBottomWidth: 2,
+    borderLeftWidth: 2,
+    borderColor: "#7A6B5D",
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 0,
+    borderTopRightRadius: 0,
+    borderTopLeftRadius: 0,
+    borderTopWidth: 0,
+    borderRightWidth: 0,
+  },
+  buddyMouthSmile: {
+    position: "absolute",
+    top: -4,
+    width: 22,
+    height: 22,
+    borderBottomWidth: 2.5,
+    borderColor: "#7A6B5D",
+    borderRadius: 11,
+    borderLeftColor: "transparent",
+    borderRightColor: "transparent",
+    borderTopColor: "transparent",
+  },
+  buddyBlushLeft: {
+    position: "absolute",
+    width: 22,
+    height: 12,
+    borderRadius: 11,
+    backgroundColor: "rgba(255, 150, 150, 0.25)",
+    top: 75,
+    left: 18,
+    zIndex: 3,
+  },
+  buddyBlushRight: {
+    position: "absolute",
+    width: 22,
+    height: 12,
+    borderRadius: 11,
+    backgroundColor: "rgba(255, 150, 150, 0.25)",
+    top: 75,
+    right: 18,
+    zIndex: 3,
+  },
+  // Pointy triangular cat ears
   buddyEarLeft: {
     position: "absolute",
-    width: 36,
-    height: 36,
-    backgroundColor: "#d4a574",
-    borderRadius: 18,
-    top: -8,
-    left: 20,
+    top: -12,
+    left: 28,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 22,
+    borderRightWidth: 22,
+    borderBottomWidth: 44,
+    borderLeftColor: "transparent",
+    borderRightColor: "transparent",
+    borderBottomColor: "#F5E6CC",
     zIndex: 3,
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    transform: [{ rotate: "-12deg" }],
+  },
+  buddyEarInnerLeft: {
+    position: "absolute",
+    top: 14,
+    left: -12,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 12,
+    borderRightWidth: 12,
+    borderBottomWidth: 24,
+    borderLeftColor: "transparent",
+    borderRightColor: "transparent",
+    borderBottomColor: "#FFCECE", // Pink inner ear
   },
   buddyEarRight: {
     position: "absolute",
-    width: 36,
-    height: 36,
-    backgroundColor: "#d4a574",
-    borderRadius: 18,
-    top: -8,
-    right: 20,
+    top: -12,
+    right: 28,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 22,
+    borderRightWidth: 22,
+    borderBottomWidth: 44,
+    borderLeftColor: "transparent",
+    borderRightColor: "transparent",
+    borderBottomColor: "#F5E6CC",
     zIndex: 3,
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    transform: [{ rotate: "12deg" }],
   },
+  buddyEarInnerRight: {
+    position: "absolute",
+    top: 14,
+    left: -12,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 12,
+    borderRightWidth: 12,
+    borderBottomWidth: 24,
+    borderLeftColor: "transparent",
+    borderRightColor: "transparent",
+    borderBottomColor: "#FFCECE",
+  },
+  // Paws (arms)
   buddyArmLeft: {
     position: "absolute",
-    width: 24,
-    height: 28,
-    backgroundColor: "#d4a574",
-    borderRadius: 12,
-    top: 90,
-    left: -8,
+    width: 30,
+    height: 36,
+    backgroundColor: "#F5E6CC",
+    borderRadius: 15,
+    top: 100,
+    left: 8,
     zIndex: 1,
-    shadowColor: "#000000",
-    shadowOffset: { width: -2, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.03)",
+  },
+  pawPadLeft: {
+    position: "absolute",
+    bottom: 4,
+    alignSelf: "center",
+    width: 16,
+    height: 12,
+    backgroundColor: "#FFCECE",
+    borderRadius: 8,
+    left: 7,
   },
   buddyArmRight: {
     position: "absolute",
-    width: 24,
-    height: 28,
-    backgroundColor: "#d4a574",
-    borderRadius: 12,
-    top: 90,
-    right: -8,
+    width: 30,
+    height: 36,
+    backgroundColor: "#F5E6CC",
+    borderRadius: 15,
+    top: 100,
+    right: 8,
     zIndex: 1,
-    shadowColor: "#000000",
-    shadowOffset: { width: 2, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.03)",
   },
+  pawPadRight: {
+    position: "absolute",
+    bottom: 4,
+    alignSelf: "center",
+    width: 16,
+    height: 12,
+    backgroundColor: "#FFCECE",
+    borderRadius: 8,
+    right: 7,
+  },
+  // Tail
+  catTail: {
+    position: "absolute",
+    width: 14,
+    height: 60,
+    backgroundColor: "#F5E6CC",
+    borderRadius: 7,
+    bottom: 20,
+    right: -5,
+    zIndex: 0,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.03)",
+    transform: [{ rotate: "25deg" }],
+  },
+  // Feet
   buddyLegLeft: {
     position: "absolute",
-    width: 22,
-    height: 32,
-    backgroundColor: "#d4a574",
-    borderRadius: 11,
-    bottom: -10,
-    left: 40,
+    width: 34,
+    height: 18,
+    backgroundColor: "#F5E6CC",
+    borderRadius: 17,
+    bottom: 2,
+    left: 38,
     zIndex: 1,
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.03)",
   },
   buddyLegRight: {
     position: "absolute",
-    width: 22,
-    height: 32,
-    backgroundColor: "#d4a574",
-    borderRadius: 11,
-    bottom: -10,
-    right: 40,
+    width: 34,
+    height: 18,
+    backgroundColor: "#F5E6CC",
+    borderRadius: 17,
+    bottom: 2,
+    right: 38,
     zIndex: 1,
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.03)",
   },
   buddyTextFlex: {
     color: "#9ca3af",

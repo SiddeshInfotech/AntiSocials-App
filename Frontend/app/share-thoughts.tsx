@@ -21,7 +21,7 @@ export default function ShareThoughtsScreen() {
       
       {/* Header */}
       <View style={[styles.headerLight, { paddingTop: Math.max(insets.top, 5) }]}>
-        <TouchableOpacity style={styles.backBtnLight} onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/tasks')}>
+        <TouchableOpacity style={styles.backBtnLight} onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')}>
           <Feather name="arrow-left" size={24} color="#111111" />
         </TouchableOpacity>
       </View>
