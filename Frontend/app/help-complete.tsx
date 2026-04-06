@@ -10,7 +10,7 @@ export default function HelpCompleteScreen() {
 
   useEffect(() => {
     router.replace({ pathname: '/task-success', params: { points: '200' } } as any);
-  }, []);
+  }, [router]);
 
   return null;
 }
