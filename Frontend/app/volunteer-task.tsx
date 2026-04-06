@@ -288,7 +288,7 @@ export default function VolunteerTaskScreen() {
       <TouchableOpacity
         style={[styles.bigBtn, { backgroundColor: '#ffffff' }]}
         activeOpacity={0.85}
-        onPress={() => router.replace('/(tabs)/tasks')}
+        onPress={() => router.replace('/(tabs)')}
       >
         <Text style={[styles.bigBtnText, { color: '#000' }]}>Back to Tasks</Text>
         <Feather name="home" size={20} color="#000" style={{ marginLeft: 10 }} />

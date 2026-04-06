@@ -148,7 +148,7 @@ export default function OfflineTaskScreen() {
       <View style={styles.header}>
         <TouchableOpacity
           style={[styles.backBtn, isActive && { backgroundColor: 'rgba(255,255,255,0.12)' }]}
-          onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/tasks')}
+          onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')}
         >
           <Feather name="arrow-left" size={22} color={isActive ? '#ffffff' : '#111111'} />
         </TouchableOpacity>
