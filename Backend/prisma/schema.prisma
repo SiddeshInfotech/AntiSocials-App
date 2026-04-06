@@ -93,15 +93,17 @@ model User {
 }
 
 model Community {
-  id          String    @id @default(uuid())
-  title       String
-  description String?
-  category    String // Maps to interests e.g., "Volunteering"
-  date        DateTime?
-  location    String?
-  maxMembers  Int?
-  ownerId     String
-  createdAt   DateTime  @default(now())
+  id               String    @id @default(uuid())
+  title            String
+  description      String?
+  category         String // Predefined labels or "OTHER" for custom categories
+  customCategory   String?
+  date             DateTime?
+  location         String?
+  maxMembers       Int?
+  coverImageBase64 String?
+  ownerId          String
+  createdAt        DateTime  @default(now())
 
   owner   User              @relation(name: "CommunityOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   members CommunityMember[]

@@ -10,7 +10,10 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "tsx prisma/seed.ts",
-    "test": "echo \"No tests yet\""
+    "test": "echo \"No tests yet\"",
+    "smoke:cycle": "node smoke-cycle.js",
+    "smoke:volunteer": "node smoke-volunteer.js",
+    "smoke:categories": "node smoke-categories.js"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
