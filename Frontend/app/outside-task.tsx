@@ -180,7 +180,7 @@ export default function OutsideTaskScreen() {
       <SafeAreaView style={styles.foregroundLayer}>
         
         {/* Focused Timer State */}
-        <Animated.View style={[StyleSheet.absoluteFillObject, styles.timerCenter, { opacity: timerFadeAnim }]} pointerEvents={isActive ? 'auto' : 'none'}>
+        <Animated.View style={[StyleSheet.absoluteFillObject, styles.timerCenter, { opacity: timerFadeAnim }]} pointerEvents={isActive || isCompleted ? 'auto' : 'none'}>
           {!isCompleted && (
             <>
               <Animated.Text style={[styles.timerText, { opacity: timerGlowAnim }]}>
