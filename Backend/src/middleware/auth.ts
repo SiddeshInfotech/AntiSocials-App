@@ -1,8 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { AppError } from "./error-handler";
 import { verifyAccessToken } from "../utils/jwt";
-import { JwtPayload } from "jsonwebtoken";
-import jwt from "jsonwebtoken";
 
 declare global {
   namespace Express {
@@ -24,8 +22,11 @@ export function requireAuth(
   }
 
   const token = authHeader.replace("Bearer ", "").trim();
-  const payload = verifyAccessToken(token);
-
-  req.userId = payload.sub;
-  next();
+  try {
+    const payload = verifyAccessToken(token);
+    req.userId = payload.sub;
+    next();
+  } catch {
+    throw new AppError("Unauthorized", 401);
+  }
 }
