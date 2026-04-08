@@ -13,7 +13,8 @@
     "test": "echo \"No tests yet\"",
     "smoke:cycle": "node smoke-cycle.js",
     "smoke:volunteer": "node smoke-volunteer.js",
-    "smoke:categories": "node smoke-categories.js"
+    "smoke:categories": "node smoke-categories.js",
+    "smoke:profile": "node smoke-profile.js"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

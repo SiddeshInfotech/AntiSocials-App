@@ -1,0 +1,3 @@
+ALTER TABLE "User"
+ADD COLUMN "isPrivate" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN "emailNotificationsEnabled" BOOLEAN NOT NULL DEFAULT true;

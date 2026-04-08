@@ -75,6 +75,7 @@ Rate limits return `429` with endpoint-specific message.
 - `GET /life-circle`
 - `GET /profile`
 - `PUT /profile`
+- `PATCH /profile`
 - `POST /activities`
 - `GET /activities/discover`
 - `GET /activities/joined`
@@ -164,6 +165,9 @@ On successful `POST /tasks/:id/complete`, invalidate:
 - Task complete: disable button while request is in flight.
 - Task complete `409`: show "already completed" state (do not retry loop).
 - Profile: lock username editing after profile is completed.
+- Edit Profile: use `PATCH /profile` for partial updates.
+- Profile photo update uses base64 data URL (`data:image/<type>;base64,...`).
+- `PUT /profile` remains onboarding-style and expects full profile payload.
 - Activities create: enforce date and time together; compress image before base64 upload.
 
 ## 9. Known Integration Notes

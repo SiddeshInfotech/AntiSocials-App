@@ -63,20 +63,22 @@ enum NotificationStatus {
 }
 
 model User {
-  id                String   @id @default(uuid())
-  email             String?  @unique
-  phone             String?  @unique
-  passwordHash      String?
-  timezone          String   @default("UTC")
-  name              String?
-  username          String?  @unique
-  profilePhoto      String?
-  profession        String?
-  about             String?
-  interests         String[] @default([])
-  isProfileComplete Boolean  @default(false)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                        String   @id @default(uuid())
+  email                     String?  @unique
+  phone                     String?  @unique
+  passwordHash              String?
+  timezone                  String   @default("UTC")
+  name                      String?
+  username                  String?  @unique
+  profilePhoto              String?
+  profession                String?
+  about                     String?
+  interests                 String[] @default([])
+  isPrivate                 Boolean  @default(false)
+  emailNotificationsEnabled Boolean  @default(true)
+  isProfileComplete         Boolean  @default(false)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
 
   authIdentities     AuthIdentity[]
   wallet             UserWallet?

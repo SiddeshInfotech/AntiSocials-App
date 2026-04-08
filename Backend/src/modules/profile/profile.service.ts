@@ -1,6 +1,20 @@
 import { prisma } from "../../lib/prisma";
 import { AppError } from "../../middleware/error-handler";
-import { UpdateProfileInput } from "./profile.schema";
+import { validateImage } from "../../utils/imageValidation";
+import { PatchProfileInput, UpdateProfileInput } from "./profile.schema";
+
+const profileSelect = {
+  id: true,
+  name: true,
+  username: true,
+  profilePhoto: true,
+  profession: true,
+  about: true,
+  interests: true,
+  isPrivate: true,
+  emailNotificationsEnabled: true,
+  isProfileComplete: true,
+};
 
 export async function updateUserProfile(
   userId: string,
@@ -44,16 +58,53 @@ export async function updateUserProfile(
       ...input,
       isProfileComplete: true,
     },
-    select: {
-      id: true,
-      name: true,
-      username: true,
-      profilePhoto: true,
-      profession: true,
-      about: true,
-      interests: true,
-      isProfileComplete: true,
-    },
+    select: profileSelect,
+  });
+
+  return updatedUser;
+}
+
+export async function patchUserProfile(
+  userId: string,
+  input: PatchProfileInput,
+): Promise<any> {
+  const currentUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { username: true, isProfileComplete: true },
+  });
+
+  if (!currentUser) {
+    throw new AppError("User not found", 404);
+  }
+
+  if (input.username && input.username !== currentUser.username) {
+    const existingUsername = await prisma.user.findFirst({
+      where: {
+        username: input.username,
+        NOT: { id: userId },
+      },
+    });
+
+    if (existingUsername) {
+      throw new AppError("Username is already taken", 409);
+    }
+
+    if (currentUser.username && currentUser.isProfileComplete) {
+      throw new AppError(
+        "Username cannot be changed after profile is created",
+        400,
+      );
+    }
+  }
+
+  if (input.profilePhoto) {
+    validateImage(input.profilePhoto);
+  }
+
+  const updatedUser = await prisma.user.update({
+    where: { id: userId },
+    data: input,
+    select: profileSelect,
   });
 
   return updatedUser;
@@ -62,16 +113,7 @@ export async function updateUserProfile(
 export async function getUserProfile(userId: string): Promise<any> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: {
-      id: true,
-      name: true,
-      username: true,
-      profilePhoto: true,
-      profession: true,
-      about: true,
-      interests: true,
-      isProfileComplete: true,
-    },
+    select: profileSelect,
   });
 
   if (!user) {
