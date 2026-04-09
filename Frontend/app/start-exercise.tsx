@@ -1,119 +1,242 @@
-import React, { useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Animated } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Feather, FontAwesome5 } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import { LinearGradient } from 'expo-linear-gradient';
+
+const { width } = Dimensions.get('window');
+
+const QUESTIONS = [
+  {
+    id: 1,
+    title: "How much experience do you have with stretching?",
+    options: ["Quite a lot", "A moderate amount", "A little bit", "Barely any"]
+  },
+  {
+    id: 2,
+    title: "What would you say is your current flexibility level?",
+    options: ["I'm quite flexible", "I'm kinda flexible", "I'm not very flexible"]
+  },
+  {
+    id: 3,
+    title: "Is stretching important?",
+    options: ["Yes", "Yes, but..."]
+  }
+];
 
 export default function StartExerciseScreen() {
-    const router = useRouter();
+  const router = useRouter();
+  const [currentStep, setCurrentStep] = useState(0);
+  const [answers, setAnswers] = useState<Record<number, string>>({});
 
-    // Utilizing the guaranteed HD push-up image as the anchor theme
-    const coverImg = 'https://images.unsplash.com/photo-1598971639058-fab3c3109a00?q=80&w=1200';
+  const slideAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(1)).current;
 
-    const fadeAnim = useRef(new Animated.Value(0)).current;
-    const slideAnim = useRef(new Animated.Value(20)).current;
+  const currentQ = QUESTIONS[currentStep];
+  const selectedOption = answers[currentQ.id];
 
-    useEffect(() => {
+  const handleSelect = (option: string) => {
+    setAnswers(prev => ({ ...prev, [currentQ.id]: option }));
+  };
+
+  const handleContinue = () => {
+    if (!selectedOption) return;
+
+    if (currentStep < QUESTIONS.length - 1) {
+      Animated.parallel([
+        Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+        Animated.timing(slideAnim, { toValue: -40, duration: 200, useNativeDriver: true })
+      ]).start(() => {
+        setCurrentStep(prev => prev + 1);
+        slideAnim.setValue(40);
+
         Animated.parallel([
-            Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
-            Animated.spring(slideAnim, { toValue: 0, friction: 8, useNativeDriver: true })
+          Animated.timing(fadeAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
+          Animated.spring(slideAnim, { toValue: 0, friction: 8, tension: 40, useNativeDriver: true })
         ]).start();
-    }, []);
+      });
+    } else {
+      // Direct Navigation to the Exercise Detail screen (The premium UI)
+      router.push('/exercise-detail' as any);
+    }
+  };
 
-    return (
-        <View style={styles.container}>
-            <StatusBar style="light" />
+  const handleBack = () => {
+    if (currentStep > 0) {
+      Animated.parallel([
+        Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+        Animated.timing(slideAnim, { toValue: 40, duration: 200, useNativeDriver: true })
+      ]).start(() => {
+        setCurrentStep(prev => prev - 1);
+        slideAnim.setValue(-40);
 
-            {/* Immersive Blurred Background */}
-            <Image source={{uri: coverImg}} style={[StyleSheet.absoluteFillObject, {opacity: 0.5}]} blurRadius={20} />
-            <LinearGradient colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.8)', '#000000']} style={StyleSheet.absoluteFillObject} />
-            
-            <SafeAreaView style={{flex: 1}}>
-                {/* Premium Clean Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.6}>
-                       <Feather name="chevron-left" size={26} color="#ffffff" />
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>STRETCH & STRENGTH</Text>
-                    <View style={{width: 44}} />
-                </View>
+        Animated.parallel([
+          Animated.timing(fadeAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
+          Animated.spring(slideAnim, { toValue: 0, friction: 8, tension: 40, useNativeDriver: true })
+        ]).start();
+      });
+    } else {
+      router.back();
+    }
+  };
 
-                {/* Stunning Rounded Card rendering NO cropping whatsoever via resizeMode="contain" */}
-                <Animated.View style={[styles.imageCardWrapper, {opacity: fadeAnim, transform: [{translateY: slideAnim}]}]}>
-                    <Image source={{uri: coverImg}} style={styles.mainImage} resizeMode="contain" />
-                </Animated.View>
+  const progressWidth = ((currentStep + 1) / QUESTIONS.length) * 100;
 
-                {/* Deep layout integrating Exact layout cues from Reference Image */}
-                <View style={styles.bottomSection}>
-                     <Text style={styles.hugeTimer}>03:00</Text>
-                     
-                     <View style={styles.controlsRow}>
-                        <View style={styles.pill}>
-                           <Text style={styles.pillLabel}>TIME</Text>
-                           <Text style={styles.pillValue}>3 MIN</Text>
-                        </View>
+  return (
+    <View style={styles.container}>
+      <StatusBar style="light" />
+      <SafeAreaView style={{ flex: 1 }}>
 
-                        <TouchableOpacity style={styles.neonPlay} onPress={() => router.push('/exercise-detail')} activeOpacity={0.8}>
-                            <FontAwesome5 name="play" size={24} color="#000000" style={{marginLeft: 5}} />
-                        </TouchableOpacity>
-
-                        <View style={styles.pill}>
-                           <Text style={styles.pillLabel}>WORKOUTS</Text>
-                           <Text style={styles.pillValue}>6 SETS</Text>
-                        </View>
-                     </View>
-
-                     {/* Proper Full-Width Bottom Action Button replacing arbitrary icons */}
-                     <TouchableOpacity style={styles.properBtn} onPress={() => router.push('/exercise-detail')} activeOpacity={0.9}>
-                        <Text style={styles.properBtnText}>START WORKOUT</Text>
-                        <Feather name="arrow-right" size={22} color="#000000" style={{marginLeft: 8}}/>
-                     </TouchableOpacity>
-                </View>
-            </SafeAreaView>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={handleBack} style={styles.backBtn} activeOpacity={0.7}>
+            <Feather name="arrow-left" size={24} color="#ffffff" />
+          </TouchableOpacity>
         </View>
-    );
+
+        <View style={styles.progressTrack}>
+          <Animated.View style={[styles.progressFill, { width: `${progressWidth}%` }]} />
+        </View>
+
+        <Animated.View style={[styles.questionArea, { opacity: fadeAnim, transform: [{ translateX: slideAnim }] }]}>
+          <Text style={styles.questionTitle}>{currentQ.title}</Text>
+
+          <View style={styles.optionsList}>
+            {currentQ.options.map((opt, idx) => {
+              const isSelected = selectedOption === opt;
+              return (
+                <TouchableOpacity
+                  key={idx}
+                  style={[styles.optionCard, isSelected && styles.optionCardActive]}
+                  onPress={() => handleSelect(opt)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.optionText, isSelected && styles.optionTextActive]}>{opt}</Text>
+                  {isSelected && (
+                    <View style={styles.checkIcon}>
+                      <Feather name="check" size={16} color="#000" />
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </Animated.View>
+
+        <View style={styles.bottomArea}>
+          <TouchableOpacity
+            style={[styles.continueBtn, !selectedOption && { opacity: 0.3 }]}
+            onPress={handleContinue}
+            disabled={!selectedOption}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.continueText}>Continue</Text>
+          </TouchableOpacity>
+        </View>
+
+      </SafeAreaView>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
-  
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 15 },
-  backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { color: 'white', fontSize: 16, fontWeight: '800', letterSpacing: 2 },
-  
-  // Immersive Card Wrapper for true aspect-ratio preservation
-  imageCardWrapper: { 
-      flex: 1, marginHorizontal: 20, marginTop: 25, marginBottom: 10, 
-      backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 35, 
-      overflow: 'hidden', shadowColor: '#000', shadowOffset: {height: 10, width: 0}, shadowOpacity: 0.8, shadowRadius: 20, elevation: 15,
-      borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)'
+  container: {
+    flex: 1,
+    backgroundColor: '#121212',
   },
-  mainImage: { width: '100%', height: '100%' },
-  
-  bottomSection: { paddingHorizontal: 25, paddingBottom: 35, alignItems: 'center' },
-  hugeTimer: { color: '#ffffff', fontSize: 80, fontWeight: '900', letterSpacing: -2.5, marginBottom: 25 },
-  
-  controlsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', width: '100%', marginBottom: 35 },
-  pill: { 
-      backgroundColor: 'rgba(255,255,255,0.12)', paddingVertical: 18, paddingHorizontal: 20, 
-      borderRadius: 30, width: 115, alignItems: 'center',
-      borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)'
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 15,
+    paddingBottom: 10,
   },
-  pillLabel: { color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '700', marginBottom: 6, letterSpacing: 1.5 },
-  pillValue: { color: '#ffffff', fontSize: 14, fontWeight: '800', textAlign: 'center' },
-  
-  neonPlay: { 
-      width: 80, height: 80, borderRadius: 40, backgroundColor: '#d9fc00', 
-      alignItems: 'center', justifyContent: 'center', marginHorizontal: 20, 
-      shadowColor: '#d9fc00', shadowOpacity: 0.5, shadowRadius: 20, elevation: 10 
+  backBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1e1e1e',
   },
-  
-  properBtn: { 
-      height: 65, width: '100%', backgroundColor: '#ffffff', borderRadius: 20, 
-      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-      shadowColor: '#fff', shadowOpacity: 0.2, shadowRadius: 10, elevation: 5
+  progressTrack: {
+    height: 4,
+    backgroundColor: '#2c2c2c',
+    marginHorizontal: 20,
+    marginTop: 10,
+    borderRadius: 2,
+    overflow: 'hidden',
   },
-  properBtnText: { color: '#000000', fontSize: 17, fontWeight: '900', letterSpacing: 1.5 }
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#d9fc00',
+    borderRadius: 2,
+  },
+  questionArea: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 40,
+  },
+  questionTitle: {
+    color: '#ffffff',
+    fontSize: 28,
+    fontWeight: '800',
+    lineHeight: 36,
+    marginBottom: 40,
+    textAlign: 'center',
+  },
+  optionsList: {
+    flexDirection: 'column',
+  },
+  optionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#1e1e1e',
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    borderRadius: 16,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  optionCardActive: {
+    borderColor: '#d9fc00',
+    backgroundColor: 'rgba(217, 252, 0, 0.05)',
+  },
+  optionText: {
+    color: '#a1a1aa',
+    fontSize: 17,
+    fontWeight: '600',
+  },
+  optionTextActive: {
+    color: '#ffffff',
+    fontWeight: '700',
+  },
+  checkIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#d9fc00',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bottomArea: {
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+    paddingTop: 20,
+  },
+  continueBtn: {
+    width: '100%',
+    height: 56,
+    backgroundColor: '#d9fc00',
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  continueText: {
+    color: '#000000',
+    fontSize: 18,
+    fontWeight: '800',
+  }
 });

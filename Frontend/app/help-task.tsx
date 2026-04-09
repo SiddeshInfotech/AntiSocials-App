@@ -419,3 +419,4 @@ const styles = StyleSheet.create({
   btnGradient: { paddingVertical: 19, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderRadius: 20 },
   nextBtnText: { color: '#fff', fontSize: 16, fontWeight: '800', letterSpacing: 0.6 },
 });
+

@@ -97,3 +97,4 @@ const styles = StyleSheet.create({
     color: '#9333EA', fontWeight: '500',
   },
 });
+

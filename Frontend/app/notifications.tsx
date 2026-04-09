@@ -128,3 +128,4 @@ const styles = StyleSheet.create({
   switchTitle: { fontSize: 16, fontWeight: '500', color: '#111827', marginBottom: 4 },
   switchSubtitle: { fontSize: 13, color: '#6B7280', lineHeight: 18 },
 });
+

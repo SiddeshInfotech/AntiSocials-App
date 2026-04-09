@@ -47,3 +47,4 @@ const styles = StyleSheet.create({
   backButton: { padding: 10 },
   backText: { color: '#6b7280', fontSize: 16 }
 });
+

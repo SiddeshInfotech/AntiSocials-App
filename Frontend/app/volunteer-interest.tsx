@@ -191,3 +191,4 @@ const styles = StyleSheet.create({
   properBtnText: { color: '#000000', fontSize: 17, fontWeight: '900', letterSpacing: 1 },
   properBtnTextDisabled: { color: '#6b7280' }
 });
+

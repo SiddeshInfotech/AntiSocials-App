@@ -161,3 +161,4 @@ const styles = StyleSheet.create({
   btnGradient: { paddingVertical: 19, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   startBtnText: { color: '#fff', fontSize: 17, fontWeight: '800', letterSpacing: 0.8 },
 });
+

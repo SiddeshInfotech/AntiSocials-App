@@ -111,3 +111,4 @@ const styles = StyleSheet.create({
   },
   navigationText: { fontSize: 16, color: '#111827' },
 });
+
