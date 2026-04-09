@@ -89,6 +89,7 @@ model User {
   notificationEvents NotificationEvent[]
   communityMembers   CommunityMember[]
   ownedCommunities   Community[]         @relation(name: "CommunityOwner")
+  revokedTokens      RevokedToken[]
 
   @@index([createdAt])
   @@index([interests])
@@ -321,4 +322,16 @@ model NotificationEvent {
 
   @@index([status, scheduledAt])
   @@index([userId, type])
+}
+
+model RevokedToken {
+  id        String   @id @default(uuid())
+  tokenJti  String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
 }

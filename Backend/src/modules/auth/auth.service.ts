@@ -261,3 +261,21 @@ export async function loginWithEmail(
 
   return { accessToken: signAccessToken(user.id) };
 }
+
+export async function logoutCurrentSession(input: {
+  userId: string;
+  tokenJti: string;
+  tokenExp: number;
+}): Promise<void> {
+  const expiresAt = new Date(input.tokenExp * 1000);
+
+  await prisma.revokedToken.upsert({
+    where: { tokenJti: input.tokenJti },
+    update: {},
+    create: {
+      userId: input.userId,
+      tokenJti: input.tokenJti,
+      expiresAt,
+    },
+  });
+}

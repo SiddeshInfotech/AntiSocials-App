@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
+import { AppError } from "../../middleware/error-handler";
 import {
   loginWithEmail,
+  logoutCurrentSession,
   registerWithEmail,
   sendOtpForPhoneLogin,
   verifyPhoneOtpAndLogin,
@@ -58,5 +60,25 @@ export async function verifyOtpController(
     success: true,
     message: "Phone login successful",
     data: result,
+  });
+}
+
+export async function logoutController(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  if (!req.userId || !req.tokenJti || !req.tokenExp) {
+    throw new AppError("Unauthorized", 401);
+  }
+
+  await logoutCurrentSession({
+    userId: req.userId,
+    tokenJti: req.tokenJti,
+    tokenExp: req.tokenExp,
+  });
+
+  res.status(200).json({
+    success: true,
+    message: "Logout successful",
   });
 }
