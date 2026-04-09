@@ -1,269 +1,261 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Easing, ScrollView, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Easing, Dimensions, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 const AnimatedSafeArea = Animated.createAnimatedComponent(SafeAreaView);
 
 export default function CallFriendTaskScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   
-  const [isActive, setIsActive] = useState(false);
+  const [step, setStep] = useState<'info' | 'mock' | 'calling' | 'done'>('info');
   const [callDuration, setCallDuration] = useState(0);
-  
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const shakeAnim = useRef(new Animated.Value(0)).current;
-  const bgTransition = useRef(new Animated.Value(0)).current;
-  
-  // Pulse animations for active state
-  const pulse1 = useRef(new Animated.Value(0)).current;
-  const pulse2 = useRef(new Animated.Value(0)).current;
-  const pulse3 = useRef(new Animated.Value(0)).current;
 
-  // Initial load fade in
-  useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1, 
-      duration: 800, 
-      useNativeDriver: true
-    }).start();
-  }, [fadeAnim]);
+  // Animations - Info Screen
+  const fadeAnimTop = useRef(new Animated.Value(0)).current;
+  const fadeAnimText = useRef(new Animated.Value(0)).current;
+  const translateAnimText = useRef(new Animated.Value(20)).current;
+  const bgShiftAnim = useRef(new Animated.Value(0)).current;
+  const iconFloatAnim = useRef(new Animated.Value(0)).current;
+  const actionBtnScale = useRef(new Animated.Value(1)).current;
 
-  // Ringing effect when inactive
+  // Animations - Mock / Calling Screen
+  const darkBgAnim = useRef(new Animated.Value(0)).current;
+  const avatarScale = useRef(new Animated.Value(1)).current;
+  const callPulse1 = useRef(new Animated.Value(0)).current;
+  const callPulse2 = useRef(new Animated.Value(0)).current;
+  const successFade = useRef(new Animated.Value(0)).current;
+
+  // On Mount: Load Info Screen
   useEffect(() => {
-    if (!isActive) {
-      const shake = () => {
-        Animated.sequence([
-          Animated.timing(shakeAnim, { toValue: 1, duration: 100, useNativeDriver: true }),
-          Animated.timing(shakeAnim, { toValue: -1, duration: 100, useNativeDriver: true }),
-          Animated.timing(shakeAnim, { toValue: 1, duration: 100, useNativeDriver: true }),
-          Animated.timing(shakeAnim, { toValue: 0, duration: 100, useNativeDriver: true })
-        ]).start();
-      };
-      const interval = setInterval(shake, 2500);
-      return () => clearInterval(interval);
+    Animated.sequence([
+      Animated.timing(fadeAnimTop, { toValue: 1, duration: 800, useNativeDriver: true }),
+      Animated.parallel([
+        Animated.timing(fadeAnimText, { toValue: 1, duration: 800, useNativeDriver: true }),
+        Animated.timing(translateAnimText, { toValue: 0, duration: 800, easing: Easing.out(Easing.cubic), useNativeDriver: true })
+      ])
+    ]).start();
+
+    // Bg shift (Warm Peach / Orange)
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(bgShiftAnim, { toValue: 1, duration: 10000, easing: Easing.inOut(Easing.linear), useNativeDriver: true }),
+        Animated.timing(bgShiftAnim, { toValue: 0, duration: 10000, easing: Easing.inOut(Easing.linear), useNativeDriver: true })
+      ])
+    ).start();
+
+    // Soft Phone Float
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(iconFloatAnim, { toValue: -8, duration: 3000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(iconFloatAnim, { toValue: 0, duration: 3000, easing: Easing.inOut(Easing.sin), useNativeDriver: true })
+      ])
+    ).start();
+  }, []);
+
+  // When step changes to 'mock', crossfade to dark BG
+  useEffect(() => {
+    if (step === 'mock') {
+      Animated.timing(darkBgAnim, { toValue: 1, duration: 600, useNativeDriver: false }).start();
     }
-  }, [isActive, shakeAnim]);
+  }, [step]);
 
-  // Timers and pulses when active
+  // When step changes to 'calling', start ringing pulses and timer
   useEffect(() => {
-    let interval: any;
-    if (isActive) {
-      // Start call timer
-      interval = setInterval(() => {
+    let timer: any;
+    if (step === 'calling') {
+      timer = setInterval(() => {
         setCallDuration(prev => prev + 1);
       }, 1000);
 
-      // Transition background to dark mode
-      Animated.timing(bgTransition, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: false // Color interpolation requires false
-      }).start();
-
-      // Start pulses
-      const createPulse = (anim: Animated.Value, delay: number) => {
+      const makePulse = (anim: Animated.Value, delay: number) => {
         Animated.loop(
           Animated.sequence([
             Animated.delay(delay),
-            Animated.timing(anim, {
-              toValue: 1,
-              duration: 3000,
-              easing: Easing.out(Easing.ease),
-              useNativeDriver: true
-            }),
-            Animated.timing(anim, {
-              toValue: 0,
-              duration: 0,
-              useNativeDriver: true
-            })
+            Animated.timing(anim, { toValue: 1, duration: 2500, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+            Animated.timing(anim, { toValue: 0, duration: 0, useNativeDriver: true })
           ])
         ).start();
       };
+      makePulse(callPulse1, 0);
+      makePulse(callPulse2, 1000);
 
-      createPulse(pulse1, 0);
-      createPulse(pulse2, 1000);
-      createPulse(pulse3, 2000);
+      // Subtle avatar breath
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(avatarScale, { toValue: 1.05, duration: 2500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+          Animated.timing(avatarScale, { toValue: 1, duration: 2500, easing: Easing.inOut(Easing.sin), useNativeDriver: true })
+        ])
+      ).start();
 
     } else {
-      Animated.timing(bgTransition, {
-        toValue: 0,
-        duration: 800,
-        useNativeDriver: false
-      }).start();
-      
-      pulse1.stopAnimation();
-      pulse2.stopAnimation();
-      pulse3.stopAnimation();
-      setCallDuration(0);
+      callPulse1.stopAnimation();
+      callPulse2.stopAnimation();
+      avatarScale.stopAnimation();
     }
-    return () => clearInterval(interval);
-  }, [isActive, pulse1, pulse2, pulse3, bgTransition]);
+    return () => clearInterval(timer);
+  }, [step]);
 
-  const handleStart = () => {
-    setIsActive(true);
+  const handlePressIn = () => Animated.timing(actionBtnScale, { toValue: 0.95, duration: 150, useNativeDriver: true }).start();
+  const handlePressOut = () => Animated.timing(actionBtnScale, { toValue: 1, duration: 150, useNativeDriver: true }).start();
+
+  const handleStartTask = () => setStep('mock');
+  const handleInitiateCall = () => setStep('calling');
+  
+  const handleEndCall = () => {
+    setStep('done');
+    Animated.timing(successFade, { toValue: 1, duration: 1000, useNativeDriver: true }).start(() => {
+      setTimeout(() => {
+        router.replace({ pathname: '/task-success', params: { points: '300' } } as any);
+      }, 1500);
+    });
   };
 
-  const handleComplete = () => {
-    router.replace({ pathname: '/task-success', params: { points: '300' } } as any);
-  };
+  const padZero = (num: number) => num.toString().padStart(2, '0');
+  const formattedTime = `${padZero(Math.floor(callDuration / 60))}:${padZero(callDuration % 60)}`;
 
   // Interpolations
-  const shakeInterpolate = shakeAnim.interpolate({
-    inputRange: [-1, 0, 1],
-    outputRange: ['-15deg', '0deg', '15deg']
-  });
-
-  const bgColorData = bgTransition.interpolate({
+  const bgColor = darkBgAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ['#fafafa', '#0f172a'] // light to dark slate
+    outputRange: ['#ffffff', '#0f172a'] // Transitions to dark slate for mock mock
   });
-
-  const textColorData = bgTransition.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['#111827', '#f8fafc']
-  });
-  
-  const subtitleColorData = bgTransition.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['#6b7280', '#94a3b8']
-  });
-
-  const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  };
-
-  const renderPulse = (anim: Animated.Value) => {
-    return (
-      <Animated.View style={[
-        styles.pulseRing,
-        {
-          transform: [
-            { scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.8, 2.5] }) }
-          ],
-          opacity: anim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, 0.4, 0] })
-        }
-      ]} />
-    );
-  };
 
   return (
-    <AnimatedSafeArea style={[styles.container, { backgroundColor: bgColorData }]}>
-      <StatusBar style={isActive ? "light" : "dark"} backgroundColor={isActive ? "#0f172a" : "#fafafa"} />
-      
-      <View style={[styles.headerLight, { paddingTop: Math.max(insets.top, 5) }]}>
+    <AnimatedSafeArea style={[styles.container, { backgroundColor: bgColor }]}>
+      <StatusBar style={step === 'info' ? "dark" : "light"} />
+
+      {step === 'info' && (
+        <>
+          {/* Animated Warm Gradients */}
+          <LinearGradient colors={['#fff0f5', '#ffedd5', '#ffffff']} style={StyleSheet.absoluteFillObject} />
+          <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: bgShiftAnim }]}>
+            <LinearGradient colors={['#fff7ed', '#fce7f3', '#ffffff']} style={StyleSheet.absoluteFillObject} />
+          </Animated.View>
+        </>
+      )}
+
+      {/* Header */}
+      <View style={[styles.headerLight, { paddingTop: Math.max(insets.top, 5), zIndex: 10 }]}>
         <TouchableOpacity 
-          style={[styles.backBtnLight, isActive && {backgroundColor: 'rgba(255,255,255,0.1)'}]} 
-          onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)/tasks' as any)}
+          style={[styles.backBtnLight, step !== 'info' && { backgroundColor: 'rgba(255,255,255,0.1)' }]} 
+          onPress={() => {
+            if (step === 'info') router.canGoBack() ? router.back() : router.replace('/(tabs)');
+            else setStep('info'); // go back to info
+          }}
+          disabled={step === 'done'}
         >
-          <Feather name="arrow-left" size={24} color={isActive ? "#ffffff" : "#111111"} />
+          <Feather name="arrow-left" size={24} color={step === 'info' ? "#111111" : "#ffffff"} />
         </TouchableOpacity>
-        
-        {isActive && (
-          <View style={styles.activePillHeader}>
-            <View style={styles.recordingDot} />
-            <Text style={styles.activePillText}>In Progress</Text>
-          </View>
-        )}
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Animated.View style={{ opacity: fadeAnim, width: '100%', alignItems: 'center' }}>
-          
-          <View style={styles.heroBox}>
-            {isActive && (
-              <>
-                {renderPulse(pulse1)}
-                {renderPulse(pulse2)}
-                {renderPulse(pulse3)}
-              </>
-            )}
-            
-            <Animated.View style={[
-              styles.iconWrapper, 
-              isActive ? styles.iconWrapperActive : styles.iconWrapperInactive,
-              { transform: [{ rotate: isActive ? '0deg' : shakeInterpolate }] }
-            ]}>
-              <Text style={styles.heroEmoji}>{isActive ? "🎧" : "📞"}</Text>
-            </Animated.View>
-          </View>
+      {/* INFO SCREEN STATE */}
+      {step === 'info' && (
+        <View style={styles.content}>
+          <Animated.View style={[styles.heroBox, { opacity: fadeAnimTop, transform: [{ translateY: iconFloatAnim }] }]}>
+            <View style={styles.humanIconBase}>
+              <View style={styles.humanIconGlow} />
+              <Ionicons name="people" size={54} color="#f97316" />
+            </View>
+          </Animated.View>
 
-          {isActive ? (
-            <Text style={styles.timerText}>{formatTime(callDuration)}</Text>
-          ) : (
+          <Animated.View style={{ opacity: fadeAnimText, transform: [{ translateY: translateAnimText }], alignItems: 'center', width: '100%' }}>
             <View style={styles.dayPill}>
-               <Text style={styles.dayPillText}>Light Reconnection</Text>
+               <Text style={styles.dayPillText}>Connection</Text>
             </View>
-          )}
+            <Text style={styles.mainTitle}>Call an old friend</Text>
+            <Text style={styles.subtitle}>Reach out to someone important who you haven't spoken to in a while. A simple call means everything.</Text>
 
-          <Animated.Text style={[styles.mainTitle, { color: textColorData }]}>
-            {isActive ? "Catching Up..." : "Call an old friend"}
-          </Animated.Text>
-          
-          <Animated.Text style={[styles.subtitle, { color: subtitleColorData }]}>
-            {isActive ? "It's amazing how much happens when we listen." : "Reconnect with someone you haven't spoken to in a while."}
-          </Animated.Text>
-
-          {!isActive && (
             <View style={styles.infoCard}>
-              <Text style={styles.infoTitle}>Why this matters:</Text>
-              <View style={styles.rewardRow}>
-                <Feather name="check-circle" size={18} color="#a855f7" />
-                <Text style={styles.rewardText}>Earn 300 points after completion</Text>
-              </View>
+               <Text style={styles.infoTitle}>Why this matters:</Text>
+               <View style={styles.rewardRow}>
+                  <Feather name="check-circle" size={18} color="#f97316" />
+                  <Text style={styles.rewardText}>Earn 300 points after completion</Text>
+               </View>
             </View>
-          )}
+          </Animated.View>
 
-          {isActive && (
-            <View style={styles.activeContentBox}>
-              <Text style={styles.promptsSecTitle}>Icebreakers</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cardsScroll}>
-                {[
-                  { icon: 'smile', text: "I was just thinking about you and wanted to say hi." },
-                  { icon: 'coffee', text: "It's been so long! What's new in your world?" },
-                  { icon: 'sun', text: "I missed our chats. How have you been?" }
-                ].map((item, i) => (
-                  <View key={i} style={styles.glassCard}>
-                    <Feather name={item.icon as any} size={24} color="#a855f7" style={{marginBottom: 10}} />
-                    <Text style={styles.glassCardText}>"{item.text}"</Text>
-                  </View>
-                ))}
-              </ScrollView>
-            </View>
-          )}
+          <View style={{ flex: 1 }} />
 
-        </Animated.View>
-      </ScrollView>
-
-      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-        {!isActive ? (
-          <TouchableOpacity style={styles.startButton} activeOpacity={0.85} onPress={handleStart}>
-            <LinearGradient
-               colors={['#a855f7', '#3b82f6']}
-               start={{ x: 0, y: 0 }}
-               end={{ x: 1, y: 0 }}
-               style={styles.gradientBtn}
+          <Animated.View style={{ opacity: fadeAnimText, transform: [{ scale: actionBtnScale }], width: '100%' }}>
+            <Pressable 
+              onPressIn={handlePressIn} 
+              onPressOut={handlePressOut}
+              onPress={handleStartTask}
+              style={styles.startButton}
             >
-               <Feather name="phone" size={20} color="#fff" style={{marginRight: 10}} />
-               <Text style={styles.startText}>Start Call</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity style={styles.endCallWrap} activeOpacity={0.8} onPress={handleComplete}>
-            <View style={styles.endCallBtn}>
-              <Ionicons name="call" size={28} color="#fff" style={{ transform: [{rotate: '135deg'}] }} />
-            </View>
-            <Text style={styles.endCallLabel}>End & Complete</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+               <LinearGradient colors={['#f97316', '#fbbf24']} start={{ x:0, y:0 }} end={{ x:1, y:1 }} style={styles.gradientBtn}>
+                  <Feather name="phone" size={20} color="#fff" style={{marginRight: 10}} />
+                  <Text style={styles.startText}>Start Connection</Text>
+               </LinearGradient>
+            </Pressable>
+          </Animated.View>
+        </View>
+      )}
+
+      {/* MOCK CALL & CALLING STATE */}
+      {(step === 'mock' || step === 'calling' || step === 'done') && (
+        <View style={styles.mockContainer}>
+          
+          <View style={styles.mockTopSection}>
+            <Animated.View style={[styles.avatarWrapper, { transform: [{ scale: avatarScale }] }]}>
+              {/* Pulse rings during call */}
+              {step === 'calling' && (
+                <>
+                  <Animated.View style={[styles.callPulse, { transform: [{ scale: callPulse1.interpolate({ inputRange: [0, 1], outputRange: [1, 3] }) }], opacity: callPulse1.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, 0.3, 0] }) }]} />
+                  <Animated.View style={[styles.callPulse, { transform: [{ scale: callPulse2.interpolate({ inputRange: [0, 1], outputRange: [1, 3] }) }], opacity: callPulse2.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, 0.3, 0] }) }]} />
+                </>
+              )}
+              
+              <LinearGradient colors={['#6366f1', '#a855f7']} style={styles.avatarGradient}>
+                <Feather name="user" size={60} color="#ffffff" style={{ opacity: 0.8 }} />
+              </LinearGradient>
+            </Animated.View>
+
+            <Text style={styles.mockName}>Someone you miss</Text>
+
+            {step === 'mock' && (
+              <Text style={styles.mockStatus}>Ready to reconnect?</Text>
+            )}
+
+            {step === 'calling' && (
+              <View style={styles.activeCallInfo}>
+                <Text style={styles.ringingStatus}>Calling... {formattedTime}</Text>
+                <Text style={styles.guidanceText}>Take your time. Even a short call makes a difference.</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Action Buttons */}
+          <View style={styles.mockBottomSection}>
+            {step === 'mock' && (
+              <TouchableOpacity style={[styles.actionBtn, styles.btnGreen]} onPress={handleInitiateCall}>
+                <Ionicons name="call" size={32} color="#ffffff" />
+              </TouchableOpacity>
+            )}
+
+            {step === 'calling' && (
+              <TouchableOpacity style={[styles.actionBtn, styles.btnRed]} onPress={handleEndCall}>
+                <Ionicons name="call" size={32} color="#ffffff" style={{ transform: [{ rotate: '135deg' }] }} />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* SUCCESS OVERLAY */}
+          {step === 'done' && (
+            <Animated.View style={[StyleSheet.absoluteFillObject, styles.successOverlay, { opacity: successFade }]}>
+               <Text style={styles.successEmoji}>🤝</Text>
+               <Text style={styles.successMessage}>Nice, you reconnected</Text>
+            </Animated.View>
+          )}
+
+        </View>
+      )}
+
     </AnimatedSafeArea>
   );
 }
@@ -273,123 +265,225 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerLight: {
-    paddingBottom: 5,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 20,
-    zIndex: 10,
   },
   backBtnLight: {
     padding: 8,
     borderRadius: 20,
     backgroundColor: '#f3f4f6', 
   },
-  activePillHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 15,
-  },
-  recordingDot: {
-    width: 8, height: 8, borderRadius: 4, backgroundColor: '#ef4444', marginRight: 6
-  },
-  activePillText: {
-    color: '#fff', fontSize: 13, fontWeight: '600'
-  },
   content: {
-    flexGrow: 1,
+    flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 10,
-    alignItems: 'center',
+    paddingTop: 30,
     paddingBottom: 40,
+    alignItems: 'center',
   },
   heroBox: {
-    height: 180,
+    height: 160,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
+    marginBottom: 10,
   },
-  iconWrapper: {
-    width: 100, height: 100, borderRadius: 50, alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#a855f7', shadowOpacity: 0.2, shadowRadius: 20, shadowOffset: { width: 0, height: 10 },
-    zIndex: 5, backgroundColor: '#fff',
+  humanIconBase: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#f97316',
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 10 },
   },
-  iconWrapperInactive: {
-    backgroundColor: '#ffffff',
-  },
-  iconWrapperActive: {
-    backgroundColor: 'rgba(168, 85, 247, 0.2)',
-    borderWidth: 1, borderColor: 'rgba(168, 85, 247, 0.5)'
-  },
-  heroEmoji: {
-    fontSize: 50, 
-  },
-  pulseRing: {
-    position: 'absolute',
-    width: 100, height: 100, borderRadius: 50,
-    backgroundColor: '#a855f7',
-    zIndex: 1,
-  },
-  timerText: {
-    fontSize: 48, fontWeight: '200', color: '#f8fafc', marginBottom: 15, fontVariant: ['tabular-nums']
+  humanIconGlow: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 60,
+    backgroundColor: '#ffedd5',
+    opacity: 0.5,
+    transform: [{ scale: 1.2 }],
   },
   dayPill: {
-    backgroundColor: '#f3e8ff', paddingVertical: 6, paddingHorizontal: 20, borderRadius: 20, marginBottom: 20,
+    backgroundColor: '#ffedd5', 
+    paddingVertical: 6, 
+    paddingHorizontal: 20, 
+    borderRadius: 20, 
+    marginBottom: 20,
   },
   dayPillText: {
-    color: '#a855f7', fontWeight: '600', fontSize: 14,
+    color: '#ea580c', 
+    fontWeight: '600', 
+    fontSize: 14,
   },
   mainTitle: {
-    fontSize: 28, fontWeight: '600', textAlign: 'center', marginBottom: 10, lineHeight: 34,
+    fontSize: 28, 
+    fontWeight: '600', 
+    color: '#111111', 
+    textAlign: 'center', 
+    marginBottom: 12,
   },
   subtitle: {
-    fontSize: 15, textAlign: 'center', marginBottom: 30, paddingHorizontal: 10,
+    fontSize: 15, 
+    color: '#6b7280', 
+    textAlign: 'center', 
+    lineHeight: 22,
+    marginBottom: 40,
   },
   infoCard: {
-    width: '100%', backgroundColor: '#faf5ff', borderRadius: 16, padding: 24, borderWidth: 1, borderColor: '#e9d5ff', 
+    width: '100%', 
+    backgroundColor: 'rgba(255, 255, 255, 0.7)', 
+    borderRadius: 16, 
+    padding: 24, 
+    borderWidth: 1, 
+    borderColor: 'rgba(253, 186, 116, 0.3)', 
   },
   infoTitle: {
-    fontSize: 16, color: '#1f2937', marginBottom: 16, fontWeight: '500',
+    fontSize: 16, 
+    color: '#1f2937', 
+    marginBottom: 16, 
+    fontWeight: '500',
   },
   rewardRow: {
-    flexDirection: 'row', alignItems: 'center',
+    flexDirection: 'row', 
+    alignItems: 'center',
   },
   rewardText: {
-    marginLeft: 10, color: '#9333ea', fontSize: 14, fontWeight: '500',
-  },
-  activeContentBox: { width: '100%', marginTop: 20 },
-  promptsSecTitle: { fontSize: 18, color: '#fff', fontWeight: '600', marginBottom: 15, marginLeft: 5 },
-  cardsScroll: { paddingRight: 20, gap: 15 },
-  glassCard: {
-    width: width * 0.6,
-    backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 16, padding: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)',
-    marginRight: 15
-  },
-  glassCardText: { color: '#f8fafc', fontSize: 15, lineHeight: 22, fontStyle: 'italic' },
-  footer: {
-    paddingHorizontal: 24, paddingTop: 10,
+    marginLeft: 10, 
+    color: '#ea580c', 
+    fontSize: 14, 
+    fontWeight: '500',
   },
   startButton: {
-    width: '100%', height: 60, borderRadius: 30, overflow: 'hidden',
-    shadowColor: '#3b82f6', shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 5,
+    width: '100%', 
+    height: 60, 
+    borderRadius: 30, 
+    overflow: 'hidden',
+    shadowColor: '#ea580c', 
+    shadowOpacity: 0.3, 
+    shadowRadius: 15, 
+    shadowOffset: { width: 0, height: 8 }, 
+    elevation: 5,
   },
   gradientBtn: {
-    flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
+    flex: 1, 
+    flexDirection: 'row', 
+    justifyContent: 'center', 
+    alignItems: 'center',
   },
   startText: {
-    color: '#ffffff', fontSize: 18, fontWeight: '600',
+    color: '#ffffff', 
+    fontSize: 18, 
+    fontWeight: '600',
   },
-  endCallWrap: {
-    alignItems: 'center', justifyContent: 'center', marginBottom: 10
-  },
-  endCallBtn: {
-    width: 70, height: 70, borderRadius: 35, backgroundColor: '#ef4444', alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#ef4444', shadowOpacity: 0.4, shadowRadius: 15, shadowOffset: { width: 0, height: 6 }, elevation: 8,
-    marginBottom: 10
-  },
-  endCallLabel: { color: '#ef4444', fontWeight: '600', fontSize: 15 }
-});
 
+  // MOCK CALL UI STYLES
+  mockContainer: {
+    flex: 1,
+    justifyContent: 'space-between',
+    paddingBottom: 60,
+  },
+  mockTopSection: {
+    alignItems: 'center',
+    paddingTop: height * 0.1,
+  },
+  avatarWrapper: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    marginBottom: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarGradient: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#a855f7',
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 10 },
+    zIndex: 2,
+  },
+  callPulse: {
+    position: 'absolute',
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: '#8b5cf6',
+    zIndex: 1,
+  },
+  mockName: {
+    fontSize: 28,
+    fontWeight: '400',
+    color: '#f8fafc',
+    marginBottom: 10,
+  },
+  mockStatus: {
+    fontSize: 18,
+    color: '#94a3b8',
+    fontWeight: '300',
+  },
+  activeCallInfo: {
+    alignItems: 'center',
+    paddingHorizontal: 30,
+  },
+  ringingStatus: {
+    fontSize: 18,
+    fontWeight: '400',
+    color: '#10b981', // green tint indicating active
+    marginBottom: 20,
+    fontVariant: ['tabular-nums'],
+  },
+  guidanceText: {
+    fontSize: 15,
+    color: '#cbd5e1',
+    textAlign: 'center',
+    lineHeight: 24,
+    fontStyle: 'italic',
+  },
+  mockBottomSection: {
+    alignItems: 'center',
+  },
+  actionBtn: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 8,
+  },
+  btnGreen: {
+    backgroundColor: '#10b981',
+    shadowColor: '#10b981',
+    shadowOpacity: 0.4,
+    shadowRadius: 15,
+    shadowOffset: { width: 0, height: 8 },
+  },
+  btnRed: {
+    backgroundColor: '#ef4444',
+    shadowColor: '#ef4444',
+    shadowOpacity: 0.4,
+    shadowRadius: 15,
+    shadowOffset: { width: 0, height: 8 },
+  },
+  successOverlay: {
+    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100,
+  },
+  successEmoji: {
+    fontSize: 60,
+    marginBottom: 20,
+  },
+  successMessage: {
+    fontSize: 26,
+    fontWeight: '500',
+    color: '#f8fafc',
+  }
+});

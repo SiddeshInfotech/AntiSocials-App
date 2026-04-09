@@ -235,7 +235,7 @@ export default function TaskSuccessScreen() {
 
         {/* Buttons */}
         <Animated.View style={[styles.btnArea, { opacity: btnOpacity, transform: [{ translateY: btnSlide }] }]}>
-          <TouchableOpacity activeOpacity={0.85} onPress={() => router.replace('/(tabs)/tasks' as any)}>
+          <TouchableOpacity activeOpacity={0.85} onPress={() => router.replace('/(tabs)')}>
             <LinearGradient
               colors={['#a855f7', '#6366f1']}
               start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
@@ -407,4 +407,3 @@ const styles = StyleSheet.create({
   },
   secondaryBtnText: { color: '#94a3b8', fontSize: 16, fontWeight: '600' },
 });
-

@@ -10,6 +10,11 @@ export default function LoginScreen() {
   const router = useRouter();
   const [phoneNumber, setPhoneNumber] = useState('');
 
+  const handlePhoneChange = (text: string) => {
+    const numericValue = text.replace(/[^0-9]/g, '');
+    setPhoneNumber(numericValue);
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
@@ -51,9 +56,9 @@ export default function LoginScreen() {
                 style={styles.inputField}
                 placeholder="12345 67890"
                 placeholderTextColor="#A1A1AA"
-                keyboardType="phone-pad"
+                keyboardType="number-pad"
                 value={phoneNumber}
-                onChangeText={setPhoneNumber}
+                onChangeText={handlePhoneChange}
                 maxLength={10}
               />
             </View>

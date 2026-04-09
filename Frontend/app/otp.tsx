@@ -30,12 +30,16 @@ export default function OTPScreen() {
   };
 
   const handleChange = (text: string, index: number) => {
+    // Filter out any non-numeric characters
+    const numericValue = text.replace(/[^0-9]/g, '');
+    
+    // Only update if it's empty (cleared) or a valid number
     const newOtp = [...otp];
-    newOtp[index] = text;
+    newOtp[index] = numericValue;
     setOtp(newOtp);
 
-    // Auto focus next input
-    if (text && index < 5) {
+    // Auto focus next input if digit entered
+    if (numericValue && index < 5) {
       inputs.current[index + 1]?.focus();
     }
   };
