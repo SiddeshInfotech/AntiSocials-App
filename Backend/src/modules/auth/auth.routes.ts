@@ -1,8 +1,10 @@
 import { Router } from "express";
+import { requireAuth } from "../../middleware/auth";
 import { authRateLimit, otpRateLimit } from "../../middleware/rate-limit";
 import { validate } from "../../middleware/validate";
 import {
   loginEmailController,
+  logoutController,
   registerEmailController,
   sendOtpController,
   verifyOtpController,
@@ -41,3 +43,5 @@ authRouter.post(
   validate(verifyOtpSchema),
   verifyOtpController,
 );
+
+authRouter.post("/logout", requireAuth, logoutController);
