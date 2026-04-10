@@ -3,6 +3,7 @@ import { requireAuth } from "../../middleware/auth";
 import { authRateLimit, otpRateLimit } from "../../middleware/rate-limit";
 import { validate } from "../../middleware/validate";
 import {
+  completeSignupController,
   loginEmailController,
   logoutController,
   registerEmailController,
@@ -10,6 +11,7 @@ import {
   verifyOtpController,
 } from "./auth.controller";
 import {
+  completeSignupSchema,
   loginEmailSchema,
   registerEmailSchema,
   sendOtpSchema,
@@ -42,6 +44,14 @@ authRouter.post(
   otpRateLimit,
   validate(verifyOtpSchema),
   verifyOtpController,
+);
+
+authRouter.post(
+  "/complete-signup",
+  requireAuth,
+  authRateLimit,
+  validate(completeSignupSchema),
+  completeSignupController,
 );
 
 authRouter.post("/logout", requireAuth, logoutController);

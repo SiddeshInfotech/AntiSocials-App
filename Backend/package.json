@@ -15,7 +15,8 @@
     "smoke:cycle": "node smoke-cycle.js",
     "smoke:volunteer": "node smoke-volunteer.js",
     "smoke:categories": "node smoke-categories.js",
-    "smoke:profile": "node smoke-profile.js"
+    "smoke:profile": "node smoke-profile.js",
+    "smoke:signup-onboarding": "node smoke-signup-onboarding.js"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

@@ -55,5 +55,17 @@ export const patchProfileSchema = z.object({
     }),
 });
 
+export const onboardingInterestsSchema = z.object({
+  body: z.object({
+    interests: z
+      .array(z.string().min(1, "Interest cannot be empty"))
+      .min(3, "Please select at least 3 interests")
+      .optional(),
+  }),
+});
+
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>["body"];
 export type PatchProfileInput = z.infer<typeof patchProfileSchema>["body"];
+export type OnboardingInterestsInput = z.infer<
+  typeof onboardingInterestsSchema
+>["body"];

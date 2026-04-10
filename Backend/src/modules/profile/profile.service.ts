@@ -1,7 +1,11 @@
 import { prisma } from "../../lib/prisma";
 import { AppError } from "../../middleware/error-handler";
 import { validateImage } from "../../utils/imageValidation";
-import { PatchProfileInput, UpdateProfileInput } from "./profile.schema";
+import {
+  OnboardingInterestsInput,
+  PatchProfileInput,
+  UpdateProfileInput,
+} from "./profile.schema";
 
 const profileSelect = {
   id: true,
@@ -121,4 +125,50 @@ export async function getUserProfile(userId: string): Promise<any> {
   }
 
   return user;
+}
+
+export async function patchOnboardingInterests(
+  userId: string,
+  input: OnboardingInterestsInput,
+): Promise<any> {
+  const currentUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      interests: true,
+    },
+  });
+
+  if (!currentUser) {
+    throw new AppError("User not found", 404);
+  }
+
+  if (!input.interests) {
+    if (currentUser.interests.length >= 3) {
+      return prisma.user.findUnique({
+        where: { id: userId },
+        select: profileSelect,
+      });
+    }
+
+    throw new AppError("Please select at least 3 interests", 400);
+  }
+
+  const normalizedInterests = input.interests.map((interest) =>
+    interest.trim(),
+  );
+
+  const uniqueInterests = Array.from(new Set(normalizedInterests));
+
+  if (uniqueInterests.length < 3) {
+    throw new AppError("Please select at least 3 unique interests", 400);
+  }
+
+  return prisma.user.update({
+    where: { id: userId },
+    data: {
+      interests: uniqueInterests,
+    },
+    select: profileSelect,
+  });
 }

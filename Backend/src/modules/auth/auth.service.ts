@@ -3,6 +3,7 @@ import { env } from "../../config/env";
 import { sendWhatsAppOtp } from "../../integrations/whatsapp";
 import { prisma } from "../../lib/prisma";
 import { AppError } from "../../middleware/error-handler";
+import { validateImage } from "../../utils/imageValidation";
 import { signAccessToken } from "../../utils/jwt";
 import {
   generateOtp,
@@ -11,11 +12,23 @@ import {
 } from "../../utils/otp";
 import { comparePassword, hashPassword } from "../../utils/password";
 import {
+  CompleteSignupInput,
   LoginEmailInput,
   RegisterEmailInput,
   SendOtpInput,
   VerifyOtpInput,
 } from "./auth.schema";
+
+const authProfileSelect = {
+  id: true,
+  name: true,
+  username: true,
+  profilePhoto: true,
+  profession: true,
+  about: true,
+  interests: true,
+  isProfileComplete: true,
+};
 
 async function initializeUserDefaults(
   tx: Prisma.TransactionClient,
@@ -44,7 +57,7 @@ async function initializeUserDefaults(
 
 export async function registerWithEmail(
   input: RegisterEmailInput,
-): Promise<{ accessToken: string }> {
+): Promise<{ accessToken: string; isProfileComplete: boolean }> {
   const normalizedEmail = input.email.toLowerCase().trim();
 
   const existing = await prisma.user.findUnique({
@@ -81,7 +94,10 @@ export async function registerWithEmail(
     },
   );
 
-  return { accessToken: signAccessToken(user.id) };
+  return {
+    accessToken: signAccessToken(user.id),
+    isProfileComplete: user.isProfileComplete,
+  };
 }
 
 export async function sendOtpForPhoneLogin(
@@ -149,9 +165,11 @@ export async function sendOtpForPhoneLogin(
   return { resendAfterSeconds: env.OTP_RESEND_COOLDOWN_SECONDS };
 }
 
-export async function verifyPhoneOtpAndLogin(
-  input: VerifyOtpInput,
-): Promise<{ accessToken: string; isNewUser: boolean }> {
+export async function verifyPhoneOtpAndLogin(input: VerifyOtpInput): Promise<{
+  accessToken: string;
+  isNewUser: boolean;
+  isProfileComplete: boolean;
+}> {
   const normalizedPhone = input.phone.trim();
   const otpRecord = await prisma.oTPVerification.findFirst({
     where: {
@@ -237,12 +255,13 @@ export async function verifyPhoneOtpAndLogin(
   return {
     accessToken: signAccessToken(user.user.id),
     isNewUser: user.isNewUser,
+    isProfileComplete: user.user.isProfileComplete,
   };
 }
 
 export async function loginWithEmail(
   input: LoginEmailInput,
-): Promise<{ accessToken: string }> {
+): Promise<{ accessToken: string; isProfileComplete: boolean }> {
   const normalizedEmail = input.email.toLowerCase().trim();
 
   const user = await prisma.user.findUnique({
@@ -259,7 +278,64 @@ export async function loginWithEmail(
     throw new AppError("Invalid credentials", 401);
   }
 
-  return { accessToken: signAccessToken(user.id) };
+  return {
+    accessToken: signAccessToken(user.id),
+    isProfileComplete: user.isProfileComplete,
+  };
+}
+
+export async function completeSignupAfterAuth(
+  userId: string,
+  input: CompleteSignupInput,
+): Promise<any> {
+  const currentUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { username: true, isProfileComplete: true },
+  });
+
+  if (!currentUser) {
+    throw new AppError("User not found", 404);
+  }
+
+  const existingUsername = await prisma.user.findFirst({
+    where: {
+      username: input.username,
+      NOT: { id: userId },
+    },
+  });
+
+  if (existingUsername) {
+    throw new AppError("Username is already taken", 409);
+  }
+
+  if (
+    currentUser.username &&
+    currentUser.username !== input.username &&
+    currentUser.isProfileComplete
+  ) {
+    throw new AppError(
+      "Username cannot be changed after profile is created",
+      400,
+    );
+  }
+
+  if (input.profilePhoto?.startsWith("data:image/")) {
+    validateImage(input.profilePhoto);
+  }
+
+  return prisma.user.update({
+    where: { id: userId },
+    data: {
+      name: input.name,
+      username: input.username,
+      profession: input.profession,
+      about: input.about,
+      profilePhoto: input.profilePhoto,
+      timezone: input.timezone,
+      isProfileComplete: true,
+    },
+    select: authProfileSelect,
+  });
 }
 
 export async function logoutCurrentSession(input: {

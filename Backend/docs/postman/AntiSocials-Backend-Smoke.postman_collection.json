@@ -115,7 +115,60 @@
                   "}",
                   "if (json && json.data && typeof json.data.isNewUser !== 'undefined') {",
                   "  pm.environment.set('isNewUser', String(json.data.isNewUser));",
+                  "}",
+                  "if (json && json.data && typeof json.data.isProfileComplete !== 'undefined') {",
+                  "  pm.environment.set('isProfileComplete', String(json.data.isProfileComplete));",
                   "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST Complete Signup",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"{{profileName}}\",\n  \"username\": \"{{signupUsername}}\",\n  \"profession\": \"{{profileProfession}}\",\n  \"about\": \"{{profileBio}}\",\n  \"profilePhoto\": \"{{photoBase64}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/complete-signup",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "complete-signup"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Complete signup status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test('Complete signup success true', function () {",
+                  "  pm.expect(json.success).to.eql(true);",
+                  "});",
+                  "pm.test('Profile marked complete', function () {",
+                  "  pm.expect(json.data.isProfileComplete).to.eql(true);",
+                  "});",
+                  "if (json && json.data && json.data.username) {",
+                  "  pm.environment.set('signupUsername', json.data.username);",
+                  "}",
+                  "pm.environment.set('isProfileComplete', 'true');"
                 ]
               }
             }
@@ -582,6 +635,92 @@
                 "exec": [
                   "pm.test('Patch profile photo status is 200', function () {",
                   "  pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH Onboarding Interests",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"interests\": [\"Health\", \"Learning\", \"Community\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/profile/interests",
+              "host": ["{{baseUrl}}"],
+              "path": ["profile", "interests"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Onboarding interests status is 200', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test('Onboarding interests success true', function () {",
+                  "  pm.expect(json.success).to.eql(true);",
+                  "});",
+                  "pm.test('Interests contain at least 3 items', function () {",
+                  "  pm.expect(json.data.interests).to.be.an('array');",
+                  "  pm.expect(json.data.interests.length).to.be.at.least(3);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH Onboarding Interests (Expect 400 if <3)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"interests\": [\"Health\", \"Learning\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/profile/interests",
+              "host": ["{{baseUrl}}"],
+              "path": ["profile", "interests"]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Onboarding interests with <3 returns 400', function () {",
+                  "  pm.response.to.have.status(400);",
                   "});"
                 ]
               }
