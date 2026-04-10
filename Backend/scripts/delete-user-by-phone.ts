@@ -161,7 +161,9 @@ async function main() {
   });
 
   const remainingUsers = await prisma.user.count({ where: userWhere });
-  const remainingOtpRows = await prisma.oTPVerification.count({ where: otpWhere });
+  const remainingOtpRows = await prisma.oTPVerification.count({
+    where: otpWhere,
+  });
 
   console.log("Deletion complete:", result);
   console.log("Post-check remaining users:", remainingUsers);
