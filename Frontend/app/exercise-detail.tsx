@@ -7,8 +7,8 @@ import {
   Animated,
   Dimensions,
   TouchableOpacity,
-  ImageBackground,
   Platform,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, FontAwesome5 } from '@expo/vector-icons';
@@ -16,7 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useNavigation } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
-import YoutubePlayer from 'react-native-youtube-iframe';
+import RealisticExercise from '../components/RealisticExercise';
 
 const { width } = Dimensions.get('window');
 const PRIMARY = '#ff3b30';
@@ -88,13 +88,58 @@ const EXERCISES = [
   },
 ];
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+const ExerciseCard = ({ ex, isDone, onPress }: any) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  return (
+    <AnimatedPressable
+      onPressIn={() => Animated.spring(scaleAnim, { toValue: 0.96, useNativeDriver: true }).start()}
+      onPressOut={() => Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true }).start()}
+      onPress={onPress}
+      style={[styles.exCard, isDone && styles.exCardDone, { transform: [{ scale: scaleAnim }] }]}
+    >
+      {/* ── Background Animation layer ── */}
+      <View style={[StyleSheet.absoluteFillObject, { borderRadius: 20, overflow: 'hidden', backgroundColor: '#0a0a0f' }]}>
+        <RealisticExercise exerciseId={ex.id} isCard={true} width="100%" height="100%" />
+      </View>
+      
+      {/* ── Content Layer ── */}
+      <View style={styles.exGrad}>
+        <View style={styles.badgeRow}>
+          <View style={styles.exBadge}><Text style={styles.exBadgeTxt}>5 MIN</Text></View>
+          {isDone && (
+            <View style={styles.doneBadge}>
+              <Feather name="check-circle" size={14} color="#000" />
+              <Text style={styles.doneBadgeTxt}>DONE</Text>
+            </View>
+          )}
+        </View>
+        
+        <View style={{ flex: 1 }} />
+        
+        <Text style={styles.exTitle}>{ex.name}</Text>
+        <Text style={styles.exDesc}>{ex.desc}</Text>
+        <View style={styles.exChips}>
+          <View style={styles.iconTxt}><FontAwesome5 name="fire-alt" size={12} color={PRIMARY} /><Text style={styles.iconVal}>{ex.cal}</Text></View>
+          <View style={[styles.iconTxt, { marginLeft: 15 }]}><Feather name="bar-chart-2" size={14} color="#a1a1aa" /><Text style={styles.iconVal}>{ex.diff}</Text></View>
+        </View>
+        <View style={[styles.cardCta, isDone && styles.cardCtaDone]}>
+          <Text style={[styles.cardCtaTxt, isDone && { color: '#fff' }]}>{isDone ? 'COMPLETED' : 'START WORKOUT'}</Text>
+          <Feather name={isDone ? 'check' : 'arrow-right'} size={16} color={isDone ? '#fff' : '#000'} />
+        </View>
+      </View>
+    </AnimatedPressable>
+  );
+};
+
 export default function PremiumFitnessFlowScreen() {
   const router = useRouter();
   const navigation = useNavigation();
 
   const [phase, setPhase] = useState<Phase>('HOME');
   const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(null);
-  const [ytPlaying, setYtPlaying] = useState(false);
   const [completedExercises, setCompletedExercises] = useState<Set<string>>(new Set());
 
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -123,7 +168,6 @@ export default function PremiumFitnessFlowScreen() {
 
   // ─── Actions ───
   const handleGoHome = () => {
-    setYtPlaying(false);
     fadeAnim.setValue(1);
     slideAnim.setValue(0);
     setPhase('HOME');
@@ -131,7 +175,6 @@ export default function PremiumFitnessFlowScreen() {
 
   const handleMarkComplete = () => {
     if (!selectedExerciseId) return;
-    setYtPlaying(false);
     setCompletedExercises(prev => {
       const next = new Set(prev);
       next.add(selectedExerciseId);
@@ -180,40 +223,15 @@ export default function PremiumFitnessFlowScreen() {
               {EXERCISES.map((ex) => {
                 const isDone = completedExercises.has(ex.id);
                 return (
-                  <TouchableOpacity
+                  <ExerciseCard
                     key={ex.id}
-                    style={[styles.exCard, isDone && styles.exCardDone]}
-                    activeOpacity={0.9}
+                    ex={ex}
+                    isDone={isDone}
                     onPress={() => {
                       setSelectedExerciseId(ex.id);
-                      setYtPlaying(false);
                       triggerTransition(() => setPhase('WORKOUT'));
                     }}
-                  >
-                    <ImageBackground source={{ uri: ex.img }} style={styles.exImg} imageStyle={{ borderRadius: 20 }}>
-                      <LinearGradient colors={['transparent', 'rgba(0,0,0,0.95)']} style={styles.exGrad}>
-                        <View style={styles.badgeRow}>
-                          <View style={styles.exBadge}><Text style={styles.exBadgeTxt}>5 MIN</Text></View>
-                          {isDone && (
-                            <View style={styles.doneBadge}>
-                              <Feather name="check-circle" size={14} color="#000" />
-                              <Text style={styles.doneBadgeTxt}>DONE</Text>
-                            </View>
-                          )}
-                        </View>
-                        <Text style={styles.exTitle}>{ex.name}</Text>
-                        <Text style={styles.exDesc}>{ex.desc}</Text>
-                        <View style={styles.exChips}>
-                          <View style={styles.iconTxt}><FontAwesome5 name="fire-alt" size={12} color={PRIMARY} /><Text style={styles.iconVal}>{ex.cal}</Text></View>
-                          <View style={[styles.iconTxt, { marginLeft: 15 }]}><Feather name="bar-chart-2" size={14} color="#a1a1aa" /><Text style={styles.iconVal}>{ex.diff}</Text></View>
-                        </View>
-                        <View style={[styles.cardCta, isDone && styles.cardCtaDone]}>
-                          <Text style={[styles.cardCtaTxt, isDone && { color: '#fff' }]}>{isDone ? 'COMPLETED' : 'START WORKOUT'}</Text>
-                          <Feather name={isDone ? 'check' : 'arrow-right'} size={16} color={isDone ? '#fff' : '#000'} />
-                        </View>
-                      </LinearGradient>
-                    </ImageBackground>
-                  </TouchableOpacity>
+                  />
                 );
               })}
             </View>
@@ -242,31 +260,15 @@ export default function PremiumFitnessFlowScreen() {
           <View style={styles.spacer} />
         </SafeAreaView>
 
-        {/* ── Video Player ── */}
+        {/* ── Exercise Animation ── */}
         <View style={styles.videoOuter}>
           <View style={styles.videoCard}>
-            {selectedEx?.ytCode && (
-              <YoutubePlayer
-                key={selectedEx.ytCode}
-                height={Math.round((width - 32) * 9 / 16)}
+            {selectedEx && (
+              <RealisticExercise
+                key={selectedEx.id}
+                exerciseId={selectedEx.id}
                 width={width - 32}
-                play={ytPlaying}
-                videoId={selectedEx.ytCode}
-                onChangeState={(state: string) => {
-                  if (state === 'ended') setYtPlaying(false);
-                }}
-                initialPlayerParams={{
-                  controls: true,
-                  modestbranding: true,
-                  rel: false,
-                  preventFullScreen: true,
-                }}
-                webViewProps={{
-                  allowsInlineMediaPlayback: true,
-                  mediaPlaybackRequiresUserAction: false,
-                  setSupportMultipleWindows: false,
-                }}
-                webViewStyle={{ borderRadius: 16, opacity: 0.99 }}
+                height={Math.round((width - 32) * 9 / 16)}
               />
             )}
           </View>
@@ -358,9 +360,8 @@ const styles = StyleSheet.create({
   scrollPad: { paddingBottom: 50 },
   hugeHeader: { color: '#fff', fontSize: 38, fontWeight: '900', paddingHorizontal: 20, marginTop: 10, marginBottom: 25, lineHeight: 45 },
   grid: { paddingHorizontal: 20, gap: 25 },
-  exCard: { width: '100%', height: 320, borderRadius: 20, shadowColor: PRIMARY, shadowOpacity: 0.15, shadowRadius: 20, elevation: 10 },
-  exImg: { width: '100%', height: '100%', justifyContent: 'flex-end' },
-  exGrad: { padding: 25, paddingTop: 60, borderRadius: 20 },
+  exCard: { width: '100%', height: 320, borderRadius: 20, shadowColor: PRIMARY, shadowOpacity: 0.15, shadowRadius: 20, elevation: 10, backgroundColor: '#111' },
+  exGrad: { flex: 1, padding: 25, paddingTop: 25, borderRadius: 20 },
   exBadge: { alignSelf: 'flex-start', backgroundColor: PRIMARY, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, marginBottom: 15 },
   exBadgeTxt: { color: '#fff', fontSize: 12, fontWeight: '900', letterSpacing: 1 },
   exTitle: { color: '#fff', fontSize: 26, fontWeight: '900', marginBottom: 8 },
