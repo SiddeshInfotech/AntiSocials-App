@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   Platform,
   Pressable,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, FontAwesome5 } from '@expo/vector-icons';
@@ -151,8 +152,9 @@ export default function PremiumFitnessFlowScreen() {
     navigation.setOptions({
       contentStyle: { backgroundColor: BG },
       animation: 'fade',
+      gestureEnabled: phase === 'HOME', // Prevent iOS edge-swipe escaping during workout
     });
-  }, [navigation]);
+  }, [navigation, phase]);
 
   // ─── Transition helper ───
   const triggerTransition = useCallback((callback: () => void) => {
@@ -167,11 +169,24 @@ export default function PremiumFitnessFlowScreen() {
   }, [fadeAnim, slideAnim]);
 
   // ─── Actions ───
-  const handleGoHome = () => {
+  const handleGoHome = useCallback(() => {
     fadeAnim.setValue(1);
     slideAnim.setValue(0);
     setPhase('HOME');
-  };
+  }, [fadeAnim, slideAnim]);
+
+  // Intercept hardware Android back button to return to internal HOME phase
+  useEffect(() => {
+    const onBackPress = () => {
+      if (phase === 'WORKOUT') {
+        handleGoHome();
+        return true; // prevent default routing out
+      }
+      return false; // let react navigation handle back to start-exercise
+    };
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => subscription.remove();
+  }, [phase, handleGoHome]);
 
   const handleMarkComplete = () => {
     if (!selectedExerciseId) return;

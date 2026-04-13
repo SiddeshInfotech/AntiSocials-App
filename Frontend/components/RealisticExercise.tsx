@@ -1,12 +1,12 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated } from 'react-native';
+import { View, StyleSheet, Animated, DimensionValue } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { LinearGradient } from 'expo-linear-gradient';
 
 interface Props {
   exerciseId?: string;
-  width?: number | string;
-  height?: number | string;
+  width?: DimensionValue;
+  height?: DimensionValue;
   isCard?: boolean;
 }
 
@@ -14,9 +14,9 @@ interface Props {
 // It is HIGHLY RECOMMENDED to download your MP4 files and require them locally:
 // Example: '1': require('../assets/videos/jumping_jacks.mp4'),
 const EXERCISE_VIDEOS: Record<string, string | any> = {
-  '1': 'https://d23dyxeqlo5psv.cloudfront.net/big_buck_bunny.mp4', // TEST VIDEO - Swap for require()
-  '2': 'https://d23dyxeqlo5psv.cloudfront.net/big_buck_bunny.mp4', 
-  '3': 'https://d23dyxeqlo5psv.cloudfront.net/big_buck_bunny.mp4', 
+  '1': require('../assets/videos/Jumping_Jacks_Workout_Video.mp4'), // Jumping Jacks / Cardio
+  '2': require('../assets/videos/Squat_Form_Demonstration_Video.mp4'), // Squats
+  '3': require('../assets/videos/Push_Up_Workout_Video.mp4'), // Push-Ups
   '4': 'https://d23dyxeqlo5psv.cloudfront.net/big_buck_bunny.mp4', 
   '5': 'https://d23dyxeqlo5psv.cloudfront.net/big_buck_bunny.mp4', 
   '6': 'https://d23dyxeqlo5psv.cloudfront.net/big_buck_bunny.mp4', 
