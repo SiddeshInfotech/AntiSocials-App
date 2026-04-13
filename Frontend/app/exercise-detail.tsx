@@ -57,7 +57,7 @@ const EXERCISES = [
     ],
   },
   {
-    id: '4', name: 'High Knees', ytCode: 'DsNk82RhE_c',
+    id: '4', name: 'High Knees', ytCode: '6O5DoBKjmLs',
     desc: 'High intensity core and cardio', cal: '70 Kcal', diff: 'Intermediate',
     img: 'https://images.unsplash.com/photo-1538805060514-97d9cc17730c?q=80&w=500',
     tips: ['Lift knees high', 'Pump your arms', 'Move in controlled form'],
@@ -245,19 +245,30 @@ export default function PremiumFitnessFlowScreen() {
         {/* ── Video Player ── */}
         <View style={styles.videoOuter}>
           <View style={styles.videoCard}>
-            <YoutubePlayer
-              height={Math.round((width - 32) * 9 / 16)}
-              width={width - 32}
-              play={ytPlaying}
-              videoId={selectedEx?.ytCode}
-              initialPlayerParams={{
-                controls: true,
-                rel: false,
-                modestbranding: true,
-                cc_load_policy: 0,
-              }}
-              webViewStyle={{ borderRadius: 16, opacity: 0.99 }}
-            />
+            {selectedEx?.ytCode && (
+              <YoutubePlayer
+                key={selectedEx.ytCode}
+                height={Math.round((width - 32) * 9 / 16)}
+                width={width - 32}
+                play={ytPlaying}
+                videoId={selectedEx.ytCode}
+                onChangeState={(state: string) => {
+                  if (state === 'ended') setYtPlaying(false);
+                }}
+                initialPlayerParams={{
+                  controls: true,
+                  modestbranding: true,
+                  rel: false,
+                  preventFullScreen: true,
+                }}
+                webViewProps={{
+                  allowsInlineMediaPlayback: true,
+                  mediaPlaybackRequiresUserAction: false,
+                  setSupportMultipleWindows: false,
+                }}
+                webViewStyle={{ borderRadius: 16, opacity: 0.99 }}
+              />
+            )}
           </View>
         </View>
 

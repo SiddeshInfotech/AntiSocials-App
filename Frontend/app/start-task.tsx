@@ -1,151 +1,161 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import { LinearGradient } from 'expo-linear-gradient';
 
-/**
- * Start Task Screen
- * This component introduces the task to the user and displays instructions.
- * Path: Frontend/app/start-task.tsx
- */
+const { width, height } = Dimensions.get('window');
+
 export default function StartTaskScreen() {
   const router = useRouter();
 
-  // --- Animation Hooks ---
+  // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
   const btnScale = useRef(new Animated.Value(1)).current;
+  const bgScaleAnim = useRef(new Animated.Value(1)).current;
 
-  // Run screen entrance animation on mount
   useEffect(() => {
+    // Cinematic entrance
     Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-      Animated.spring(slideAnim, {
-        toValue: 0,
-        friction: 8,
-        tension: 40,
-        useNativeDriver: true,
-      })
+      Animated.timing(fadeAnim, { toValue: 1, duration: 1500, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 1200, useNativeDriver: true })
     ]).start();
+
+    // Slow cinematic background zoom
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(bgScaleAnim, { toValue: 1.05, duration: 25000, useNativeDriver: true }),
+        Animated.timing(bgScaleAnim, { toValue: 1, duration: 25000, useNativeDriver: true })
+      ])
+    ).start();
   }, []);
 
-  // Interactive Button animations
-  const handlePressIn = () => {
-    Animated.spring(btnScale, { toValue: 0.95, useNativeDriver: true }).start();
-  };
+  const handlePressIn = () => Animated.timing(btnScale, { toValue: 0.96, duration: 150, useNativeDriver: true }).start();
+  const handlePressOut = () => Animated.timing(btnScale, { toValue: 1, duration: 250, useNativeDriver: true }).start();
 
-  const handlePressOut = () => {
-    Animated.spring(btnScale, { toValue: 1, useNativeDriver: true }).start();
-  };
-
-  const handleStart = () => {
-    router.push('/task-detail');
-  };
+  const handleStart = () => router.push('/task-detail');
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar style="dark" />
+    <View style={styles.container}>
+      <StatusBar style="light" />
 
-      {/* Top Navigation */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.7}>
-          <Feather name="arrow-left" size={24} color="#1f2937" />
-          <Text style={styles.backText}>Back</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Main Animated Content */}
-      <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-
-        {/* Playful Floating Graphic */}
-        <View style={styles.emojiCircle}>
-          <Text style={styles.emoji}>🤫</Text>
-        </View>
-        <View style={styles.dayPill}>
-          <Text style={styles.dayPillText}>Daily Task</Text>
-        </View>
-
-        <Text style={styles.title}>Sit without phone</Text>
-        <Text style={styles.duration}>1 Hour</Text>
-        <Text style={styles.subtitle}>Lock-screen observation mode</Text>
-
-        {/* Premium Information Card */}
-        <View style={styles.infoBox}>
-          <Text style={styles.infoTitle}>Why this matters:</Text>
-
-          <View style={styles.pointsRow}>
-            <Feather name="check-circle" size={18} color="#8b5cf6" />
-            <Text style={styles.pointsText}>Earn 200 points after completion</Text>
-          </View>
-
-          <View style={[styles.pointsRow, { marginTop: 15 }]}>
-            <Feather name="shield" size={18} color="#10b981" />
-            <Text style={styles.pointsText}>Builds mental resilience & focus</Text>
-          </View>
-        </View>
-
+      {/* Cinematic Deep Background */}
+      <Animated.View style={[StyleSheet.absoluteFillObject, { transform: [{ scale: bgScaleAnim }] }]}>
+        <LinearGradient
+          colors={['#020205', '#0B0818', '#210C2B', '#4D1227', '#80261E']}
+          start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1.1 }}
+          style={StyleSheet.absoluteFillObject}
+        />
+        {/* Dark vignette overlay for depth */}
+        <View style={styles.vignetteTop} />
+        <View style={styles.vignetteBottom} />
       </Animated.View>
 
-      {/* Bottom Floating Action Area */}
-      <View style={styles.bottomArea}>
-        <Animated.View style={{ transform: [{ scale: btnScale }] }}>
-          <TouchableOpacity
-            style={styles.startBtn}
-            onPressIn={handlePressIn}
-            onPressOut={handlePressOut}
-            onPress={handleStart}
-            activeOpacity={0.9}
-          >
-            <Text style={styles.startBtnText}>Start 1-Hour Timer</Text>
-            <Feather name="arrow-right" size={20} color="#ffffff" style={{ marginLeft: 8 }} />
+      <SafeAreaView style={styles.safeArea}>
+
+        {/* Minimal HUD Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.6}>
+            <View style={styles.hudBackIcon}>
+              <Feather name="arrow-left" size={20} color="#06B6D4" />
+            </View>
+            <Text style={styles.backText}>ABORT</Text>
           </TouchableOpacity>
+          <View style={styles.systemStatus}>
+            <View style={styles.dotIndicator} />
+            <Text style={styles.statusText}>SYS.RDY</Text>
+          </View>
+        </View>
+
+        <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+
+          {/* Main Cinematic Title Area */}
+          <View style={styles.titleArea}>
+            <Text style={styles.kicker}>PROTOCOL 01</Text>
+            <Text style={styles.heroTitle}>DISCONNECT.</Text>
+            <Text style={styles.heroSub}>OWN YOUR TIME.</Text>
+
+            <View style={styles.timerBadge}>
+              <MaterialCommunityIcons name="clock-outline" size={18} color="#06B6D4" />
+              <Text style={styles.timerBadgeText}>1 HOUR TARGET</Text>
+            </View>
+          </View>
+
+          {/* HUD Content panel */}
+          <View style={styles.hudPanel}>
+            <View style={styles.panelEdgeIndicator} />
+            <Text style={styles.panelTitle}>OBJECTIVE</Text>
+            <Text style={styles.panelText}>Maintain complete detachment from the device. Silence sharpens the mind.</Text>
+
+            <View style={styles.divider} />
+
+            <Text style={styles.panelTitle}>YIELD</Text>
+            <Text style={styles.panelText}>Discipline builds control. Complete this protocol to forge mental resilience.</Text>
+          </View>
+
         </Animated.View>
-      </View>
-    </SafeAreaView>
+
+        {/* Action Area */}
+        <View style={styles.bottomArea}>
+          <Animated.View style={{ transform: [{ scale: btnScale }] }}>
+            <TouchableOpacity onPressIn={handlePressIn} onPressOut={handlePressOut} onPress={handleStart} activeOpacity={0.9}>
+              <LinearGradient
+                colors={['#4F46E5', '#2563EB', '#06B6D4']}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                style={styles.actionBtn}
+              >
+                <View style={styles.btnInnerGlow}>
+                  <Text style={styles.actionBtnText}>START FOCUS</Text>
+                  <MaterialCommunityIcons name="chevron-double-right" size={24} color="#FFF" style={styles.btnIcon} />
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#ffffff' },
-  header: {
-    paddingHorizontal: 20, paddingTop: 15, paddingBottom: 15,
-    borderBottomWidth: 1, borderBottomColor: '#f3f4f6',
-  },
+  container: { flex: 1, backgroundColor: '#020205' },
+  safeArea: { flex: 1 },
+
+  vignetteTop: { position: 'absolute', top: 0, left: 0, right: 0, height: height * 0.3, backgroundColor: 'rgba(2, 2, 5, 0.7)' },
+  vignetteBottom: { position: 'absolute', bottom: 0, left: 0, right: 0, height: height * 0.4, backgroundColor: 'rgba(2, 2, 5, 0.9)' },
+
+  header: { paddingHorizontal: 25, paddingTop: 15, paddingBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   backBtn: { flexDirection: 'row', alignItems: 'center' },
-  backText: { fontSize: 16, color: '#1f2937', marginLeft: 8, fontWeight: '600' },
-  content: { flex: 1, alignItems: 'center', paddingTop: 60, paddingHorizontal: 25 },
-  emojiCircle: {
-    width: 110, height: 110, borderRadius: 55,
-    backgroundColor: '#fff7ed', alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#ea580c', shadowOpacity: 0.15, shadowOffset: { width: 0, height: 6 }, shadowRadius: 15, elevation: 4,
-  },
-  emoji: { fontSize: 60 },
-  dayPill: {
-    backgroundColor: '#f3e8ff', paddingHorizontal: 20, paddingVertical: 6,
-    borderRadius: 20, marginTop: -15, borderWidth: 3, borderColor: '#ffffff',
-    shadowColor: '#000', shadowOpacity: 0.05, shadowOffset: { width: 0, height: 2 }, shadowRadius: 4, elevation: 2,
-  },
-  dayPillText: { color: '#9333ea', fontSize: 13, fontWeight: '700', textTransform: 'uppercase' },
-  title: { fontSize: 28, fontWeight: '800', color: '#1f2937', marginTop: 30, textAlign: 'center' },
-  duration: { fontSize: 18, fontWeight: '700', color: '#8b5cf6', marginTop: 8 },
-  subtitle: { fontSize: 15, color: '#6b7280', marginTop: 8, fontWeight: '500' },
-  infoBox: {
-    backgroundColor: '#faf5ff', width: '100%', borderRadius: 20,
-    padding: 24, marginTop: 45, borderWidth: 1, borderColor: '#ede9fe',
-  },
-  infoTitle: { color: '#1f2937', fontSize: 16, fontWeight: '700', marginBottom: 20 },
-  pointsRow: { flexDirection: 'row', alignItems: 'center' },
-  pointsText: { color: '#4b5563', fontSize: 15, marginLeft: 12, fontWeight: '500' },
-  bottomArea: { padding: 25, paddingBottom: 40 },
-  startBtn: {
-    backgroundColor: '#6A61FF', width: '100%', paddingVertical: 18, flexDirection: 'row', justifyContent: 'center',
-    borderRadius: 20, alignItems: 'center', shadowColor: '#6A61FF', shadowOpacity: 0.35, shadowOffset: { width: 0, height: 6 }, shadowRadius: 12, elevation: 6
-  },
-  startBtnText: { color: '#ffffff', fontSize: 17, fontWeight: '700' }
+  hudBackIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(6, 182, 212, 0.1)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(6, 182, 212, 0.3)' },
+  backText: { fontSize: 13, color: '#06B6D4', marginLeft: 10, fontWeight: '700', letterSpacing: 2 },
+
+  systemStatus: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  dotIndicator: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#06B6D4', marginRight: 6, shadowColor: '#06B6D4', shadowOpacity: 1, shadowRadius: 5, shadowOffset: { width: 0, height: 0 } },
+  statusText: { fontSize: 10, color: '#8A94A6', fontWeight: '800', letterSpacing: 1.5 },
+
+  content: { flex: 1, paddingTop: 40, paddingHorizontal: 25 },
+
+  titleArea: { marginBottom: 50 },
+  kicker: { fontSize: 12, color: '#06B6D4', fontWeight: '800', letterSpacing: 4, marginBottom: 15, opacity: 0.8 },
+  heroTitle: { fontSize: 44, fontWeight: '900', color: '#FFFFFF', letterSpacing: 2, marginBottom: 5, textShadowColor: 'rgba(255, 255, 255, 0.2)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 15 },
+  heroSub: { fontSize: 32, fontWeight: '900', color: 'rgba(255, 255, 255, 0.3)', letterSpacing: 1 },
+
+  timerBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(6, 182, 212, 0.1)', alignSelf: 'flex-start', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 6, marginTop: 25, borderWidth: 1, borderColor: 'rgba(6, 182, 212, 0.3)' },
+  timerBadgeText: { color: '#06B6D4', fontSize: 14, fontWeight: '800', letterSpacing: 2, marginLeft: 8 },
+
+  hudPanel: { width: '100%', backgroundColor: 'rgba(10, 12, 20, 0.6)', padding: 25, borderRadius: 4, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)', position: 'relative' },
+  panelEdgeIndicator: { position: 'absolute', left: -1, top: 20, bottom: 20, width: 3, backgroundColor: '#06B6D4', shadowColor: '#06B6D4', shadowOpacity: 1, shadowRadius: 10, shadowOffset: { width: 0, height: 0 } },
+  panelTitle: { color: '#8A94A6', fontSize: 11, fontWeight: '800', letterSpacing: 3, marginBottom: 8 },
+  panelText: { color: '#D1D5DB', fontSize: 16, fontWeight: '400', lineHeight: 26, letterSpacing: 0.5 },
+  divider: { height: 1, backgroundColor: 'rgba(255, 255, 255, 0.08)', marginVertical: 20 },
+
+  bottomArea: { paddingHorizontal: 25, paddingBottom: Platform.OS === 'ios' ? 20 : 40, width: '100%' },
+  actionBtn: { width: '100%', borderRadius: 6, paddingVertical: 1, paddingHorizontal: 1, shadowColor: '#2563EB', shadowOpacity: 0.6, shadowOffset: { width: 0, height: 0 }, shadowRadius: 15, elevation: 12 },
+  btnInnerGlow: { width: '100%', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 22, backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 5, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+  actionBtnText: { color: '#FFFFFF', fontSize: 18, fontWeight: '900', letterSpacing: 4, textTransform: 'uppercase' },
+  btnIcon: { marginLeft: 15, textShadowColor: 'rgba(255, 255, 255, 0.8)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 10 }
 });

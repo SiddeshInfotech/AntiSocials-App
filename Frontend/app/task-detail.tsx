@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Easing, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Easing, Dimensions, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Feather, FontAwesome5 } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import Svg, { Circle, Line } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
+
+const { width, height } = Dimensions.get('window');
 
 export default function TaskDetailScreen() {
   const router = useRouter();
@@ -15,17 +17,21 @@ export default function TaskDetailScreen() {
   
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const bgScaleAnim = useRef(new Animated.Value(1)).current;
 
-  // Initial fade-in
+  // Background and fade in
   useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1, 
-      duration: 600, 
-      useNativeDriver: true
-    }).start();
+    Animated.timing(fadeAnim, { toValue: 1, duration: 1500, useNativeDriver: true }).start();
+
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(bgScaleAnim, { toValue: 1.05, duration: 25000, useNativeDriver: true }),
+        Animated.timing(bgScaleAnim, { toValue: 1, duration: 25000, useNativeDriver: true })
+      ])
+    ).start();
   }, []);
 
-  // Timer run loop
+  // Timer run loop & pulse
   useEffect(() => {
     let interval: any = null;
 
@@ -34,6 +40,7 @@ export default function TaskDetailScreen() {
         setTimeLeft((prev) => prev - 1);
       }, 1000);
       
+      // HUD Breathing glow on timer
       Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, { toValue: 1.05, duration: 1500, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
@@ -57,185 +64,174 @@ export default function TaskDetailScreen() {
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
-    return `${m}:${s.toString().padStart(2, '0')}`;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
   const progressPercentage = ((3600 - timeLeft) / 3600) * 100;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar style="dark" />
+    <View style={styles.container}>
+      <StatusBar style="light" />
       
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.6}>
-          <Feather name="arrow-left" size={24} color="#4b5563" />
-          <Text style={styles.backText}>Back</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Cinematic Deep Background */}
+      <Animated.View style={[StyleSheet.absoluteFillObject, { transform: [{ scale: bgScaleAnim }] }]}>
+        <LinearGradient
+          colors={['#020205', '#0B0818', '#210C2B', '#4D1227', '#80261E']}
+          start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1.1 }}
+          style={StyleSheet.absoluteFillObject}
+        />
+        <View style={styles.vignetteTop} />
+        <View style={styles.vignetteBottom} />
+      </Animated.View>
 
-      {/* Main Content inside ScrollView for flexible overflow */}
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Animated.View style={{ opacity: fadeAnim, width: '100%', alignItems: 'center' }}>
+      <SafeAreaView style={styles.safeArea}>
+        
+        {/* Minimal HUD Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.6}>
+            <View style={styles.hudBackIcon}>
+              <Feather name="x" size={20} color="#06B6D4" />
+            </View>
+            <Text style={styles.backText}>ABORT</Text>
+          </TouchableOpacity>
+          <View style={styles.systemStatus}>
+            <View style={[styles.dotIndicator, isActive && !isPaused && { backgroundColor: '#10B981', shadowColor: '#10B981' }, isActive && isPaused && { backgroundColor: '#F59E0B', shadowColor: '#F59E0B' }]} />
+            <Text style={styles.statusText}>{isActive ? (isPaused ? 'SYS.PAUSED' : 'SYS.ACTIVE') : 'SYS.RDY'}</Text>
+          </View>
+        </View>
+
+        <Animated.View style={[styles.mainContent, { opacity: fadeAnim }]}>
           
-          <Text style={styles.title}>Sit in silence</Text>
-          <Text style={styles.subtitle}>Observe the sounds around you</Text>
+          <View style={styles.topText}>
+            <Text style={styles.kicker}>PROTOCOL 01</Text>
+            <Text style={styles.title}>{isActive ? 'ZONE ACTIVE' : 'AWAITING INITIATION'}</Text>
+          </View>
 
-          {/* New Custom Graphic matching Reference Image perfectly */}
-          <Animated.View style={[styles.graphicsBox, { transform: [{ scale: pulseAnim }] }]}>
-            
-            <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
-              {/* Vertical audio-like wave lines */}
-              <Line x1="30%" y1="15%" x2="30%" y2="85%" stroke="#c4b5fd" strokeWidth="2" strokeOpacity={0.5} strokeLinecap="round" />
-              <Line x1="40%" y1="25%" x2="40%" y2="75%" stroke="#c4b5fd" strokeWidth="2" strokeOpacity={0.5} strokeLinecap="round" />
-              <Line x1="50%" y1="8%" x2="50%" y2="92%" stroke="#a78bfa" strokeWidth="2" strokeOpacity={0.7} strokeLinecap="round" />
-              <Line x1="60%" y1="20%" x2="60%" y2="80%" stroke="#c4b5fd" strokeWidth="2" strokeOpacity={0.5} strokeLinecap="round" />
-              <Line x1="70%" y1="30%" x2="70%" y2="70%" stroke="#c4b5fd" strokeWidth="2" strokeOpacity={0.5} strokeLinecap="round" />
-              
-              {/* Concentric meditation rings */}
-              <Circle cx="50%" cy="50%" r="45" stroke="#a78bfa" strokeWidth="1.5" strokeOpacity={0.6} fill="none" />
-              <Circle cx="50%" cy="50%" r="75" stroke="#c4b5fd" strokeWidth="1" strokeOpacity={0.4} fill="none" />
-            </Svg>
-
-            {/* Custom Meditating Silhouette */}
-            <View style={styles.meditator}>
-              <View style={styles.medHead} />
-              <View style={styles.medBody} />
-              <View style={styles.medLegs} />
+          {/* Cinematic Timer Centerpiece */}
+          <View style={styles.timerContainer}>
+            <Animated.View style={[styles.timerGlowHUD, { transform: [{ scale: isActive && !isPaused ? pulseAnim : 1 }] }]} />
+            <View style={styles.timerInner}>
+              <Text style={[styles.timerDigits, isPaused && { color: '#6B7280' }]}>{formatTime(timeLeft)}</Text>
+              <Text style={styles.timerLabel}>REMAINING DURATION</Text>
             </View>
+          </View>
 
-            {/* Floating Elements */}
-            <View style={{position: 'absolute', top: 40, left: 50, opacity: 0.8}}>
-               <Feather name="music" size={24} color="#d8b4fe" />
-            </View>
-            <View style={{position: 'absolute', top: 50, right: 60, opacity: 0.9}}>
-               <FontAwesome5 name="dove" size={20} color="#f472b6" />
-            </View>
+          <View style={styles.guidanceArea}>
+            <Text style={styles.hudMessage}>
+              {isActive 
+                ? (isPaused ? 'PROTOCOL SUSPENDED.' : 'YOU ARE IN CONTROL NOW.')
+                : 'NO DISTRACTIONS. JUST FOCUS.'}
+            </Text>
+          </View>
 
-          </Animated.View>
-
-          {/* Active Timer Display */}
-          <Text style={styles.timerText}>{formatTime(timeLeft)}</Text>
-          <Text style={styles.timerSub}>Time remaining</Text>
-
-          {/* Conditional UI based on state */}
-          {isActive ? (
-            <Animated.View style={styles.activeContentBox}>
-              
-              {/* Prompts list exactly like reference */}
-              <View style={styles.promptsCard}>
-                <View style={styles.promptsHeader}>
-                  <Feather name="volume-2" size={18} color="#6A61FF" />
-                  <Text style={styles.promptsTitle}>What sounds do you notice?</Text>
-                </View>
-                <View style={styles.bulletList}>
-                  <Text style={styles.bulletItem}>• Distant voices or conversations</Text>
-                  <Text style={styles.bulletItem}>• Nature sounds (birds, wind, leaves)</Text>
-                  <Text style={styles.bulletItem}>• Your own breathing</Text>
-                  <Text style={styles.bulletItem}>• Background hum or silence</Text>
-                </View>
-              </View>
-
-              {/* Buttons Row */}
-              <View style={{ gap: 12, marginTop: 15, width: '100%' }}>
+          <View style={styles.bottomControls}>
+            {isActive ? (
+              <View style={styles.activeBtnGroup}>
                 <TouchableOpacity 
                   style={styles.pauseBtn} 
                   onPress={() => setIsPaused(!isPaused)}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.pauseBtnText}>{isPaused ? 'Resume' : 'Pause'}</Text>
+                  <Text style={styles.pauseBtnText}>{isPaused ? 'CONTINUE' : 'PAUSE'}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity 
-                  style={[styles.pauseBtn, { backgroundColor: '#10b981', borderColor: '#059669' }]} 
+                  activeOpacity={0.9}
                   onPress={() => router.replace({ pathname: '/task-success', params: { points: '200' } } as any)}
-                  activeOpacity={0.7}
+                  style={styles.completeBtnWrap}
                 >
-                  <Text style={[styles.pauseBtnText, { color: '#ffffff' }]}>Done Challenge</Text>
+                  <LinearGradient
+                    colors={['#10B981', '#059669', '#047857']}
+                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                    style={styles.completeBtn}
+                  >
+                    <Text style={styles.completeBtnText}>COMPLETE SESSION</Text>
+                  </LinearGradient>
                 </TouchableOpacity>
               </View>
-              
-            </Animated.View>
-          ) : (
-            <TouchableOpacity 
-              style={styles.startBtn} 
-              onPress={handleStart}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.startBtnText}>Begin Silent Observation</Text>
-            </TouchableOpacity>
-          )}
-
-          {/* Always-visible Tooltip matched natively to image 1 and 2 */}
-          <View style={styles.tooltipBox}>
-            <Text style={{marginRight: 8}}>🔕</Text>
-            <Text style={styles.tooltipText}>Put your phone on silent and simply observe the world around you</Text>
+            ) : (
+              <TouchableOpacity activeOpacity={0.9} onPress={handleStart} style={styles.startBtnWrap}>
+                <LinearGradient
+                  colors={['#4F46E5', '#2563EB', '#06B6D4']}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                  style={styles.startBtn}
+                >
+                  <View style={styles.btnInnerGlow}>
+                    <Text style={styles.startBtnText}>START FOCUS</Text>
+                    <MaterialCommunityIcons name="chevron-double-right" size={24} color="#FFF" style={styles.btnIcon} />
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
           </View>
           
         </Animated.View>
-      </ScrollView>
 
-      {/* Timer Progress Indicator at very bottom over tab area */}
-      {isActive && (
-        <View style={styles.progressBg}>
-           <View style={[styles.progressFill, { width: `${progressPercentage}%` }]} />
-        </View>
-      )}
-    </SafeAreaView>
+        {/* HUD Progress Bar */}
+        {isActive && (
+          <View style={styles.hudProgressWrap}>
+            <View style={styles.hudProgressBg}>
+               <LinearGradient 
+                 colors={['#06B6D4', '#3B82F6', '#4F46E5']} 
+                 start={{x:0, y:0}} end={{x:1, y:0}} 
+                 style={[styles.hudProgressFill, { width: `${progressPercentage}%` }]} 
+               />
+            </View>
+          </View>
+        )}
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#ffffff' },
-  header: { paddingHorizontal: 20, paddingTop: 15, paddingBottom: 15, backgroundColor: '#ffffff', zIndex: 10 },
+  container: { flex: 1, backgroundColor: '#020205' },
+  safeArea: { flex: 1 },
+  
+  vignetteTop: { position: 'absolute', top: 0, left: 0, right: 0, height: height * 0.3, backgroundColor: 'rgba(2, 2, 5, 0.7)' },
+  vignetteBottom: { position: 'absolute', bottom: 0, left: 0, right: 0, height: height * 0.4, backgroundColor: 'rgba(2, 2, 5, 0.9)' },
+  
+  header: { paddingHorizontal: 25, paddingTop: 15, paddingBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', zIndex: 10 },
   backBtn: { flexDirection: 'row', alignItems: 'center' },
-  backText: { fontSize: 16, color: '#4b5563', marginLeft: 8 },
-  scrollContent: { alignItems: 'center', paddingHorizontal: 25, paddingBottom: 60, paddingTop: 10 },
+  hudBackIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(6, 182, 212, 0.1)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(6, 182, 212, 0.3)' },
+  backText: { fontSize: 13, color: '#06B6D4', marginLeft: 10, fontWeight: '700', letterSpacing: 2 },
   
-  title: { fontSize: 22, fontWeight: '700', color: '#111827' },
-  subtitle: { fontSize: 15, color: '#6b7280', marginTop: 8 },
-  
-  graphicsBox: {
-    backgroundColor: '#f5f3ff', width: '100%', height: 220, borderRadius: 20,
-    alignItems: 'center', justifyContent: 'center', marginTop: 35, marginBottom: 35,
-    overflow: 'hidden'
-  },
-  meditator: { alignItems: 'center', justifyContent: 'center', zIndex: 2 },
-  medHead: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#6A61FF', marginBottom: -2 },
-  medBody: { width: 36, height: 26, borderRadius: 12, backgroundColor: '#6A61FF', zIndex: 2 },
-  medLegs: { width: 48, height: 16, borderRadius: 10, backgroundColor: '#6A61FF', marginTop: -8, zIndex: 1 },
+  systemStatus: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  dotIndicator: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#06B6D4', marginRight: 6, shadowColor: '#06B6D4', shadowOpacity: 1, shadowRadius: 5, shadowOffset: {width: 0, height: 0} },
+  statusText: { fontSize: 10, color: '#8A94A6', fontWeight: '800', letterSpacing: 1.5 },
 
-  timerText: { fontSize: 62, fontWeight: '300', color: '#111827', letterSpacing: 1 },
-  timerSub: { fontSize: 13, color: '#9ca3af', marginBottom: 25 },
+  mainContent: { flex: 1, justifyContent: 'space-between', paddingHorizontal: 25, paddingBottom: 40 },
   
-  startBtn: {
-    backgroundColor: '#a78bfa', width: '100%', paddingVertical: 18,
-    borderRadius: 12, alignItems: 'center', marginBottom: 20
-  },
-  startBtnText: { color: '#ffffff', fontSize: 16, fontWeight: '600' },
+  topText: { alignItems: 'center', marginTop: 40 },
+  kicker: { fontSize: 12, color: '#8A94A6', fontWeight: '800', letterSpacing: 4, marginBottom: 10 },
+  title: { fontSize: 24, fontWeight: '900', color: '#FFFFFF', letterSpacing: 2 },
+
+  timerContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
+  timerGlowHUD: { position: 'absolute', width: width * 0.8, height: width * 0.8, borderRadius: width * 0.4, backgroundColor: 'rgba(6, 182, 212, 0.05)', borderWidth: 1, borderColor: 'rgba(6, 182, 212, 0.2)', shadowColor: '#06B6D4', shadowOpacity: 0.1, shadowRadius: 40, elevation: 1 },
+  timerInner: { alignItems: 'center' },
+  timerDigits: { fontSize: 96, fontWeight: '300', color: '#FFFFFF', letterSpacing: 4, fontVariant: ['tabular-nums'], textShadowColor: '#4F46E5', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 20 },
+  timerLabel: { fontSize: 12, color: '#8A94A6', fontWeight: '800', letterSpacing: 4, marginTop: 15 },
   
-  activeContentBox: { width: '100%', alignItems: 'center' },
-  promptsCard: {
-    backgroundColor: '#f5f3ff', width: '100%', borderRadius: 12, padding: 20,
-    borderWidth: 1, borderColor: '#ede9fe', marginBottom: 20
-  },
-  promptsHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  promptsTitle: { fontSize: 15, fontWeight: '600', color: '#1f2937', marginLeft: 10 },
-  bulletList: { marginLeft: 5 },
-  bulletItem: { fontSize: 13, color: '#4b5563', lineHeight: 22 },
+  guidanceArea: { backgroundColor: 'rgba(10, 12, 20, 0.6)', padding: 25, borderRadius: 4, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.08)', alignItems: 'center' },
+  hudMessage: { color: '#06B6D4', fontSize: 14, fontWeight: '800', letterSpacing: 3, textAlign: 'center', textShadowColor: 'rgba(6, 182, 212, 0.5)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 10 },
   
-  pauseBtn: {
-    backgroundColor: '#e5e7eb', width: '100%', paddingVertical: 16,
-    borderRadius: 12, alignItems: 'center', marginBottom: 20
-  },
-  pauseBtnText: { color: '#1f2937', fontSize: 16, fontWeight: '600' },
+  bottomControls: { width: '100%' },
   
-  tooltipBox: {
-    flexDirection: 'row', backgroundColor: '#faf5ff', width: '100%', borderRadius: 12,
-    padding: 18, borderWidth: 1, borderColor: '#f3eafe', alignItems: 'center', justifyContent: 'center'
-  },
-  tooltipText: { color: '#4b5563', fontSize: 13, lineHeight: 20, flex: 1, textAlign: 'center' },
+  startBtnWrap: { width: '100%', borderRadius: 6, shadowColor: '#2563EB', shadowOpacity: 0.6, shadowOffset: { width: 0, height: 0 }, shadowRadius: 15, elevation: 12 },
+  startBtn: { width: '100%', borderRadius: 6, paddingVertical: 1, paddingHorizontal: 1 },
+  btnInnerGlow: { width: '100%', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 22, backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 5, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+  startBtnText: { color: '#FFFFFF', fontSize: 18, fontWeight: '900', letterSpacing: 4, textTransform: 'uppercase' },
+  btnIcon: { marginLeft: 15, textShadowColor: 'rgba(255, 255, 255, 0.8)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 10 },
   
-  progressBg: { width: '100%', height: 4, backgroundColor: '#f3f4f6', position: 'absolute', bottom: 0 },
-  progressFill: { height: '100%', backgroundColor: '#10b981' }
+  activeBtnGroup: { flexDirection: 'column', gap: 15 },
+  pauseBtn: { width: '100%', backgroundColor: 'rgba(255, 255, 255, 0.05)', paddingVertical: 20, borderRadius: 6, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.15)' },
+  pauseBtnText: { color: '#D1D5DB', fontSize: 14, fontWeight: '800', letterSpacing: 3 },
+  
+  completeBtnWrap: { width: '100%', borderRadius: 6, shadowColor: '#10B981', shadowOpacity: 0.5, shadowOffset: { width: 0, height: 0 }, shadowRadius: 15, elevation: 8 },
+  completeBtn: { width: '100%', paddingVertical: 22, borderRadius: 6, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' },
+  completeBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '900', letterSpacing: 3 },
+  
+  hudProgressWrap: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 4, backgroundColor: 'rgba(255, 255, 255, 0.05)' },
+  hudProgressBg: { flex: 1 },
+  hudProgressFill: { height: '100%', shadowColor: '#06B6D4', shadowOpacity: 1, shadowRadius: 10, shadowOffset: {width: 0, height:0} }
 });
