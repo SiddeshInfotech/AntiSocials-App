@@ -17,9 +17,9 @@ const EXERCISE_VIDEOS: Record<string, string | any> = {
   '1': require('../assets/videos/Jumping_Jacks_Workout_Video.mp4'), // Jumping Jacks / Cardio
   '2': require('../assets/videos/Squat_Form_Demonstration_Video.mp4'), // Squats
   '3': require('../assets/videos/Push_Up_Workout_Video.mp4'), // Push-Ups
-  '4': 'https://d23dyxeqlo5psv.cloudfront.net/big_buck_bunny.mp4', 
-  '5': 'https://d23dyxeqlo5psv.cloudfront.net/big_buck_bunny.mp4', 
-  '6': 'https://d23dyxeqlo5psv.cloudfront.net/big_buck_bunny.mp4', 
+  '4': require('../assets/videos/High_Knees_Workout_Video.mp4'), // High Knees
+  '5': require('../assets/videos/Lunge_Workout_Video_Generation.mp4'), // Lunges
+  '6': require('../assets/videos/Plank_Exercise_Video_Generation.mp4'), // Plank
 };
 
 export default function RealisticExercise({ exerciseId = '1', width = '100%', height = '100%', isCard = false }: Props) {
