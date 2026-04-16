@@ -4,10 +4,12 @@ import {
   Text,
   StyleSheet,
   Dimensions,
-  TouchableOpacity
+  TouchableOpacity,
+  Alert
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
+import * as SecureStore from 'expo-secure-store';
 
 import Animated, {
   useSharedValue,
@@ -100,11 +102,11 @@ export default function Onboarding() {
 
   const translateX = useSharedValue(0);
 
-  const goNext = () => {
+  const goNext = async () => {
     const item = DATA[index];
 
     if (item.id === "7" && selected.length < 3) {
-      alert("Select at least 3 interests");
+      Alert.alert("Interests Required", "Select at least 3 interests to continue.");
       return;
     }
 
@@ -112,6 +114,26 @@ export default function Onboarding() {
       setIndex((prev) => prev + 1);
       translateX.value = 0;
     } else {
+      // Save interests to backend before redirecting
+      try {
+        const userIdStr = await SecureStore.getItemAsync('userId');
+        if (userIdStr && selected.length >= 3) {
+          const userId = parseInt(userIdStr, 10);
+          await fetch("http://192.168.1.6:5000/save-interests", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              userId,
+              interests: selected
+            }),
+          });
+        }
+      } catch (err) {
+        console.error("Failed to save interests:", err);
+      }
+
       router.replace("/(tabs)" as any);
     }
   };
