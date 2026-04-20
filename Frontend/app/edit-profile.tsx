@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, SafeAreaView, KeyboardAvoidingView, Platform, Switch } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Switch, Alert, Image } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 
 export default function EditProfileScreen() {
   const router = useRouter();
@@ -12,6 +14,56 @@ export default function EditProfileScreen() {
   const [bio, setBio] = useState('Loves coffee & morning walks');
   const [isPrivate, setIsPrivate] = useState(false);
   const [emailNotifications, setEmailNotifications] = useState(true);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+
+  const pickImage = async (useCamera: boolean = false) => {
+    try {
+      let result;
+      if (useCamera) {
+        const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+        if (permissionResult.granted === false) {
+          Alert.alert("Permission to access camera is required!");
+          return;
+        }
+        result = await ImagePicker.launchCameraAsync({
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 1,
+        });
+      } else {
+        const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (permissionResult.granted === false) {
+          Alert.alert("Permission to access gallery is required!");
+          return;
+        }
+        result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'],
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 1,
+        });
+      }
+
+      if (!result.canceled) {
+        setProfileImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.log("Error taking picture: ", error);
+      Alert.alert("Error", "Something went wrong while choosing an image.");
+    }
+  };
+
+  const showImageOptions = () => {
+    Alert.alert(
+      "Profile Picture",
+      "Choose an option",
+      [
+        { text: "Take Photo", onPress: () => pickImage(true) },
+        { text: "Choose from Gallery", onPress: () => pickImage(false) },
+        { text: "Cancel", style: "cancel" }
+      ]
+    );
+  };
 
   const handleSave = () => {
     // Usually you'd dispatch this to an API or global state,
@@ -21,8 +73,8 @@ export default function EditProfileScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
         <View style={styles.header}>
@@ -37,23 +89,29 @@ export default function EditProfileScreen() {
 
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
           <View style={styles.contentContainer}>
-            
+
             {/* Avatar Edit */}
             <View style={styles.avatarSection}>
-              <View style={styles.avatarPlaceholder}>
-                <Feather name="user" size={40} color="#4B2488" />
-                <TouchableOpacity style={styles.editAvatarBadge}>
+              <TouchableOpacity onPress={showImageOptions} style={styles.avatarPlaceholderContainer}>
+                {profileImage ? (
+                  <Image source={{ uri: profileImage }} style={styles.avatarImage} />
+                ) : (
+                  <View style={styles.avatarPlaceholder}>
+                    <Feather name="user" size={40} color="#4B2488" />
+                  </View>
+                )}
+                <View style={styles.editAvatarBadge}>
                   <Feather name="camera" size={14} color="#FFF" />
-                </TouchableOpacity>
-              </View>
-              <TouchableOpacity>
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={showImageOptions}>
                 <Text style={styles.changePhotoText}>Change Profile Photo</Text>
               </TouchableOpacity>
             </View>
 
             {/* Basic Info */}
             <Text style={styles.sectionTitle}>Basic Info</Text>
-            
+
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Full Name</Text>
               <TextInput
@@ -109,7 +167,7 @@ export default function EditProfileScreen() {
 
             {/* Privacy & Settings */}
             <Text style={styles.sectionTitle}>Privacy & Preferences</Text>
-            
+
             <View style={styles.switchRow}>
               <View style={styles.switchTextContainer}>
                 <Text style={styles.switchTitle}>Private Account</Text>
@@ -186,6 +244,17 @@ const styles = StyleSheet.create({
     marginBottom: 32,
     marginTop: 16,
   },
+  avatarPlaceholderContainer: {
+    position: 'relative',
+    marginBottom: 16,
+  },
+  avatarImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 2,
+    borderColor: '#E9D5FF',
+  },
   avatarPlaceholder: {
     width: 100,
     height: 100,
@@ -195,8 +264,6 @@ const styles = StyleSheet.create({
     borderColor: '#E9D5FF',
     justifyContent: 'center',
     alignItems: 'center',
-    position: 'relative',
-    marginBottom: 16,
   },
   editAvatarBadge: {
     position: 'absolute',
@@ -301,3 +368,4 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 });
+
