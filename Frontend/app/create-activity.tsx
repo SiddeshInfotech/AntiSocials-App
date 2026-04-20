@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Modal, FlatList, Pressable } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Modal, FlatList, Pressable, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const CATEGORIES = [
@@ -31,7 +31,7 @@ export default function CreateActivityScreen() {
   const handleCreate = () => {
     // Basic validation
     if (!title || !category || !location) {
-      alert("Please fill in the required fields");
+      Alert.alert("Missing Information", "Please fill in all required fields marked with *");
       return;
     }
 

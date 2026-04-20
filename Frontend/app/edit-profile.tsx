@@ -1,20 +1,54 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Switch, Alert, Image } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Switch, Alert, Image, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import * as SecureStore from 'expo-secure-store';
 
 export default function EditProfileScreen() {
   const router = useRouter();
 
-  const [name, setName] = useState('Ameya Shimpi');
-  const [handle, setHandle] = useState('ameya.designs');
-  const [title, setTitle] = useState('Interior Designer');
-  const [bio, setBio] = useState('Loves coffee & morning walks');
+  const [username, setUsername] = useState('');
+  const [profession, setProfession] = useState('');
+  const [about, setAbout] = useState('');
+  const [profileImage, setProfileImage] = useState<string | null>(null);
   const [isPrivate, setIsPrivate] = useState(false);
   const [emailNotifications, setEmailNotifications] = useState(true);
-  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const userId = await SecureStore.getItemAsync('userId');
+        const token = await SecureStore.getItemAsync('token');
+        
+        if (!userId || !token) {
+          router.replace('/' as any);
+          return;
+        }
+
+        const response = await fetch(`http://192.168.1.8:5000/api/me`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setUsername(data.username);
+          setProfession(data.profession || '');
+          setAbout(data.about || '');
+          setProfileImage(data.image_url || null);
+        }
+      } catch (err) {
+        console.error("Error fetching user data:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, []);
 
   const pickImage = async (useCamera: boolean = false) => {
     try {
@@ -37,7 +71,7 @@ export default function EditProfileScreen() {
           return;
         }
         result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ['images'],
+          mediaTypes: 'images',
           allowsEditing: true,
           aspect: [1, 1],
           quality: 1,
@@ -65,11 +99,48 @@ export default function EditProfileScreen() {
     );
   };
 
-  const handleSave = () => {
-    // Usually you'd dispatch this to an API or global state,
-    console.log("Profile Updated", { name, handle, title, bio, isPrivate, emailNotifications });
-    router.back();
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const userId = await SecureStore.getItemAsync('userId');
+      const token = await SecureStore.getItemAsync('token');
+
+      const response = await fetch(`http://192.168.1.8:5000/user/${userId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          username,
+          profession,
+          about,
+          image_url: profileImage
+        })
+      });
+
+      if (response.ok) {
+        Alert.alert("Success", "Profile updated successfully!");
+        router.back();
+      } else {
+        const data = await response.json();
+        Alert.alert("Error", data.error || "Failed to update profile");
+      }
+    } catch (err) {
+      console.error("Save profile error:", err);
+      Alert.alert("Error", "Unable to connect to the server.");
+    } finally {
+      setIsSaving(false);
+    }
   };
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#8B00FF" />
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -82,8 +153,8 @@ export default function EditProfileScreen() {
             <Feather name="arrow-left" size={24} color="#111827" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Edit Profile</Text>
-          <TouchableOpacity onPress={handleSave}>
-            <Text style={styles.saveButtonText}>Save</Text>
+          <TouchableOpacity onPress={handleSave} disabled={isSaving}>
+            {isSaving ? <ActivityIndicator size="small" color="#8B00FF" /> : <Text style={styles.saveButtonText}>Save</Text>}
           </TouchableOpacity>
         </View>
 
@@ -113,24 +184,13 @@ export default function EditProfileScreen() {
             <Text style={styles.sectionTitle}>Basic Info</Text>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Full Name</Text>
-              <TextInput
-                style={styles.input}
-                value={name}
-                onChangeText={setName}
-                placeholder="Your Name"
-                placeholderTextColor="#9CA3AF"
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
               <Text style={styles.label}>Username</Text>
               <View style={styles.inputWithIcon}>
                 <Text style={styles.prefixText}>@</Text>
                 <TextInput
                   style={styles.inputInner}
-                  value={handle}
-                  onChangeText={setHandle}
+                  value={username}
+                  onChangeText={setUsername}
                   placeholder="username"
                   placeholderTextColor="#9CA3AF"
                   autoCapitalize="none"
@@ -142,8 +202,8 @@ export default function EditProfileScreen() {
               <Text style={styles.label}>Job Title or Role</Text>
               <TextInput
                 style={styles.input}
-                value={title}
-                onChangeText={setTitle}
+                value={profession}
+                onChangeText={setProfession}
                 placeholder="What do you do?"
                 placeholderTextColor="#9CA3AF"
               />
@@ -153,8 +213,8 @@ export default function EditProfileScreen() {
               <Text style={styles.label}>Bio</Text>
               <TextInput
                 style={[styles.input, styles.textArea]}
-                value={bio}
-                onChangeText={setBio}
+                value={about}
+                onChangeText={setAbout}
                 placeholder="Write a short bio about yourself..."
                 placeholderTextColor="#9CA3AF"
                 multiline
@@ -162,7 +222,7 @@ export default function EditProfileScreen() {
                 textAlignVertical="top"
                 maxLength={150}
               />
-              <Text style={styles.charCount}>{bio.length}/150</Text>
+              <Text style={styles.charCount}>{about.length}/150</Text>
             </View>
 
             {/* Privacy & Settings */}
