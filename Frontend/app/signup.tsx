@@ -82,7 +82,7 @@ export default function Signup() {
     setIsLoading(true);
     try {
       // Replaced localhost with your computer's IP address to fix the Android Network Request Failed error
-      const response = await fetch("http://192.168.1.6:5000/register", {
+      const response = await fetch("http://192.168.1.8:5000/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

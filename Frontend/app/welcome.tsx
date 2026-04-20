@@ -63,7 +63,7 @@ export default function LoginScreen() {
     setIsLoading(true);
     try {
       // Updated to your current IP 192.168.1.6
-      const response = await fetch("http://192.168.1.6:5000/login", {
+      const response = await fetch("http://192.168.1.8:5000/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
