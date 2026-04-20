@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -7,16 +7,100 @@ import {
   TouchableOpacity,
   Platform,
   Image,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { useIsFocused } from "@react-navigation/native";
+import * as SecureStore from 'expo-secure-store';
 import LifeDomainsChart from "../../components/LifeDomainsChart";
+
 export default function ProfileScreen() {
   const router = useRouter();
   const isFocused = useIsFocused();
+  const [userData, setUserData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!isFocused) return; // 👈 Critical: Stop background tabs from redirecting!
+
+      try {
+        const token = await SecureStore.getItemAsync('token');
+        if (!token) {
+          console.log("No token found, redirecting to Welcome...");
+          router.replace("/welcome" as any);
+          return;
+        }
+
+        const response = await fetch(`http://192.168.1.8:5000/api/me`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setUserData(data);
+          await SecureStore.setItemAsync('userId', data.id.toString());
+        } else {
+          console.error("Profile fetch failed. Status:", response.status);
+          if (response.status === 401 || response.status === 403) {
+            console.warn("Session expired. Please log out and log in again manually.");
+          }
+        }
+      } catch (err) {
+        console.error("Profile network error:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, [isFocused]);
+
+  const handleLogout = async () => {
+    console.log("Logout button pressed");
+    Alert.alert(
+      "Log Out",
+      "Are you sure you want to log out?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Log Out", 
+          style: "destructive",
+          onPress: async () => {
+            console.log("Executing logout cleanup...");
+            try {
+              await SecureStore.deleteItemAsync('token');
+              await SecureStore.deleteItemAsync('userId');
+              console.log("Storage cleared, forcing redirect to unique welcome screen...");
+              
+              // Use a slight timeout to ensure SecureStore finishes
+              setTimeout(() => {
+                router.replace("/welcome" as any);
+              }, 100);
+            } catch (err) {
+              console.error("Logout storage error:", err);
+              // Fallback redirect even if storage clearing fails
+              router.replace("/" as any);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#8B00FF" />
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
@@ -26,18 +110,25 @@ export default function ProfileScreen() {
         <View style={styles.headerBackground}>
           <View style={styles.avatarContainer}>
             <View style={styles.avatarPlaceholder}>
-              <Feather name="user" size={40} color="#4B2488" />
+              {userData?.image_url ? (
+                <Image 
+                  source={{ uri: userData.image_url }} 
+                  style={{ width: '100%', height: '100%', borderRadius: 45 }} 
+                />
+              ) : (
+                <Feather name="user" size={40} color="#4B2488" />
+              )}
             </View>
             <View style={styles.verifiedBadge}>
               <Feather name="check" size={12} color="#FFF" />
             </View>
           </View>
 
-          <Text style={styles.userName}>Ameya Shimpi</Text>
-          <Text style={styles.userHandle}>@ameya.designs</Text>
-          <Text style={styles.userTitle}>Interior Designer</Text>
-          <Text style={styles.userBio}>Loves coffee & morning walks</Text>
-          <Text style={styles.memberSince}>Member since January 2025</Text>
+          <Text style={styles.userName}>{userData?.username || "Guest User"}</Text>
+          <Text style={styles.userHandle}>{userData?.email ? `@${userData.email.split('@')[0]}` : "@handle"}</Text>
+          <Text style={styles.userTitle}>{userData?.profession || "Life Explorer"}</Text>
+          <Text style={styles.userBio}>{userData?.about || "Taking steps towards a more mindful life."}</Text>
+          <Text style={styles.memberSince}>Member since 2025</Text>
         </View>
 
         <View style={styles.contentContainer}>
@@ -207,7 +298,7 @@ export default function ProfileScreen() {
             </View>
             <View style={styles.badgeItem}>
               <Text style={styles.badgeEmoji}>👥</Text>
-              <Text style={styles.badgeText}>Community{"\n"}Member</Text>
+              <Text style={styles.badgeText}>Community\nMember</Text>
             </View>
             <View style={styles.badgeItem}>
               <Text style={styles.badgeEmoji}>🎯</Text>
@@ -337,7 +428,7 @@ export default function ProfileScreen() {
           {/* Log Out Button */}
           <TouchableOpacity
             style={styles.logoutButton}
-            onPress={() => router.replace("/" as any)}
+            onPress={handleLogout}
           >
             <Feather
               name="log-out"

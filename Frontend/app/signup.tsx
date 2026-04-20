@@ -8,29 +8,119 @@ import {
   StyleSheet,
   ScrollView,
   Image,
-  Alert
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator
 } from "react-native";
+import { Feather } from "@expo/vector-icons";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
 import * as ImagePicker from "expo-image-picker";
+import * as SecureStore from 'expo-secure-store';
 
 export default function Signup() {
   const router = useRouter();
 
   const [profileName, setProfileName] = useState("");
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [profession, setProfession] = useState("");
   const [about, setAbout] = useState("");
   const [image, setImage] = useState<string | null>(null);
 
-  // 👉 SAVE FUNCTION
-  const handleSave = () => {
-    if (!profileName || !username || !profession) {
-      Alert.alert("Error", "Please fill all required fields");
-      return;
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState<any>({});
+
+  // Evaluate password strength
+  const getPasswordStrength = (pass: string) => {
+    if (pass.length === 0) return { label: "", color: "transparent" };
+    if (pass.length < 6) return { label: "Weak", color: "#FF4D4D" };
+    if (pass.length >= 6 && /[A-Z]/.test(pass) && /[0-9]/.test(pass) && /[^A-Za-z0-9]/.test(pass)) {
+      return { label: "Strong", color: "#4CAF50" };
+    }
+    return { label: "Medium", color: "#FFC107" };
+  };
+
+  const validate = () => {
+    let valid = true;
+    let newErrors: any = {};
+
+    if (!username.trim()) {
+      newErrors.username = "Username is required";
+      valid = false;
+    }
+    
+    if (!email.trim() || !/^\S+@\S+\.\S+$/.test(email)) {
+      newErrors.email = "Valid email is required";
+      valid = false;
     }
 
-    // 👉 Go to onboarding
-    router.replace("/onboarding" as any);
+    if (password.length < 6) {
+      newErrors.password = "Password must be at least 6 characters";
+      valid = false;
+    }
+
+    if (password !== confirmPassword) {
+      newErrors.confirmPassword = "Passwords do not match";
+      valid = false;
+    }
+
+    setErrors(newErrors);
+    return valid;
+  };
+
+  // 👉 SAVE FUNCTION
+  const handleSave = async () => {
+    if (!validate()) return;
+
+    setIsLoading(true);
+    try {
+      // Replaced localhost with your computer's IP address to fix the Android Network Request Failed error
+      const response = await fetch("http://192.168.1.8:5000/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username,
+          email,
+          password,
+          profession,
+          about,
+          imageUrl: image
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        Alert.alert("Signup Failed", data.error || "An error occurred");
+        setIsLoading(false);
+        return;
+      }
+
+      // Successfully saved in the database!
+      // Store userId in secure store so onboarding can use it
+      if (data.user && data.user.id) {
+        await SecureStore.setItemAsync('userId', data.user.id.toString());
+      }
+      
+      Alert.alert("Success", "User registered successfully", [
+        { text: "OK", onPress: () => router.replace("/onboarding" as any) }
+      ]);
+
+    } catch (error) {
+      console.error("Network Error: ", error);
+      Alert.alert("Error", "Unable to connect to the server.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // 👉 MAIN PICK FUNCTION
@@ -47,19 +137,21 @@ export default function Signup() {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
 
     if (permission.status !== "granted") {
-      alert("Camera permission is required!");
+      Alert.alert("Permission Error", "Camera permission is required!");
       return;
     }
 
     const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 1,
+      mediaTypes: 'images',
+      quality: 0.5,
       allowsEditing: true,
-      aspect: [1, 1]
+      aspect: [1, 1],
+      base64: true
     });
 
-    if (!result.canceled) {
-      setImage(result.assets[0].uri);
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      const base64Image = `data:image/jpeg;base64,${result.assets[0].base64}`;
+      setImage(base64Image);
     }
   };
 
@@ -68,26 +160,37 @@ export default function Signup() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (permission.status !== "granted") {
-      alert("Gallery permission is required!");
+      Alert.alert("Permission Error", "Gallery permission is required!");
       return;
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 1,
+      mediaTypes: 'images',
+      quality: 0.5,
       allowsEditing: true,
-      aspect: [1, 1]
+      aspect: [1, 1],
+      base64: true
     });
 
-    if (!result.canceled) {
-      setImage(result.assets[0].uri);
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      const base64Image = `data:image/jpeg;base64,${result.assets[0].base64}`;
+      setImage(base64Image);
     }
   };
 
   return (
-    <LinearGradient colors={["#9C27FF", "#3F51FF"]} style={styles.container}>
-      <View style={styles.card}>
-        <ScrollView showsVerticalScrollIndicator={false}>
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === "ios" ? "padding" : "height"} 
+      style={{ flex: 1 }}
+    >
+      <LinearGradient colors={["#9C27FF", "#3F51FF"]} style={styles.container}>
+        <StatusBar style="light" />
+        <View style={styles.card}>
+        <KeyboardAwareScrollView 
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingBottom: 40 }}
+        >
           <Text style={styles.title}>Let people know the real you</Text>
 
           <Text style={styles.subtitle}>
@@ -129,39 +232,96 @@ export default function Signup() {
           {/* Username */}
           <Text style={styles.label}>Username *</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, errors.username && styles.inputError]}
             placeholder="@username"
             value={username}
-            onChangeText={setUsername}
+            onChangeText={(text) => { setUsername(text); setErrors({ ...errors, username: null }); }}
             autoCapitalize="none"
           />
+          {errors.username && <Text style={styles.errorText}>{errors.username}</Text>}
 
-          <Text style={styles.helper}>
-            Cannot be changed later.
-          </Text>
+          {/* Email */}
+          <Text style={styles.label}>Email Address *</Text>
+          <TextInput
+            style={[styles.input, errors.email && styles.inputError]}
+            placeholder="your@email.com"
+            value={email}
+            onChangeText={(text) => { setEmail(text); setErrors({ ...errors, email: null }); }}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+          {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
 
           {/* Profession */}
-          <Text style={styles.label}>Profession *</Text>
+          <Text style={styles.label}>Profession (Optional)</Text>
           <TextInput
             style={styles.input}
-            placeholder="e.g. Interior Designer"
+            placeholder="What do you do?"
             value={profession}
             onChangeText={setProfession}
           />
 
           {/* About */}
-          <Text style={styles.label}>About you (optional)</Text>
+          <Text style={styles.label}>About (Optional)</Text>
           <TextInput
             style={[styles.input, styles.textArea]}
-            placeholder="Interior designer | Loves coffee & morning walks"
+            placeholder="Tell something about yourself..."
             value={about}
             onChangeText={setAbout}
             multiline
+            maxLength={200}
           />
 
+          {/* Password */}
+          <Text style={styles.label}>Password *</Text>
+          <View style={[styles.passwordContainer, errors.password && styles.inputError]}>
+            <TextInput
+              style={styles.passwordInput}
+              placeholder="Min 6 characters"
+              value={password}
+              onChangeText={(text) => { setPassword(text); setErrors({ ...errors, password: null }); }}
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+            />
+            <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
+              <Feather name={showPassword ? "eye" : "eye-off"} size={20} color="#777" />
+            </TouchableOpacity>
+          </View>
+          {password.length > 0 && (
+            <Text style={[styles.strengthText, { color: getPasswordStrength(password).color }]}>
+              Strength: {getPasswordStrength(password).label}
+            </Text>
+          )}
+          {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
+
+          {/* Confirm Password */}
+          <Text style={styles.label}>Confirm Password *</Text>
+          <View style={[styles.passwordContainer, errors.confirmPassword && styles.inputError]}>
+            <TextInput
+              style={styles.passwordInput}
+              placeholder="Re-enter password"
+              value={confirmPassword}
+              onChangeText={(text) => { setConfirmPassword(text); setErrors({ ...errors, confirmPassword: null }); }}
+              secureTextEntry={!showConfirmPassword}
+              autoCapitalize="none"
+            />
+            <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeIcon}>
+              <Feather name={showConfirmPassword ? "eye" : "eye-off"} size={20} color="#777" />
+            </TouchableOpacity>
+          </View>
+          {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
+
           {/* Buttons */}
-          <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-            <Text style={styles.saveText}>Save & Continue →</Text>
+          <TouchableOpacity 
+            style={[styles.saveBtn, isLoading && { opacity: 0.7 }]} 
+            onPress={handleSave}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+               <ActivityIndicator color="#fff" />
+            ) : (
+               <Text style={styles.saveText}>Sign Up →</Text>
+            )}
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -170,9 +330,10 @@ export default function Signup() {
           >
             <Text style={styles.skipText}>Skip for now</Text>
           </TouchableOpacity>
-        </ScrollView>
+        </KeyboardAwareScrollView>
       </View>
-    </LinearGradient>
+      </LinearGradient>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -255,7 +416,46 @@ const styles = StyleSheet.create({
     borderColor: "#E6E6E6",
     borderRadius: 10,
     padding: 12,
-    marginBottom: 10
+    marginBottom: 10,
+    backgroundColor: '#FAF9FF'
+  },
+
+  inputError: {
+    borderColor: '#FF4D4D'
+  },
+
+  errorText: {
+    color: '#FF4D4D',
+    fontSize: 12,
+    marginBottom: 10,
+    marginTop: -5,
+  },
+
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: "#E6E6E6",
+    borderRadius: 10,
+    marginBottom: 10,
+    backgroundColor: '#FAF9FF',
+    paddingRight: 10
+  },
+
+  passwordInput: {
+    flex: 1,
+    padding: 12,
+  },
+
+  eyeIcon: {
+    padding: 5
+  },
+
+  strengthText: {
+    fontSize: 12,
+    marginBottom: 10,
+    marginTop: -5,
+    fontWeight: '500'
   },
 
   textArea: {
