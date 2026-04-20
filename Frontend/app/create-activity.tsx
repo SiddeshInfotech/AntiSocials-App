@@ -1,19 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Modal, FlatList, Pressable } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-
-const CATEGORIES = [
-  "Sports & Fitness",
-  "Music & Jamming",
-  "Reading & Book Club",
-  "Study Groups",
-  "Tech & Coding",
-  "Networking & Meetups",
-  "Arts & Creativity",
-  "Gaming",
-  "Movies & Entertainment",
-  "Food & Dining"
-];
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, SafeAreaView, KeyboardAvoidingView, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
@@ -26,7 +12,6 @@ export default function CreateActivityScreen() {
   const [time, setTime] = useState('');
   const [location, setLocation] = useState('');
   const [capacity, setCapacity] = useState('');
-  const [isCategoryModalVisible, setCategoryModalVisible] = useState(false);
 
   const handleCreate = () => {
     // Basic validation
@@ -80,16 +65,13 @@ export default function CreateActivityScreen() {
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Category *</Text>
-              <TouchableOpacity 
-                style={styles.dropdownSelector}
-                onPress={() => setCategoryModalVisible(true)}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.dropdownText, !category && styles.placeholderText]}>
-                  {category ? category : "Select Category"}
-                </Text>
-                <Feather name="chevron-down" size={20} color="#6B7280" />
-              </TouchableOpacity>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. Outdoors & Adventure"
+                placeholderTextColor="#9CA3AF"
+                value={category}
+                onChangeText={setCategory}
+              />
             </View>
 
             <View style={styles.row}>
@@ -155,51 +137,6 @@ export default function CreateActivityScreen() {
             <Text style={styles.createButtonText}>Publish Activity</Text>
           </TouchableOpacity>
         </View>
-
-        <Modal
-          visible={isCategoryModalVisible}
-          transparent={true}
-          animationType="slide"
-          onRequestClose={() => setCategoryModalVisible(false)}
-        >
-          <Pressable style={styles.modalOverlay} onPress={() => setCategoryModalVisible(false)}>
-            <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Select Category</Text>
-                <TouchableOpacity onPress={() => setCategoryModalVisible(false)} style={styles.closeModalButton}>
-                  <Feather name="x" size={24} color="#6B7280" />
-                </TouchableOpacity>
-              </View>
-              <FlatList
-                data={CATEGORIES}
-                keyExtractor={(item) => item}
-                showsVerticalScrollIndicator={false}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={[
-                      styles.categoryOption,
-                      category === item && styles.categoryOptionSelected
-                    ]}
-                    onPress={() => {
-                      setCategory(item);
-                      setCategoryModalVisible(false);
-                    }}
-                  >
-                    <Text style={[
-                      styles.categoryOptionText,
-                      category === item && styles.categoryOptionTextSelected
-                    ]}>
-                      {item}
-                    </Text>
-                    {category === item && (
-                      <Feather name="check" size={20} color="#EA580C" />
-                    )}
-                  </TouchableOpacity>
-                )}
-              />
-            </Pressable>
-          </Pressable>
-        </Modal>
 
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -317,77 +254,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  dropdownSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  dropdownText: {
-    fontSize: 16,
-    color: '#111827',
-  },
-  placeholderText: {
-    color: '#9CA3AF',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '70%',
-    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 10,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  closeModalButton: {
-    padding: 4,
-  },
-  categoryOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  categoryOptionSelected: {
-    backgroundColor: '#FFF7ED',
-  },
-  categoryOptionText: {
-    fontSize: 16,
-    color: '#374151',
-  },
-  categoryOptionTextSelected: {
-    color: '#EA580C',
-    fontWeight: '600',
-  },
 });
-

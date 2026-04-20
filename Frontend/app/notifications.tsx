@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Switch } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, Switch } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
@@ -128,4 +127,3 @@ const styles = StyleSheet.create({
   switchTitle: { fontSize: 16, fontWeight: '500', color: '#111827', marginBottom: 4 },
   switchSubtitle: { fontSize: 13, color: '#6B7280', lineHeight: 18 },
 });
-

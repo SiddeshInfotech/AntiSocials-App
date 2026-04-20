@@ -10,11 +10,6 @@ export default function LoginScreen() {
   const router = useRouter();
   const [phoneNumber, setPhoneNumber] = useState('');
 
-  const handlePhoneChange = (text: string) => {
-    const numericValue = text.replace(/[^0-9]/g, '');
-    setPhoneNumber(numericValue);
-  };
-
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
@@ -56,9 +51,9 @@ export default function LoginScreen() {
                 style={styles.inputField}
                 placeholder="12345 67890"
                 placeholderTextColor="#A1A1AA"
-                keyboardType="number-pad"
+                keyboardType="phone-pad"
                 value={phoneNumber}
-                onChangeText={handlePhoneChange}
+                onChangeText={setPhoneNumber}
                 maxLength={10}
               />
             </View>
@@ -79,14 +74,6 @@ export default function LoginScreen() {
                 Send OTP
               </Text>
             </TouchableOpacity>
-
-            {/* Signup Link */}
-            <View style={styles.signupContainer}>
-              <Text style={styles.signupText}>Don't have an account? </Text>
-              <TouchableOpacity onPress={() => router.push('/signup')}>
-                <Text style={styles.signupLink}>Sign up</Text>
-              </TouchableOpacity>
-            </View>
 
             {/* Footer */}
             <Text style={styles.footerText}>
@@ -220,20 +207,6 @@ const styles = StyleSheet.create({
   buttonTextActive: {
     color: '#FFFFFF',
   },
-  signupContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginBottom: 24,
-  },
-  signupText: {
-    color: '#6B7280',
-    fontSize: 14,
-  },
-  signupLink: {
-    color: '#9333EA',
-    fontSize: 14,
-    fontWeight: '600',
-  },
   footerText: {
     fontSize: 12,
     color: '#6B7280',
@@ -245,4 +218,3 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 });
-

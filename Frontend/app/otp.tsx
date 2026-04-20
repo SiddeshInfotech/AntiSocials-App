@@ -30,16 +30,12 @@ export default function OTPScreen() {
   };
 
   const handleChange = (text: string, index: number) => {
-    // Filter out any non-numeric characters
-    const numericValue = text.replace(/[^0-9]/g, '');
-    
-    // Only update if it's empty (cleared) or a valid number
     const newOtp = [...otp];
-    newOtp[index] = numericValue;
+    newOtp[index] = text;
     setOtp(newOtp);
 
-    // Auto focus next input if digit entered
-    if (numericValue && index < 5) {
+    // Auto focus next input
+    if (text && index < 5) {
       inputs.current[index + 1]?.focus();
     }
   };
@@ -86,7 +82,7 @@ export default function OTPScreen() {
 
             {/* Description Text */}
             <Text style={styles.descriptionText}>
-              This helps us confirm its really you.
+              This helps us confirm it's really you.
             </Text>
 
             {/* OTP Inputs */}
@@ -113,7 +109,7 @@ export default function OTPScreen() {
                 isComplete ? styles.buttonActive : styles.buttonDisabled
               ]}
               disabled={!isComplete}
-              onPress={() => router.replace('/(tabs)' as any)}
+              onPress={() => router.replace('/signup' as any)}
             >
               <Text style={[
                 styles.buttonText,
@@ -258,4 +254,3 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 });
-

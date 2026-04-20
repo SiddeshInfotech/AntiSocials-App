@@ -1,54 +1,39 @@
-<div align="center">
-  
-# 🚀 AntiSocials 
+# AntiSocials
 
-**Less scrolling. More living.**
+Welcome to the **AntiSocials** repository! 
 
-AntiSocials is not just another social media app designed to keep you glued to your screen. It is a revolutionary platform built to get you *off* your phone and into the real world. We help you track your personal growth, build healthy offline habits, and connect with verified, like-minded people in your local community.
+A unified social platform aiming to minimize endless scrolling and maximize real-life connections, trusted activities, and meaningful experiences.
 
-</div>
+## 🗂️ Project Structure
 
----
+This monorepo handles both the backend server architecture and the frontend interface for AntiSocials.
 
-## 🌟 Why AntiSocials?
-In a world dominated by endless feeds and digital fatigue, AntiSocials acts as your personal bridge back to reality. It encourages you to show up for yourself first before interacting with the broader digital community. 
+* **`/Frontend`**: Our mobile client, built with **Expo** and **React Native**. It utilizes Expo Router for file-based navigation, Reanimated for fluid gesture-based onboarding carousels, and Native integrations like Image Pickers and Local File handling.
+* **`/Backend`**: The core API, built securely on **Node.js** & **Express** (`v5`). Currently set up with standardized Middlewares (`cors`, `body-parser`) and environment handling via `dotenv` laying the foundation for our upcoming database integration schemas.
 
-Our core philosophy is simple: **Complete real-world tasks to unlock social features.** Until you invest time in your physical, mental, or spiritual growth, the community feed remains locked! 
+## 🚀 Getting Started
 
----
+To run the application locally, you will need to spin up both modules in separate terminal instances.
 
-## 🔥 Key Features
+### 1. Launch the Backend API
+Navigate to the backend directory, install the required dependencies, and execute the server:
+```bash
+cd Backend
+npm install
+node index.js
+```
 
-### 🎯 The Wheel of Life Domains
-Visually track your holistic progress across 8 essential life categories using our dynamic SVG charts:
-- **Mental & Spiritual:** Meditation, silent reflection, or reading.
-- **Physical & Health:** Gym sessions, running, or active stretching.
-- **Social & Interpersonal:** Spending quality time with real people.
-- **Financial & Career:** Hitting milestones or learning new skills.
+### 2. Launch the Mobile Client
+Open a second terminal window, navigate to the frontend directory, install Expo tools, and start the development environment:
+```bash
+cd Frontend
+npm install
+npm start
+```
 
-### 🐻 AntiSocial Buddy
-Meet your adorable digital companion! Our unique interactive bear sits right in your dashboard keeping you company. Tap any quick tasks around your Buddy to instantly start a mindful session (like taking deep breaths, stepping outside, or smiling) so you never feel alone on your journey to betterment.
+Press `a` in your terminal to open it via Android Emulator, `i` via iOS Simulator, or simply use the **Expo Go** application on your physical device to scan the QR code output.
 
-### 📸 Authentic Daily Stories
-Capture raw, unfiltered moments straight from your device's native Camera or Gallery. Easily upload short highlights from your daily walks, study sessions, or coffee breaks. No filters. No fake highlights. Just real life.
+## 🤝 Contribution Guidelines
+When preparing a PR, make sure you branch off appropriately based on the component you are modifying (e.g., frontend developers should branch from `frontend-dev`). 
 
-### 🤝 Real Connections & Activities
-Say goodbye to strangers hiding behind screens.
-- **Discover Events:** Browse and join curated local activities (like morning yoga or photography walks) based strictly on your shared interests.
-- **Verified Humans:** Ensure safety and authenticity with our Verified Tier System. Connect only with real people creating real memories!
-- **Build Streaks:** Maintain an active streak every day you check in and complete a task, unlocking exclusive profile badges like the "21-Day Builder" or "First Meet" champion!
-
----
-
-## 🛠️ How It Works
-
-1. **Focus on Yourself:** Tap on a life domain to log an activity. Did you go for a walk? Did you stretch?
-2. **Unlock the Community:** Your social feed is locked by default. Complete at least 1 personal growth task today to unlock it!
-3. **Show Off Your Badges:** Check your Profile to view your beautiful Gold Rings, your highest level rank (e.g., "Lvl 4 Connector"), and your upcoming goals.
-4. **Grow Together:** Join a local event from the "Activities" tab and meet your new squad in person!
-
----
-
-<div align="center">
-  <p><i>Start showing up for yourself today!</i></p>
-</div>
+Ensure any changes pass generic syntax validation methods (such as Typescript's `tsc --noEmit` on the Expo stack) before finalizing your commits.

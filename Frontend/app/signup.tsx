@@ -285,4 +285,3 @@ const styles = StyleSheet.create({
     color: "#777"
   }
 });
-
