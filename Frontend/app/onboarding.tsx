@@ -10,6 +10,7 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import * as SecureStore from 'expo-secure-store';
+import { API_BASE_URL } from '../constants/Api';
 
 import Animated, {
   useSharedValue,
@@ -119,7 +120,7 @@ export default function Onboarding() {
         const userIdStr = await SecureStore.getItemAsync('userId');
         if (userIdStr && selected.length >= 3) {
           const userId = parseInt(userIdStr, 10);
-          await fetch("http://192.168.1.8:5000/save-interests", {
+          await fetch(`${API_BASE_URL}/save-interests`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",

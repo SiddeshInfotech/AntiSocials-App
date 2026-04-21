@@ -17,6 +17,7 @@ import { useRouter } from "expo-router";
 import { useIsFocused } from "@react-navigation/native";
 import * as SecureStore from 'expo-secure-store';
 import LifeDomainsChart from "../../components/LifeDomainsChart";
+import { API_BASE_URL } from "../../constants/Api";
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -36,7 +37,7 @@ export default function ProfileScreen() {
           return;
         }
 
-        const response = await fetch(`http://192.168.1.8:5000/api/me`, {
+        const response = await fetch(`${API_BASE_URL}/api/me`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }

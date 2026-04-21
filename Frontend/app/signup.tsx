@@ -19,6 +19,7 @@ import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
 import * as ImagePicker from "expo-image-picker";
 import * as SecureStore from 'expo-secure-store';
+import { API_BASE_URL } from '../constants/Api';
 
 export default function Signup() {
   const router = useRouter();
@@ -81,8 +82,7 @@ export default function Signup() {
 
     setIsLoading(true);
     try {
-      // Replaced localhost with your computer's IP address to fix the Android Network Request Failed error
-      const response = await fetch("http://192.168.1.8:5000/register", {
+      const response = await fetch(`${API_BASE_URL}/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

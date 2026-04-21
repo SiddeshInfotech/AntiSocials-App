@@ -5,6 +5,7 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as SecureStore from 'expo-secure-store';
+import { API_BASE_URL } from '../constants/Api';
 
 export default function EditProfileScreen() {
   const router = useRouter();
@@ -29,7 +30,7 @@ export default function EditProfileScreen() {
           return;
         }
 
-        const response = await fetch(`http://192.168.1.8:5000/api/me`, {
+        const response = await fetch(`${API_BASE_URL}/api/me`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
 
@@ -105,7 +106,7 @@ export default function EditProfileScreen() {
       const userId = await SecureStore.getItemAsync('userId');
       const token = await SecureStore.getItemAsync('token');
 
-      const response = await fetch(`http://192.168.1.8:5000/user/${userId}`, {
+      const response = await fetch(`${API_BASE_URL}/user/${userId}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",

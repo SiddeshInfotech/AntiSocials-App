@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as SecureStore from 'expo-secure-store';
+import { API_BASE_URL } from '../constants/Api';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -62,8 +63,7 @@ export default function LoginScreen() {
 
     setIsLoading(true);
     try {
-      // Updated to your current IP 192.168.1.6
-      const response = await fetch("http://192.168.1.8:5000/login", {
+      const response = await fetch(`${API_BASE_URL}/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

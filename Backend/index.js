@@ -10,6 +10,7 @@ const nodemailer = require('nodemailer');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const HOST = process.env.HOST || '0.0.0.0';
 
 // Middleware
 app.use(cors());
@@ -397,7 +398,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // Start Server
-app.listen(PORT, () => {
-    console.log(`Backend server running on http://localhost:${PORT}`);
+app.listen(PORT, HOST, () => {
+    console.log(`Backend server running on http://${HOST}:${PORT}`);
     initDB(); // create the table right after starting the server
 });
