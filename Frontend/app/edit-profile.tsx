@@ -29,7 +29,7 @@ export default function EditProfileScreen() {
           return;
         }
 
-        const response = await fetch(`http://192.168.1.8:5000/api/me`, {
+        const response = await fetch(`http://192.168.10.2:5000/api/me`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
 
@@ -105,7 +105,7 @@ export default function EditProfileScreen() {
       const userId = await SecureStore.getItemAsync('userId');
       const token = await SecureStore.getItemAsync('token');
 
-      const response = await fetch(`http://192.168.1.8:5000/user/${userId}`, {
+      const response = await fetch(`http://192.168.10.2:5000/user/${userId}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",

@@ -62,8 +62,12 @@ export default function LoginScreen() {
 
     setIsLoading(true);
     try {
-      // Updated to your current IP 192.168.1.6
-      const response = await fetch("http://192.168.1.8:5000/login", {
+      // Adding AbortController to prevent infinite loading on network failure
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 seconds timeout
+
+      // Updated to your current IP 192.168.10.2
+      const response = await fetch("http://192.168.10.2:5000/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -72,7 +76,10 @@ export default function LoginScreen() {
           emailOrUsername,
           password
         }),
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
 
       const data = await response.json();
 

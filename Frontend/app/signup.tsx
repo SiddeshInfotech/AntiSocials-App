@@ -81,8 +81,12 @@ export default function Signup() {
 
     setIsLoading(true);
     try {
+      // Adding AbortController to prevent infinite loading on network failure
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 seconds timeout
+
       // Replaced localhost with your computer's IP address to fix the Android Network Request Failed error
-      const response = await fetch("http://192.168.1.8:5000/register", {
+      const response = await fetch("http://192.168.10.2:5000/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -95,7 +99,10 @@ export default function Signup() {
           about,
           imageUrl: image
         }),
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
 
       const data = await response.json();
 

@@ -119,7 +119,7 @@ export default function Onboarding() {
         const userIdStr = await SecureStore.getItemAsync('userId');
         if (userIdStr && selected.length >= 3) {
           const userId = parseInt(userIdStr, 10);
-          await fetch("http://192.168.1.8:5000/save-interests", {
+          await fetch("http://192.168.10.2:5000/save-interests", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
