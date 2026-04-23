@@ -113,6 +113,26 @@ const initDB = async () => {
             );
         `);
 
+        // Migrations
+        try { await db.query('ALTER TABLE users ADD COLUMN streak_count INTEGER DEFAULT 0'); } catch(e) {}
+        try { await db.query('ALTER TABLE users ADD COLUMN last_streak_date DATE'); } catch(e) {}
+
+
+        // Seed Tasks if empty so UI task bindings have IDs to hit API with
+        const taskCountRes = await db.query('SELECT COUNT(*) FROM tasks');
+        if (parseInt(taskCountRes.rows[0].count, 10) === 0) {
+            await db.query(`
+                INSERT INTO tasks (title, description, category, points_reward, duration) VALUES 
+                ('Reflect', 'Write down your thoughts', 'Mental', 100, 5),
+                ('Smile', 'Smile for 10 seconds', 'Mental', 150, 1),
+                ('Breathe', 'Take deep breaths', 'Health', 50, 3),
+                ('Stretch', 'Stretch your body', 'Physical', 100, 5),
+                ('Silent', 'Sit in absolute silence', 'Mental', 200, 10),
+                ('Outside', 'Go outside and look around', 'Physical', 100, 10)
+            `);
+            console.log("Seeded default tasks.");
+        }
+
         console.log("PostgreSQL tables initialized.");
     } catch (err) {
         console.error("Error creating tables:", err);

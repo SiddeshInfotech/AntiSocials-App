@@ -1,16 +1,54 @@
 const db = require('../db');
 
+async function evaluateStreak(userId) {
+    const completedTodayRes = await db.query(`
+        SELECT COUNT(*) as count 
+        FROM user_tasks 
+        WHERE user_id = $1 AND status = 'completed' AND completed_at::DATE = CURRENT_DATE
+    `, [userId]);
+    const tasksCompletedToday = parseInt(completedTodayRes.rows[0].count, 10);
+
+    if (tasksCompletedToday >= 7) {
+        const uRes = await db.query('SELECT streak_count, last_streak_date FROM users WHERE id = $1', [userId]);
+        const uData = uRes.rows[0];
+        const currentStreak = uData.streak_count || 0;
+        
+        let shouldIncrement = false;
+        let newStreak = currentStreak;
+
+        if (!uData.last_streak_date) {
+            shouldIncrement = true;
+            newStreak = 1;
+        } else {
+            const diffRes = await db.query("SELECT (CURRENT_DATE - $1::DATE) as diff", [uData.last_streak_date]);
+            const diff = diffRes.rows[0].diff;
+            if (diff >= 1) { // 1 means consecutive day (yesterday) OR missed day > 1
+                shouldIncrement = true;
+                if (diff === 1) {
+                    newStreak += 1;
+                } else {
+                    newStreak = 1;
+                }
+            }
+        }
+
+        if (shouldIncrement) {
+             await db.query('UPDATE users SET streak_count = $1, last_streak_date = CURRENT_DATE WHERE id = $2', [newStreak, userId]);
+        }
+    }
+}
+
 exports.getHomeData = async (req, res) => {
     try {
         const userId = req.user.id;
 
         // User info
-        const userRes = await db.query('SELECT id, username, email, image_url FROM users WHERE id = $1', [userId]);
+        const userRes = await db.query('SELECT id, username, email, image_url, streak_count, last_streak_date FROM users WHERE id = $1', [userId]);
         const user = userRes.rows[0];
 
-        // Total points
+        // Total points (Dynamic sum from history)
         const pointsRes = await db.query('SELECT COALESCE(SUM(points), 0) as total_points FROM points_history WHERE user_id = $1', [userId]);
-        const totalPoints = pointsRes.rows[0].total_points;
+        const totalPoints = parseInt(pointsRes.rows[0].total_points, 10);
 
         // Active stories
         const storiesRes = await db.query(`
@@ -33,8 +71,11 @@ exports.getHomeData = async (req, res) => {
         const completedCount = userTasksRes.rows.filter(ut => ut.status === 'completed').length;
         const pendingCount = userTasksRes.rows.filter(ut => ut.status !== 'completed').length;
 
+        // Simple Streak Calculation
+        const streakCount = Math.floor(completedCount / 7);
+
         return res.status(200).json({
-            user,
+            user: { ...user, streak_count: streakCount },
             total_points: totalPoints,
             own_stories: ownStories,
             active_stories: activeStories,
@@ -190,6 +231,7 @@ exports.completeTask = async (req, res) => {
     try {
         const userId = req.user.id;
         const taskId = req.params.id;
+        console.log(`📌 completeTask called: userId=${userId}, taskId=${taskId}`);
 
         const taskRes = await db.query('SELECT id, points_reward FROM tasks WHERE id = $1', [taskId]);
         if (taskRes.rows.length === 0) {
@@ -221,6 +263,8 @@ exports.completeTask = async (req, res) => {
                 VALUES ($1, $2, $3, 'task_completion')
             `, [userId, taskId, pointsReward]);
         }
+
+        await evaluateStreak(userId);
 
         return res.status(200).json({ message: 'Task completed', points_rewarded: pointsReward, user_task: result.rows[0] });
     } catch (err) {
@@ -268,6 +312,7 @@ exports.updateTaskProgress = async (req, res) => {
                     `, [userId, taskId, taskRes.rows[0].points_reward]);
                 }
             }
+            await evaluateStreak(userId);
         }
 
         return res.status(200).json({ message: 'Task progress updated', user_task: result.rows[0] });

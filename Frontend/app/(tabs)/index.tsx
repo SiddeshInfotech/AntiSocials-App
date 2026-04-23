@@ -562,21 +562,59 @@ export default function HomeScreen() {
   const fetchHomeData = async () => {
     try {
       const token = await SecureStore.getItemAsync('token');
+      console.log('📌 fetchHomeData: token exists:', !!token);
       if (!token) return;
       const response = await fetch(`${API_BASE_URL}/api/home`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
+      console.log('📌 fetchHomeData response status:', response.status);
+      console.log('📌 fetchHomeData tasks count:', data?.tasks?.length);
+      console.log('📌 fetchHomeData total_points:', data?.total_points);
+      console.log('📌 fetchHomeData streak:', data?.user?.streak_count);
       if (response.ok) {
         setHomeData(data);
       }
     } catch (e) {
-      console.error(e);
+      console.error('❌ fetchHomeData error:', e);
     }
   };
 
   const handleTaskPress = (label: string) => {
     setActiveTask((prev) => (prev === label ? null : label));
+  };
+
+  const completeTaskApi = async (taskName: string) => {
+    try {
+      console.log('📌 completeTaskApi called with taskName:', taskName);
+      console.log('📌 homeData?.tasks:', JSON.stringify(homeData?.tasks?.map((t: any) => ({ id: t.id, title: t.title }))));
+      const taskObj = homeData?.tasks?.find((t: any) => t.title === taskName);
+      console.log('📌 Found taskObj:', taskObj ? `id=${taskObj.id}, title=${taskObj.title}` : 'NOT FOUND');
+      if (!taskObj) {
+        console.log('❌ Task not found in homeData.tasks! Cannot complete.');
+        return;
+      }
+
+      const token = await SecureStore.getItemAsync('token');
+      console.log('📌 Token exists:', !!token);
+      const url = `${API_BASE_URL}/api/home/tasks/${taskObj.id}/complete`;
+      console.log('📌 Calling:', url);
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      console.log('📌 Response status:', response.status);
+      const responseData = await response.json();
+      console.log('📌 Response data:', JSON.stringify(responseData));
+      if (response.ok) {
+        console.log('✅ Task completed successfully! Refreshing home data...');
+        fetchHomeData(); 
+      } else {
+        console.log('❌ Task completion failed:', responseData);
+      }
+    } catch (e) {
+      console.error('❌ completeTaskApi error:', e);
+    }
   };
 
   const handleAddStory = async () => {
@@ -689,8 +727,8 @@ export default function HomeScreen() {
         {/* Top Header */}
         <View style={[styles.header, { paddingTop: Math.max(insets.top, 25) }]}>
           <View style={styles.stats}>
-            <Text style={styles.statItem}>🔥 12</Text>
-            <Text style={styles.statItem}>⚡ 3450</Text>
+            <Text style={styles.statItem}>🔥 {homeData?.user?.streak_count || 0}</Text>
+            <Text style={styles.statItem}>⚡ {homeData?.total_points || 0}</Text>
           </View>
           <Text style={styles.appName}>AntiSocial</Text>
         </View>
@@ -713,7 +751,7 @@ export default function HomeScreen() {
                   colors={["#c026d3", "#f43f5e", "#f59e0b"]}
                   style={styles.storyRing}
                 >
-                  <Image source={{ uri: homeData.user?.image_url || 'https://via.placeholder.com/150' }} style={styles.storyProfileImage} />
+                  <Image source={{ uri: homeData.user?.image_url || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png' }} style={styles.storyProfileImage} />
                 </LinearGradient>
                 <Text style={styles.storyName} numberOfLines={1}>Your Story</Text>
               </TouchableOpacity>
@@ -724,7 +762,7 @@ export default function HomeScreen() {
                 onPress={handleAddStory}
               >
                 <View style={styles.addStoryProfileWrap}>
-                  <Image source={{ uri: homeData?.user?.image_url || 'https://via.placeholder.com/150' }} style={styles.addStoryProfileImage} />
+                  <Image source={{ uri: homeData?.user?.image_url || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png' }} style={styles.addStoryProfileImage} />
                   <View style={styles.plusIconWrap}>
                     <View style={styles.plusIconBg}>
                       <Feather name="plus" size={12} color="#fff" />
@@ -747,7 +785,7 @@ export default function HomeScreen() {
                   colors={["#c026d3", "#f43f5e", "#f59e0b"]}
                   style={styles.storyRing}
                 >
-                  <Image source={{ uri: story.profile_image || 'https://via.placeholder.com/150' }} style={styles.storyProfileImage} />
+                  <Image source={{ uri: story.profile_image || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png' }} style={styles.storyProfileImage} />
                 </LinearGradient>
                 <Text style={styles.storyName} numberOfLines={1}>{story.username}</Text>
               </TouchableOpacity>
@@ -828,9 +866,10 @@ export default function HomeScreen() {
                 Haptics.notificationAsync(
                   Haptics.NotificationFeedbackType.Success,
                 );
+                completeTaskApi(task);
                 Alert.alert(
-                  `Started ${task}`,
-                  `You are now focusing on this moment. Have a peaceful time!`,
+                  `Completed ${task}`,
+                  `You have successfully completed this task. Points added!`,
                 );
                 setActiveTask(null);
               }}
@@ -863,7 +902,7 @@ export default function HomeScreen() {
           <SafeAreaView style={{ flex: 1, position: 'relative' }}>
             <View style={styles.storyViewerHeader}>
                <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                 <Image source={{ uri: viewingStory?.profile_image || homeData?.user?.image_url || 'https://via.placeholder.com/150' }} style={styles.storyViewerProfilePic} />
+                 <Image source={{ uri: viewingStory?.profile_image || homeData?.user?.image_url || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png' }} style={styles.storyViewerProfilePic} />
                  <Text style={styles.storyViewerUsername}>{viewingStory?.username || 'Your Story'}</Text>
                </View>
                <TouchableOpacity onPress={() => setViewingStory(null)} style={{padding: 10}}>
@@ -904,7 +943,7 @@ export default function HomeScreen() {
                   opacity: isUploading ? 0.7 : 1,
                 }}
               >
-                <Image source={{ uri: homeData?.user?.image_url || 'https://via.placeholder.com/150' }} style={{ width: 24, height: 24, borderRadius: 12, marginRight: 8 }} />
+                <Image source={{ uri: homeData?.user?.image_url || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png' }} style={{ width: 24, height: 24, borderRadius: 12, marginRight: 8 }} />
                 <Text style={{ fontSize: 14, fontWeight: '600', color: '#000' }}>
                   {isUploading ? 'Uploading...' : 'Your story'}
                 </Text>
