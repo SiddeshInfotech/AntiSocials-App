@@ -7,6 +7,8 @@ const db = require('./db');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
+const authenticateToken = require('./middleware/auth');
+const homeRoutes = require('./routes/homeRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -30,7 +32,7 @@ const initDB = async () => {
     try {
         console.log("Checking database connection...");
         await db.query('SELECT NOW()'); // Simple ping to verify connection
-        
+
         await db.query(`
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
@@ -60,6 +62,58 @@ const initDB = async () => {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
+
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS stories (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                media_url TEXT NOT NULL,
+                media_type VARCHAR(50) DEFAULT 'image',
+                caption TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                expires_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP + INTERVAL '24 hours',
+                is_active BOOLEAN DEFAULT TRUE
+            );
+        `);
+
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS tasks (
+                id SERIAL PRIMARY KEY,
+                title VARCHAR(255) NOT NULL,
+                description TEXT,
+                category VARCHAR(100),
+                points_reward INTEGER DEFAULT 0,
+                duration INTEGER, 
+                image_url TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS user_tasks (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+                status VARCHAR(50) DEFAULT 'not_started', 
+                progress INTEGER DEFAULT 0,
+                started_at TIMESTAMP,
+                completed_at TIMESTAMP,
+                UNIQUE(user_id, task_id)
+            );
+        `);
+
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS points_history (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
+                points INTEGER NOT NULL,
+                source VARCHAR(100) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
         console.log("PostgreSQL tables initialized.");
     } catch (err) {
         console.error("Error creating tables:", err);
@@ -112,20 +166,6 @@ app.post('/register', async (req, res) => {
 });
 
 // Login Endpoint
-// Middleware to verify JWT
-const authenticateToken = (req, res, next) => {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-
-    if (!token) return res.sendStatus(401);
-
-    jwt.verify(token, process.env.JWT_SECRET || 'secret123', (err, user) => {
-        if (err) return res.sendStatus(403);
-        req.user = user;
-        next();
-    });
-};
-
 app.get('/api/me', authenticateToken, async (req, res) => {
     try {
         const result = await db.query('SELECT id, username, email, profession, about, image_url FROM users WHERE id = $1', [req.user.id]);
@@ -148,7 +188,7 @@ app.post('/login', async (req, res) => {
 
     try {
         const userExists = await db.query(
-            'SELECT * FROM users WHERE email = $1 OR username = $1', 
+            'SELECT * FROM users WHERE email = $1 OR username = $1',
             [emailOrUsername]
         );
 
@@ -157,7 +197,7 @@ app.post('/login', async (req, res) => {
         }
 
         const user = userExists.rows[0];
-        
+
         // Safety check if an older user has no password
         if (!user.password) {
             return res.status(401).json({ error: "Invalid credentials" });
@@ -170,8 +210,8 @@ app.post('/login', async (req, res) => {
         }
 
         const token = jwt.sign(
-            { id: user.id, username: user.username, email: user.email }, 
-            process.env.JWT_SECRET || 'secret123', 
+            { id: user.id, username: user.username, email: user.email },
+            process.env.JWT_SECRET || 'secret123',
             { expiresIn: '7d' }
         );
 
@@ -231,9 +271,9 @@ app.post('/forgot-password', async (req, res) => {
 
         // Generate 6 digit OTP
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        
+
         // Expiry time (5 minutes from now)
-        const expiresAt = new Date(Date.now() + 5 * 60000); 
+        const expiresAt = new Date(Date.now() + 5 * 60000);
 
         // Store OTP in database
         await db.query(
@@ -295,7 +335,7 @@ app.post('/verify-reset-otp', async (req, res) => {
 // Reset Password Endpoint
 app.post('/reset-password', async (req, res) => {
     const { email, newPassword } = req.body;
-    
+
     if (!email || !newPassword) return res.status(400).json({ error: "Email and new password are required" });
     if (newPassword.length < 6) return res.status(400).json({ error: "Password must be at least 6 characters" });
 
@@ -380,22 +420,25 @@ app.patch('/user/:id', authenticateToken, async (req, res) => {
 });
 
 app.get('/user/:id', async (req, res) => {
-  const { id } = req.params;
-  try {
-    const result = await db.query('SELECT username, email, profession, about, image_url FROM users WHERE id = $1', [id]);
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
+    const { id } = req.params;
+    try {
+        const result = await db.query('SELECT username, email, profession, about, image_url FROM users WHERE id = $1', [id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Get user error:', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error('Get user error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
 });
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: "OK", database: "PostgreSQL Configured" });
+    res.json({ status: "OK", database: "PostgreSQL Configured" });
 });
+
+// Home Page Routes
+app.use('/api/home', homeRoutes);
 
 // Start Server
 app.listen(PORT, HOST, () => {

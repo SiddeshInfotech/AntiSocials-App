@@ -37,7 +37,7 @@ export default function ProfileScreen() {
           return;
         }
 
-        const response = await fetch(`${API_BASE_URL}/api/me`, {
+  const response = await fetch(`${API_BASE_URL}/api/me`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }

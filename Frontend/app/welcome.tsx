@@ -63,6 +63,10 @@ export default function LoginScreen() {
 
     setIsLoading(true);
     try {
+      // Adding AbortController to prevent infinite loading on network failure
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 seconds timeout
+
       const response = await fetch(`${API_BASE_URL}/login`, {
         method: "POST",
         headers: {
@@ -72,12 +76,37 @@ export default function LoginScreen() {
           emailOrUsername,
           password
         }),
+        signal: controller.signal
       });
 
-      const data = await response.json();
+      clearTimeout(timeoutId);
+
+      const contentType = response.headers.get("content-type") || "";
+      const rawBody = await response.text();
+      let data: any = {};
+
+      if (contentType.includes("application/json")) {
+        try {
+          data = JSON.parse(rawBody);
+        } catch {
+          data = { error: "Invalid JSON response from server" };
+        }
+      } else {
+        data = { error: rawBody?.trim() || "Unexpected server response" };
+      }
 
       if (!response.ok) {
-        setError(data.error || "Invalid credentials");
+        const message =
+          typeof data.error === "string"
+            ? data.error
+            : `Request failed with status ${response.status}`;
+        setError(message);
+        setIsLoading(false);
+        return;
+      }
+
+      if (!data.token) {
+        setError("Login failed: token missing in server response.");
         setIsLoading(false);
         return;
       }
