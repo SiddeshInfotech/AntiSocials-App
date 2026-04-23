@@ -37,7 +37,7 @@ export default function ProfileScreen() {
           return;
         }
 
-  const response = await fetch(`${API_BASE_URL}/api/me`, {
+        const response = await fetch(`${API_BASE_URL}/api/me`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -111,7 +111,7 @@ export default function ProfileScreen() {
         <View style={styles.headerBackground}>
           <View style={styles.avatarContainer}>
             <View style={styles.avatarPlaceholder}>
-              {userData?.image_url ? (
+              {userData?.image_url && !userData.image_url.startsWith('file://') && !userData.image_url.startsWith('data:image') ? (
                 <Image 
                   source={{ uri: userData.image_url }} 
                   style={{ width: '100%', height: '100%', borderRadius: 45 }} 
