@@ -85,11 +85,18 @@ export default function StoryCard({ story }: StoryCardProps) {
         </View>
 
         {/* Story Image */}
-        <Image
-          source={{ uri: story.image }}
-          style={styles.storyImage}
-          resizeMode="cover"
-        />
+        {story.image && !story.image.startsWith('file://') && !story.image.startsWith('data:image') ? (
+          <Image
+            source={{ uri: story.image }}
+            style={styles.storyImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={[styles.storyImage, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#F3E8FF' }]}>
+            <Feather name="image" size={40} color="#A855F7" />
+            <Text style={{ marginTop: 10, color: "#A855F7" }}>Update needed</Text>
+          </View>
+        )}
 
         {/* Footer actions */}
         <View style={styles.footerContainer}>

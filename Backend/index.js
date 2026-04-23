@@ -4,17 +4,53 @@ const bodyParser = require('body-parser');
 require('dotenv').config();
 
 const db = require('./db');
-const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const nodemailer = require('nodemailer');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// Trust reverse proxy (e.g., Render, Railway) for correct req.protocol (https)
+app.set('trust proxy', 1);
 
 // Middleware
 app.use(cors());
 app.use(bodyParser.json({ limit: '50mb' })); // Higher limit for base64 images
 app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' }));
+
+// Ensure uploads directory exists
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir);
+}
+
+// Serve static files from uploads folder
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Configure Multer
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, 'uploads/')
+    },
+    filename: function (req, file, cb) {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        // Default to .jpg if no extension
+        const ext = path.extname(file.originalname) || '.jpg';
+        cb(null, 'profile_' + uniqueSuffix + ext);
+    }
+});
+const upload = multer({ storage: storage });
+
+app.post('/upload', upload.single('image'), (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ error: "No image provided" });
+    }
+    // Return absolute URL
+    const publicUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+    res.status(200).json({ imageUrl: publicUrl });
+});
 
 // Initialize Database Table
 // Catch global errors to prevent silent crashes
@@ -33,9 +69,10 @@ const initDB = async () => {
         await db.query(`
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
-                username VARCHAR(50) UNIQUE NOT NULL,
-                email VARCHAR(100) UNIQUE NOT NULL,
-                password VARCHAR(255) NOT NULL,
+                username VARCHAR(50) UNIQUE,
+                email VARCHAR(100) UNIQUE,
+                phone_number VARCHAR(20) UNIQUE,
+                is_phone_verified BOOLEAN DEFAULT false,
                 profession VARCHAR(100),
                 about TEXT,
                 image_url TEXT,
@@ -50,12 +87,15 @@ const initDB = async () => {
                 UNIQUE(user_id, interest)
             );
         `);
+
         await db.query(`
-            CREATE TABLE IF NOT EXISTS password_resets (
+            CREATE TABLE IF NOT EXISTS otp_verifications (
                 id SERIAL PRIMARY KEY,
-                email VARCHAR(100) NOT NULL,
+                phone_number VARCHAR(20) NOT NULL,
                 otp VARCHAR(6) NOT NULL,
+                purpose VARCHAR(20) NOT NULL,
                 expires_at TIMESTAMP NOT NULL,
+                is_verified BOOLEAN DEFAULT false,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
@@ -65,50 +105,7 @@ const initDB = async () => {
     }
 };
 
-// Register Endpoint
-app.post('/register', async (req, res) => {
-    const { username, email, password, profession, about } = req.body;
-    console.log(`Registering user: ${username}, hasProfilePhoto: ${!!req.body.imageUrl}`);
 
-    // Validate required fields
-    if (!username || !email || !password) {
-        return res.status(400).json({ error: "Please fill all required fields: username, email, password" });
-    }
-
-    try {
-        // Check if user already exists (by email OR username)
-        const userExists = await db.query('SELECT * FROM users WHERE email = $1 OR username = $2', [email, username]);
-        if (userExists.rows.length > 0) {
-            const existingUser = userExists.rows[0];
-            if (existingUser.email === email) {
-                return res.status(409).json({ error: "Email already exists" });
-            }
-            if (existingUser.username === username) {
-                return res.status(409).json({ error: "Username already exists" });
-            }
-        }
-
-        // Hash password using bcrypt
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
-
-        // Insert new user into the PostgreSQL database
-        const newUserInfo = await db.query(
-            `INSERT INTO users (username, email, password, profession, about, image_url) 
-             VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, username, email, profession, about, image_url, created_at`,
-            [username, email, hashedPassword, profession || null, about || null, req.body.imageUrl || null]
-        );
-
-        res.status(201).json({
-            message: "User registered successfully",
-            user: newUserInfo.rows[0]
-        });
-
-    } catch (error) {
-        console.error("Signup error:", error);
-        res.status(500).json({ error: "Internal server error" });
-    }
-});
 
 // Login Endpoint
 // Middleware to verify JWT
@@ -127,7 +124,7 @@ const authenticateToken = (req, res, next) => {
 
 app.get('/api/me', authenticateToken, async (req, res) => {
     try {
-        const result = await db.query('SELECT id, username, email, profession, about, image_url FROM users WHERE id = $1', [req.user.id]);
+        const result = await db.query('SELECT id, username, email, phone_number, profession, about, image_url FROM users WHERE id = $1', [req.user.id]);
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'User not found' });
         }
@@ -138,38 +135,276 @@ app.get('/api/me', authenticateToken, async (req, res) => {
     }
 });
 
-app.post('/login', async (req, res) => {
-    const { emailOrUsername, password } = req.body;
+// NEW PHONE AUTH APIs
 
-    if (!emailOrUsername || !password) {
-        return res.status(400).json({ error: "Please fill all required fields" });
+const fetch = require('node-fetch');
+
+const sendWhatsAppOTP = async (phoneNumber, otp, retries = 1) => {
+    try {
+        // Clean phone number (remove +, spaces, dashes, etc.)
+        let cleanPhone = phoneNumber.replace(/[^0-9]/g, '');
+        // Remove leading zeros
+        cleanPhone = cleanPhone.replace(/^0+/, '');
+        // Ensure India country code if 10 digits
+        if (cleanPhone.length === 10) {
+            cleanPhone = '91' + cleanPhone;
+        }
+
+        const requestId = "auth_" + Date.now();
+        
+        const payload = {
+            "messaging_product": "whatsapp",
+            "to": cleanPhone,
+            "type": "template",
+            "template": {
+                "name": "otpverification",
+                "language": {
+                    "code": "en"
+                },
+                "components": [
+                    {
+                        "type": "body",
+                        "parameters": [
+                            {
+                                "type": "text",
+                                "text": otp
+                            }
+                        ]
+                    },
+                    {
+                        "type": "button",
+                        "sub_type": "url",
+                        "index": "0",
+                        "parameters": [
+                            {
+                                "type": "text",
+                                "text": otp
+                            }
+                        ]
+                    }
+                ]
+            },
+            "biz_opaque_callback_data": requestId
+        };
+
+        const response = await fetch('https://icpaas.in/v23.0/1034434699754088/messages', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${process.env.ICPAAS_TOKEN}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const status = response.status;
+        const responseData = await response.text();
+
+        if (!response.ok) {
+            console.error(`WhatsApp API Error [${status}]:`, responseData);
+            if (retries > 0) {
+                console.log("Retrying WhatsApp API...");
+                return await sendWhatsAppOTP(phoneNumber, otp, retries - 1);
+            }
+            return { success: false, error: responseData, status };
+        }
+
+        console.log(`WhatsApp API Success [${status}]:`, responseData);
+        return { success: true };
+
+    } catch (err) {
+        console.error("WhatsApp API Network/Timeout Error:", err.message);
+        if (retries > 0) {
+            console.log("Retrying WhatsApp API...");
+            return await sendWhatsAppOTP(phoneNumber, otp, retries - 1);
+        }
+        return { success: false, error: err.message, status: 500 };
+    }
+};
+
+// Fallback Test Route
+app.post('/test-whatsapp', async (req, res) => {
+    const { phoneNumber } = req.body;
+    if (!phoneNumber) return res.status(400).json({ error: "Phone number is required" });
+
+    const result = await sendWhatsAppOTP(phoneNumber, "123456");
+    if (!result.success) {
+        return res.status(500).json({ 
+            error: "Failed to send WhatsApp message", 
+            details: result.error, 
+            status: result.status 
+        });
+    }
+
+    res.status(200).json({ message: "WhatsApp message sent successfully" });
+});
+
+app.post('/auth/send-otp', async (req, res) => {
+    const { phoneNumber, purpose } = req.body;
+    if (!phoneNumber || !purpose) return res.status(400).json({ error: "Phone number and purpose are required" });
+
+    try {
+        // Cleanup old otps
+        await db.query("DELETE FROM otp_verifications WHERE expires_at < NOW()");
+
+        // Limit resend attempts (Max 3 OTPs per 15 minutes)
+        const recentOtps = await db.query(
+            "SELECT COUNT(*) FROM otp_verifications WHERE phone_number = $1 AND created_at > NOW() - INTERVAL '15 minutes'",
+            [phoneNumber]
+        );
+        if (parseInt(recentOtps.rows[0].count) >= 3) {
+            return res.status(429).json({ error: "Too many OTP requests. Please try again later." });
+        }
+
+        const userCheck = await db.query("SELECT * FROM users WHERE phone_number = $1", [phoneNumber]);
+        
+        if (purpose === 'signup') {
+            if (userCheck.rows.length > 0) {
+                return res.status(409).json({ error: "Phone number already registered" });
+            }
+        } else if (purpose === 'login') {
+            if (userCheck.rows.length === 0) {
+                return res.status(404).json({ error: "Phone number not registered" });
+            }
+        }
+
+        // Generate 6 digit OTP
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiresAt = new Date(Date.now() + 5 * 60000); // 5 mins
+
+        await db.query(
+            "INSERT INTO otp_verifications (phone_number, otp, purpose, expires_at) VALUES ($1, $2, $3, $4)",
+            [phoneNumber, otp, purpose, expiresAt]
+        );
+
+        const waResult = await sendWhatsAppOTP(phoneNumber, otp);
+        
+        if (!waResult.success) {
+            // Delete the un-sendable OTP so user can try again without hitting limits as easily
+            await db.query("DELETE FROM otp_verifications WHERE phone_number = $1 AND otp = $2", [phoneNumber, otp]);
+            return res.status(500).json({ error: "Failed to send OTP message. Please try again." });
+        }
+
+        res.status(200).json({ message: "OTP sent successfully via WhatsApp" });
+
+    } catch (err) {
+        console.error("Send OTP error:", err);
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
+app.post('/auth/verify-otp', async (req, res) => {
+    const { phoneNumber, otp, purpose } = req.body;
+    if (!phoneNumber || !otp || !purpose) return res.status(400).json({ error: "Missing required fields" });
+
+    try {
+        const result = await db.query(
+            "SELECT * FROM otp_verifications WHERE phone_number = $1 AND purpose = $2 AND expires_at > NOW() AND is_verified = false ORDER BY created_at DESC LIMIT 1",
+            [phoneNumber, purpose]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(400).json({ error: "Invalid or expired OTP" });
+        }
+
+        const verificationRecord = result.rows[0];
+
+        // Limit wrong attempts
+        if (verificationRecord.attempts >= 5) {
+            return res.status(429).json({ error: "Too many failed attempts. Please request a new OTP." });
+        }
+
+        if (verificationRecord.otp !== otp) {
+            await db.query("UPDATE otp_verifications SET attempts = attempts + 1 WHERE id = $1", [verificationRecord.id]);
+            return res.status(400).json({ error: "Invalid OTP" });
+        }
+
+        await db.query("UPDATE otp_verifications SET is_verified = true WHERE id = $1", [verificationRecord.id]);
+
+        res.status(200).json({ message: "OTP verified successfully" });
+    } catch (err) {
+        console.error("Verify OTP error:", err);
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
+app.post('/auth/register', async (req, res) => {
+    const { phoneNumber, username, email, profession, about, imageUrl } = req.body;
+    
+    if (!phoneNumber || !username) {
+        return res.status(400).json({ error: "Phone number and username are required" });
     }
 
     try {
-        const userExists = await db.query(
-            'SELECT * FROM users WHERE email = $1 OR username = $1', 
-            [emailOrUsername]
+        // Check if verified
+        const verifyCheck = await db.query(
+            "SELECT * FROM otp_verifications WHERE phone_number = $1 AND purpose = 'signup' AND is_verified = true ORDER BY created_at DESC LIMIT 1",
+            [phoneNumber]
         );
 
-        if (userExists.rows.length === 0) {
-            return res.status(401).json({ error: "Invalid credentials" });
+        if (verifyCheck.rows.length === 0) {
+            return res.status(401).json({ error: "Phone number not verified" });
         }
 
-        const user = userExists.rows[0];
-        
-        // Safety check if an older user has no password
-        if (!user.password) {
-            return res.status(401).json({ error: "Invalid credentials" });
+        const userExists = await db.query('SELECT * FROM users WHERE phone_number = $1 OR username = $2', [phoneNumber, username]);
+        if (userExists.rows.length > 0) {
+            return res.status(409).json({ error: "User already exists with this phone or username" });
         }
 
-        const isMatch = await bcrypt.compare(password, user.password);
+        const newUserInfo = await db.query(
+            `INSERT INTO users (phone_number, username, email, profession, about, image_url, is_phone_verified) 
+             VALUES ($1, $2, $3, $4, $5, $6, true) RETURNING id, username, phone_number, email, profession, about, image_url, created_at`,
+            [phoneNumber, username, email || null, profession || null, about || null, imageUrl || null]
+        );
 
-        if (!isMatch) {
-            return res.status(401).json({ error: "Invalid credentials" });
-        }
+        // Clear verification to prevent reuse
+        await db.query("DELETE FROM otp_verifications WHERE phone_number = $1", [phoneNumber]);
 
+        const user = newUserInfo.rows[0];
         const token = jwt.sign(
-            { id: user.id, username: user.username, email: user.email }, 
+            { id: user.id, username: user.username, phoneNumber: user.phone_number }, 
+            process.env.JWT_SECRET || 'secret123', 
+            { expiresIn: '7d' }
+        );
+
+        res.status(201).json({
+            message: "User registered successfully",
+            token,
+            user
+        });
+
+    } catch (err) {
+        console.error("Auth Register error:", err);
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
+app.post('/auth/login', async (req, res) => {
+    const { phoneNumber } = req.body;
+    
+    if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
+
+    try {
+        const verifyCheck = await db.query(
+            "SELECT * FROM otp_verifications WHERE phone_number = $1 AND purpose = 'login' AND is_verified = true ORDER BY created_at DESC LIMIT 1",
+            [phoneNumber]
+        );
+
+        if (verifyCheck.rows.length === 0) {
+            return res.status(401).json({ error: "Phone number not verified" });
+        }
+
+        const userResult = await db.query('SELECT * FROM users WHERE phone_number = $1', [phoneNumber]);
+        
+        if (userResult.rows.length === 0) {
+            return res.status(404).json({ error: "User not found" });
+        }
+
+        // Clear verification
+        await db.query("DELETE FROM otp_verifications WHERE phone_number = $1", [phoneNumber]);
+
+        const user = userResult.rows[0];
+        const token = jwt.sign(
+            { id: user.id, username: user.username, phoneNumber: user.phone_number }, 
             process.env.JWT_SECRET || 'secret123', 
             { expiresIn: '7d' }
         );
@@ -180,149 +415,18 @@ app.post('/login', async (req, res) => {
             user: {
                 id: user.id,
                 username: user.username,
-                email: user.email,
+                phone_number: user.phone_number,
                 profile_name: user.profile_name
             }
         });
 
-    } catch (error) {
-        console.error("Login error:", error);
-        res.status(500).json({ error: "Internal server error" });
-    }
-});
-
-// Configure Nodemailer transporter
-// NOTE: For a production app, use real SMTP credentials. 
-// Using ethereal email or a dummy transporter for development if no ENVs set.
-const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.ethereal.email',
-    port: process.env.SMTP_PORT || 587,
-    auth: {
-        user: process.env.SMTP_USER || 'dummy_user',
-        pass: process.env.SMTP_PASS || 'dummy_pass'
-    }
-});
-
-// Clean up expired OTPs (can be scheduled, but we'll also run it inline)
-const cleanupExpiredOTPs = async () => {
-    try {
-        await db.query('DELETE FROM password_resets WHERE expires_at < NOW()');
     } catch (err) {
-        console.error("Error cleaning up OTPs:", err);
-    }
-};
-
-// Forgot Password Endpoint
-app.post('/forgot-password', async (req, res) => {
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ error: "Email is required" });
-
-    try {
-        // Run cleanup
-        await cleanupExpiredOTPs();
-
-        const userCheck = await db.query('SELECT * FROM users WHERE email = $1', [email]);
-        if (userCheck.rows.length === 0) {
-            // Security best practice: Don't reveal if email exists, but for UX matching design, we might want to let them know.
-            // Matching the requested flow "Error State: Show clean error if email not found"
-            return res.status(404).json({ error: "User with this email not found" });
-        }
-
-        // Generate 6 digit OTP
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        
-        // Expiry time (5 minutes from now)
-        const expiresAt = new Date(Date.now() + 5 * 60000); 
-
-        // Store OTP in database
-        await db.query(
-            'INSERT INTO password_resets (email, otp, expires_at) VALUES ($1, $2, $3)',
-            [email, otp, expiresAt]
-        );
-
-        // Send email
-        const mailOptions = {
-            from: process.env.SMTP_FROM || '"AntiSocial Support" <noreply@antisocial.app>',
-            to: email,
-            subject: 'Reset Password OTP',
-            text: `Your OTP is: ${otp}\nValid for 5 minutes.`
-        };
-
-        // If using dummy credentials, we'll just log the OTP for development convenience
-        if (process.env.SMTP_HOST) {
-            await transporter.sendMail(mailOptions);
-        } else {
-            console.log(`[DEVELOPMENT MODE - OTP NOT SENT via EMAIL] OTP for ${email} is: ${otp}`);
-        }
-
-        res.status(200).json({ message: "OTP sent successfully" });
-
-    } catch (error) {
-        console.error("Forgot password error:", error);
+        console.error("Auth Login error:", err);
         res.status(500).json({ error: "Internal server error" });
     }
 });
 
-// Verify Reset OTP Endpoint
-app.post('/verify-reset-otp', async (req, res) => {
-    const { email, otp } = req.body;
-    if (!email || !otp) return res.status(400).json({ error: "Email and OTP are required" });
 
-    try {
-        await cleanupExpiredOTPs();
-
-        const result = await db.query(
-            'SELECT * FROM password_resets WHERE email = $1 AND otp = $2 AND expires_at > NOW() ORDER BY created_at DESC LIMIT 1',
-            [email, otp]
-        );
-
-        if (result.rows.length === 0) {
-            return res.status(400).json({ error: "Invalid or expired OTP" });
-        }
-
-        // OTP is valid. Return success. We do NOT delete it here, as we need it conceptually or just let the reset-password step rely on the fact that verification happened. 
-        // Actually, to make the reset-password secure, we could return a temporary reset token.
-        // But to keep it simple and aligned to the requested flow:
-        res.status(200).json({ message: "OTP verified successfully" });
-
-    } catch (error) {
-        console.error("Verify OTP error:", error);
-        res.status(500).json({ error: "Internal server error" });
-    }
-});
-
-// Reset Password Endpoint
-app.post('/reset-password', async (req, res) => {
-    const { email, newPassword } = req.body;
-    
-    if (!email || !newPassword) return res.status(400).json({ error: "Email and new password are required" });
-    if (newPassword.length < 6) return res.status(400).json({ error: "Password must be at least 6 characters" });
-
-    try {
-        // Hash new password
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(newPassword, salt);
-
-        // Update password in users table
-        const updateResult = await db.query(
-            'UPDATE users SET password = $1 WHERE email = $2 RETURNING id',
-            [hashedPassword, email]
-        );
-
-        if (updateResult.rows.length === 0) {
-            return res.status(404).json({ error: "User not found" });
-        }
-
-        // Invalidate unused OTPs for this email to prevent reuse
-        await db.query('DELETE FROM password_resets WHERE email = $1', [email]);
-
-        res.status(200).json({ message: "Password updated successfully" });
-
-    } catch (error) {
-        console.error("Reset password error:", error);
-        res.status(500).json({ error: "Internal server error" });
-    }
-});
 
 // Save Interests Endpoint
 app.post('/save-interests', async (req, res) => {

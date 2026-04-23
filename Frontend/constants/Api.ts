@@ -1,3 +1,3 @@
 // Centralized API configuration to avoid hardcoding IP addresses in multiple files
-// Update this IP whenever your computer's local IP changes
+// Replace with your public deployed backend URL (e.g. Render, Railway, VPS)
 export const API_BASE_URL = "http://192.168.1.8:5000";

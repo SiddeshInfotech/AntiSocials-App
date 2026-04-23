@@ -25,6 +25,7 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import Svg, { Circle, G, Line } from "react-native-svg";
+import { API_BASE_URL } from "../../constants/Api";
 
 const { width } = Dimensions.get("window");
 
@@ -568,6 +569,32 @@ export default function HomeScreen() {
     }
   };
 
+  const uploadImageToServer = async (uri: string) => {
+    try {
+      const filename = uri.split('/').pop() || 'story.jpg';
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : `image`;
+
+      const formData = new FormData();
+      formData.append('image', { uri, name: filename, type } as any);
+
+      const response = await fetch(`${API_BASE_URL}/upload`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        Alert.alert("Upload Failed", data.error || "Could not upload image");
+      } else {
+        setMyStories([data.imageUrl, ...myStories]);
+      }
+    } catch (error) {
+      console.error("Upload Error:", error);
+      Alert.alert("Error", "Could not connect to server for image upload.");
+    }
+  };
+
   const openCamera = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (permission.granted === false) {
@@ -580,7 +607,7 @@ export default function HomeScreen() {
       quality: 1,
     });
     if (!result.canceled && result.assets) {
-      setMyStories([result.assets[0].uri, ...myStories]);
+      uploadImageToServer(result.assets[0].uri);
     }
   };
 
@@ -596,7 +623,7 @@ export default function HomeScreen() {
       quality: 1,
     });
     if (!result.canceled && result.assets) {
-      setMyStories([result.assets[0].uri, ...myStories]);
+      uploadImageToServer(result.assets[0].uri);
     }
   };
 
@@ -662,7 +689,13 @@ export default function HomeScreen() {
                 activeOpacity={0.7}
               >
                 <View style={[styles.storyCircle, styles.userStoryBorder]}>
-                  <Image source={{ uri }} style={styles.uploadedStoryImage} />
+                  {uri && !uri.startsWith('file://') && !uri.startsWith('data:image') ? (
+                    <Image source={{ uri }} style={styles.uploadedStoryImage} />
+                  ) : (
+                    <View style={[styles.uploadedStoryImage, { backgroundColor: '#E9D5FF', justifyContent: 'center', alignItems: 'center' }]}>
+                      <Feather name="image" size={24} color="#7B61FF" />
+                    </View>
+                  )}
                 </View>
                 <Text style={styles.storyName}>My Story</Text>
               </TouchableOpacity>
