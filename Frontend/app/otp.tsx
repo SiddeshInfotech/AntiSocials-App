@@ -1,18 +1,25 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import * as SecureStore from 'expo-secure-store';
+import { API_BASE_URL } from '../constants/Api';
 
 export default function OTPScreen() {
   const router = useRouter();
-  const { phone } = useLocalSearchParams<{ phone?: string }>();
-  const displayPhone = phone ? phone.slice(-3) : '099';
+  const params = useLocalSearchParams<{ phone?: string, purpose?: string, username?: string, email?: string, profession?: string, about?: string, imageUrl?: string }>();
+  const phone = params.phone || '';
+  const purpose = params.purpose || 'login';
+
+  const displayPhone = phone ? phone.slice(-4) : '0000';
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const inputs = useRef<Array<TextInput | null>>([]);
   const [timer, setTimer] = useState(26);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
@@ -24,9 +31,22 @@ export default function OTPScreen() {
     return () => clearInterval(interval);
   }, [timer]);
 
-  const handleResend = () => {
+  const handleResend = async () => {
     setTimer(26);
-    // Add your resend logic here
+    setError('');
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/send-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phoneNumber: phone, purpose }),
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        setError(data.error || "Failed to resend OTP");
+      }
+    } catch (err) {
+      setError("Network error.");
+    }
   };
 
   const handleChange = (text: string, index: number) => {
@@ -56,6 +76,76 @@ export default function OTPScreen() {
 
   const isComplete = otp.every(digit => digit !== '');
 
+  const handleVerify = async () => {
+    setError('');
+    setIsLoading(true);
+    const otpCode = otp.join('');
+    try {
+      // 1. Verify OTP
+      const verifyRes = await fetch(`${API_BASE_URL}/auth/verify-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phoneNumber: phone, otp: otpCode, purpose }),
+      });
+      const verifyData = await verifyRes.json();
+      if (!verifyRes.ok) {
+        setError(verifyData.error || "Invalid OTP");
+        setIsLoading(false);
+        return;
+      }
+
+      // 2. Perform Login or Register
+      if (purpose === 'signup') {
+        const regRes = await fetch(`${API_BASE_URL}/auth/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            phoneNumber: phone,
+            username: params.username,
+            email: params.email,
+            profession: params.profession,
+            about: params.about,
+            imageUrl: params.imageUrl
+          }),
+        });
+        const regData = await regRes.json();
+        if (!regRes.ok) {
+          setError(regData.error || "Failed to register");
+          setIsLoading(false);
+          return;
+        }
+        await SecureStore.setItemAsync('token', regData.token);
+        if (regData.user && regData.user.id) {
+           await SecureStore.setItemAsync('userId', regData.user.id.toString());
+        }
+        router.replace('/onboarding' as any);
+      } else {
+        // purpose === 'login'
+        const loginRes = await fetch(`${API_BASE_URL}/auth/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phoneNumber: phone }),
+        });
+        const loginData = await loginRes.json();
+        if (!loginRes.ok) {
+          setError(loginData.error || "Login failed");
+          setIsLoading(false);
+          return;
+        }
+        await SecureStore.setItemAsync('token', loginData.token);
+        if (loginData.user && loginData.user.id) {
+           await SecureStore.setItemAsync('userId', loginData.user.id.toString());
+        }
+        router.replace('/(tabs)' as any);
+      }
+    } catch (err) {
+      console.error(err);
+      setError("Unable to connect to the server.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
@@ -81,12 +171,15 @@ export default function OTPScreen() {
             <Text style={styles.title}>Verify your number</Text>
             <Text style={styles.subtitle}>
               Enter the 6-digit code sent to{'\n'}
-              <Text style={styles.boldText}>+91 XXXXXXX{displayPhone}</Text>
+              <Text style={styles.boldText}>{phone || '+91 XXXX XXXX'}</Text>
             </Text>
+
+            {/* Error Message */}
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
             {/* Description Text */}
             <Text style={styles.descriptionText}>
-              This helps us confirm its really you.
+              This helps us confirm it's really you.
             </Text>
 
             {/* OTP Inputs */}
@@ -110,17 +203,21 @@ export default function OTPScreen() {
             <TouchableOpacity 
               style={[
                 styles.button, 
-                isComplete ? styles.buttonActive : styles.buttonDisabled
+                isComplete && !isLoading ? styles.buttonActive : styles.buttonDisabled
               ]}
-              disabled={!isComplete}
-              onPress={() => router.replace('/(tabs)' as any)}
+              disabled={!isComplete || isLoading}
+              onPress={handleVerify}
             >
-              <Text style={[
-                styles.buttonText,
-                isComplete ? styles.buttonTextActive : styles.buttonTextDisabled
-              ]}>
-                Verify & Continue
-              </Text>
+              {isLoading ? (
+                 <ActivityIndicator color="#fff" />
+              ) : (
+                 <Text style={[
+                   styles.buttonText,
+                   isComplete ? styles.buttonTextActive : styles.buttonTextDisabled
+                 ]}>
+                   Verify & Continue
+                 </Text>
+              )}
             </TouchableOpacity>
 
             {/* Footer */}
@@ -210,6 +307,12 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     textAlign: 'center',
     marginBottom: 32,
+  },
+  errorText: {
+    color: '#EF4444',
+    textAlign: 'center',
+    marginBottom: 16,
+    fontSize: 14,
   },
   otpContainer: {
     flexDirection: 'row',

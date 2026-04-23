@@ -5,6 +5,7 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as SecureStore from 'expo-secure-store';
+import { API_BASE_URL } from '../constants/Api';
 
 export default function EditProfileScreen() {
   const router = useRouter();
@@ -29,7 +30,7 @@ export default function EditProfileScreen() {
           return;
         }
 
-        const response = await fetch(`http://192.168.10.2:5000/api/me`, {
+        const response = await fetch(`${API_BASE_URL}/api/me`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
 
@@ -79,11 +80,40 @@ export default function EditProfileScreen() {
       }
 
       if (!result.canceled) {
-        setProfileImage(result.assets[0].uri);
+        await uploadImageToServer(result.assets[0].uri);
       }
     } catch (error) {
       console.log("Error taking picture: ", error);
       Alert.alert("Error", "Something went wrong while choosing an image.");
+    }
+  };
+
+  const uploadImageToServer = async (uri: string) => {
+    setIsSaving(true);
+    try {
+      const filename = uri.split('/').pop() || 'profile.jpg';
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : `image`;
+
+      const formData = new FormData();
+      formData.append('image', { uri, name: filename, type } as any);
+
+      const response = await fetch(`${API_BASE_URL}/upload`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        Alert.alert("Upload Failed", data.error || "Could not upload image");
+      } else {
+        setProfileImage(data.imageUrl);
+      }
+    } catch (error) {
+      console.error("Upload Error:", error);
+      Alert.alert("Error", "Could not connect to server for image upload.");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -105,7 +135,7 @@ export default function EditProfileScreen() {
       const userId = await SecureStore.getItemAsync('userId');
       const token = await SecureStore.getItemAsync('token');
 
-      const response = await fetch(`http://192.168.10.2:5000/user/${userId}`, {
+      const response = await fetch(`${API_BASE_URL}/user/${userId}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -164,7 +194,7 @@ export default function EditProfileScreen() {
             {/* Avatar Edit */}
             <View style={styles.avatarSection}>
               <TouchableOpacity onPress={showImageOptions} style={styles.avatarPlaceholderContainer}>
-                {profileImage ? (
+                {profileImage && !profileImage.startsWith('file://') && !profileImage.startsWith('data:image') ? (
                   <Image source={{ uri: profileImage }} style={styles.avatarImage} />
                 ) : (
                   <View style={styles.avatarPlaceholder}>
