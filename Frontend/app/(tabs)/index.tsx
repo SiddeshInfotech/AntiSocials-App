@@ -6,6 +6,7 @@ import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
+import * as SecureStore from "expo-secure-store";
 import {
   Alert,
   Animated,
@@ -19,7 +20,9 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Modal,
 } from "react-native";
+import { API_BASE_URL } from "../../constants/Api";
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -539,7 +542,6 @@ const AnimatedBuddy = ({ activeTask }: { activeTask: string | null }) => {
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const [myStories, setMyStories] = useState<string[]>([]);
   const isFocused = useIsFocused();
   const [activeTask, setActiveTask] = useState<string | null>(null);
   const [circleSize, setCircleSize] = useState<{ w: number; h: number }>({
@@ -547,9 +549,75 @@ export default function HomeScreen() {
     h: 420,
   });
 
+  const [homeData, setHomeData] = useState<any>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [viewingStory, setViewingStory] = useState<any>(null);
+  const [previewStoryImage, setPreviewStoryImage] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (isFocused) {
+      fetchHomeData();
+    }
+  }, [isFocused]);
+
+  const fetchHomeData = async () => {
+    try {
+      const token = await SecureStore.getItemAsync('token');
+      console.log('📌 fetchHomeData: token exists:', !!token);
+      if (!token) return;
+      const response = await fetch(`${API_BASE_URL}/api/home`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      console.log('📌 fetchHomeData response status:', response.status);
+      console.log('📌 fetchHomeData tasks count:', data?.tasks?.length);
+      console.log('📌 fetchHomeData total_points:', data?.total_points);
+      console.log('📌 fetchHomeData streak:', data?.user?.streak_count);
+      if (response.ok) {
+        setHomeData(data);
+      }
+    } catch (e) {
+      console.error('❌ fetchHomeData error:', e);
+    }
+  };
+
   const handleTaskPress = (label: string) => {
     setActiveTask((prev) => (prev === label ? null : label));
   };
+
+  const completeTaskApi = async (taskName: string) => {
+    try {
+      console.log('📌 completeTaskApi called with taskName:', taskName);
+      console.log('📌 homeData?.tasks:', JSON.stringify(homeData?.tasks?.map((t: any) => ({ id: t.id, title: t.title }))));
+      const taskObj = homeData?.tasks?.find((t: any) => t.title === taskName);
+      console.log('📌 Found taskObj:', taskObj ? `id=${taskObj.id}, title=${taskObj.title}` : 'NOT FOUND');
+      if (!taskObj) {
+        console.log('❌ Task not found in homeData.tasks! Cannot complete.');
+        return;
+      }
+
+      const token = await SecureStore.getItemAsync('token');
+      console.log('📌 Token exists:', !!token);
+      const url = `${API_BASE_URL}/api/home/tasks/${taskObj.id}/complete`;
+      console.log('📌 Calling:', url);
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      console.log('📌 Response status:', response.status);
+      const responseData = await response.json();
+      console.log('📌 Response data:', JSON.stringify(responseData));
+      if (response.ok) {
+        console.log('✅ Task completed successfully! Refreshing home data...');
+        fetchHomeData(); 
+      } else {
+        console.log('❌ Task completion failed:', responseData);
+      }
+    } catch (e) {
+      console.error('❌ completeTaskApi error:', e);
+    }
+  };
+
   const handleAddStory = async () => {
     if (Platform.OS === "web") {
       const choice = window.confirm(
@@ -561,7 +629,7 @@ export default function HomeScreen() {
         openCamera();
       }
     } else {
-      Alert.alert("Add Story", "How would you like to add a story?", [
+      Alert.alert("Add Story", "Choose an option to share your moment", [
         { text: "Cancel", style: "cancel" },
         { text: "Take Photo", onPress: openCamera },
         { text: "Upload from Gallery", onPress: pickImage },
@@ -587,7 +655,7 @@ export default function HomeScreen() {
       if (!response.ok) {
         Alert.alert("Upload Failed", data.error || "Could not upload image");
       } else {
-        setMyStories([data.imageUrl, ...myStories]);
+        // setMyStories([data.imageUrl, ...myStories]); // Note: myStories might need to be defined or handled
       }
     } catch (error) {
       console.error("Upload Error:", error);
@@ -597,14 +665,15 @@ export default function HomeScreen() {
 
   const openCamera = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (permission.granted === false) {
+    if (permission.status !== "granted") {
       Alert.alert("Permission required", "Please allow camera access!");
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: 'images',
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: false,
-      quality: 1,
+      quality: 0.5,
+      base64: true
     });
     if (!result.canceled && result.assets) {
       uploadImageToServer(result.assets[0].uri);
@@ -613,14 +682,15 @@ export default function HomeScreen() {
 
   const pickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (permission.granted === false) {
+    if (permission.status !== "granted") {
       Alert.alert("Permission required", "Please allow camera roll access!");
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: 'images',
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: false,
-      quality: 1,
+      quality: 0.5,
+      base64: true
     });
     if (!result.canceled && result.assets) {
       uploadImageToServer(result.assets[0].uri);
@@ -651,8 +721,8 @@ export default function HomeScreen() {
         {/* Top Header */}
         <View style={[styles.header, { paddingTop: Math.max(insets.top, 25) }]}>
           <View style={styles.stats}>
-            <Text style={styles.statItem}>🔥 12</Text>
-            <Text style={styles.statItem}>⚡ 3450</Text>
+            <Text style={styles.statItem}>🔥 {homeData?.user?.streak_count || 0}</Text>
+            <Text style={styles.statItem}>⚡ {homeData?.total_points || 0}</Text>
           </View>
           <Text style={styles.appName}>AntiSocial</Text>
         </View>
@@ -664,43 +734,37 @@ export default function HomeScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.storiesScroll}
           >
-            {/* Add Story Button triggers the Action Sheet */}
-            <TouchableOpacity
-              style={styles.storyItemContainer}
-              activeOpacity={0.7}
-              onPress={handleAddStory}
-            >
-              <LinearGradient
-                colors={["#8b5cf6", "#3b82f6"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[styles.storyCircle, styles.addStoryCircle]}
-              >
-                <Text style={styles.addStoryIcon}>+</Text>
-              </LinearGradient>
-              <Text style={styles.storyName}>Add Story</Text>
-            </TouchableOpacity>
-
-            {/* Uploaded Photos from Gallery or Camera map to Stories! */}
-            {myStories.map((uri, index) => (
+            {/* 1. CURRENT USER STORY (Add Story or View Own Story) */}
+            {homeData?.own_stories && homeData.own_stories.length > 0 ? (
               <TouchableOpacity
-                key={`my-story-${index}`}
                 style={styles.storyItemContainer}
-                activeOpacity={0.7}
+                activeOpacity={0.8}
+                onPress={() => setViewingStory(homeData.own_stories[0])}
               >
                 <View style={[styles.storyCircle, styles.userStoryBorder]}>
-                  {uri && !uri.startsWith('file://') && !uri.startsWith('data:image') ? (
-                    <Image source={{ uri }} style={styles.uploadedStoryImage} />
-                  ) : (
-                    <View style={[styles.uploadedStoryImage, { backgroundColor: '#E9D5FF', justifyContent: 'center', alignItems: 'center' }]}>
-                      <Feather name="image" size={24} color="#7B61FF" />
-                    </View>
-                  )}
+                  <Image source={{ uri: homeData.user?.image_url || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png' }} style={styles.uploadedStoryImage} />
                 </View>
-                <Text style={styles.storyName}>My Story</Text>
+                <Text style={styles.storyName} numberOfLines={1}>Your Story</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* 2. OTHER USERS' STORIES */}
+            {homeData?.active_stories?.map((story: any) => (
+              <TouchableOpacity
+                key={story.id}
+                style={styles.storyItemContainer}
+                activeOpacity={0.8}
+                onPress={() => setViewingStory(story)}
+              >
+                <LinearGradient
+                  colors={["#c026d3", "#f43f5e", "#f59e0b"]}
+                  style={styles.storyRing}
+                >
+                  <Image source={{ uri: story.profile_image || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png' }} style={styles.storyProfileImage} />
+                </LinearGradient>
+                <Text style={styles.storyName} numberOfLines={1}>{story.username}</Text>
               </TouchableOpacity>
             ))}
-
             {/* Dummy Default Stories */}
             {[
               { id: "1", name: "Sarah", emoji: "👱‍♀️" },
@@ -709,13 +773,13 @@ export default function HomeScreen() {
               { id: "4", name: "John", emoji: "👨" },
             ].map((story) => (
               <TouchableOpacity
-                key={story.id}
+                key={`dummy-${story.id}`}
                 style={styles.storyItemContainer}
                 activeOpacity={0.7}
               >
-                <View style={[styles.storyCircle, styles.userStoryBorder]}>
-                  <View style={styles.userStoryInner}>
-                    <Text style={styles.emojiText}>{story.emoji}</Text>
+                <View style={[styles.storyRing, { borderWidth: 2, borderColor: "#c026d3", padding: 2 }]}>
+                  <View style={{ width: '100%', height: '100%', borderRadius: 30, backgroundColor: "#fdf2f8", justifyContent: "center", alignItems: "center" }}>
+                    <Text style={{ fontSize: 30 }}>{story.emoji}</Text>
                   </View>
                 </View>
                 <Text style={styles.storyName}>{story.name}</Text>
@@ -777,9 +841,10 @@ export default function HomeScreen() {
                 Haptics.notificationAsync(
                   Haptics.NotificationFeedbackType.Success,
                 );
+                completeTaskApi(task);
                 Alert.alert(
-                  `Started ${task}`,
-                  `You are now focusing on this moment. Have a peaceful time!`,
+                  `Completed ${task}`,
+                  `You have successfully completed this task. Points added!`,
                 );
                 setActiveTask(null);
               }}
@@ -805,6 +870,64 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Story Viewer Modal */}
+      <Modal visible={viewingStory !== null} animationType="fade" transparent={true}>
+        <View style={styles.storyViewerOverlay}>
+          <SafeAreaView style={{ flex: 1, position: 'relative' }}>
+            <View style={styles.storyViewerHeader}>
+               <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                 <Image source={{ uri: viewingStory?.profile_image || homeData?.user?.image_url || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png' }} style={styles.storyViewerProfilePic} />
+                 <Text style={styles.storyViewerUsername}>{viewingStory?.username || 'Your Story'}</Text>
+               </View>
+               <TouchableOpacity onPress={() => setViewingStory(null)} style={{padding: 10}}>
+                 <Feather name="x" size={24} color="#fff" />
+               </TouchableOpacity>
+            </View>
+            <View style={styles.storyViewerContent}>
+               <Image source={{ uri: viewingStory?.media_url }} style={styles.storyViewerImage} resizeMode="contain" />
+            </View>
+          </SafeAreaView>
+        </View>
+      </Modal>
+
+      {/* Story Upload Preview Modal */}
+      <Modal visible={previewStoryImage !== null} animationType="slide" transparent={false}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#000' }}>
+          <View style={{ flex: 1, position: 'relative' }}>
+            <Image source={{ uri: previewStoryImage || '' }} style={{ flex: 1, borderRadius: 10, marginHorizontal: 5 }} resizeMode="cover" />
+            
+            <View style={{ position: 'absolute', top: 20, left: 15, zIndex: 10 }}>
+               <TouchableOpacity onPress={() => !isUploading && setPreviewStoryImage(null)} style={{ padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 }}>
+                 <Feather name="x" size={24} color="#fff" />
+               </TouchableOpacity>
+            </View>
+
+            <View style={{ position: 'absolute', bottom: 30, left: 15, right: 15, flexDirection: 'row', justifyContent: 'flex-start' }}>
+              <TouchableOpacity 
+                activeOpacity={0.8}
+                onPress={uploadStoryToServer}
+                disabled={isUploading}
+                style={{
+                  backgroundColor: '#fff',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingVertical: 10,
+                  paddingHorizontal: 16,
+                  borderRadius: 30,
+                  opacity: isUploading ? 0.7 : 1,
+                }}
+              >
+                <Image source={{ uri: homeData?.user?.image_url || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png' }} style={{ width: 24, height: 24, borderRadius: 12, marginRight: 8 }} />
+                <Text style={{ fontSize: 14, fontWeight: '600', color: '#000' }}>
+                  {isUploading ? 'Uploading...' : 'Your story'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </SafeAreaView>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -851,49 +974,94 @@ const styles = StyleSheet.create({
   },
   storyItemContainer: {
     alignItems: "center",
-    width: 65,
+    width: 72,
   },
-  storyCircle: {
-    width: 65,
-    height: 65,
-    borderRadius: 35,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  addStoryCircle: {
-    // Note: Background removed as we use LinearGradient locally now
-  },
-  addStoryIcon: {
-    color: "white",
-    fontSize: 28,
-    fontWeight: "400",
-  },
-  userStoryBorder: {
-    borderWidth: 2,
-    borderColor: "#c026d3",
+  storyRing: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     padding: 2,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 6,
   },
-  userStoryInner: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 30,
-    backgroundColor: "#fdf2f8",
+  storyProfileImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 2,
+    borderColor: "#fff",
+  },
+  addStoryProfileWrap: {
+    width: 72,
+    height: 72,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 6,
+    position: "relative",
+  },
+  addStoryProfileImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+  },
+  plusIconWrap: {
+    position: "absolute",
+    bottom: 2,
+    right: 2,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    width: 24,
+    height: 24,
     justifyContent: "center",
     alignItems: "center",
   },
-  uploadedStoryImage: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 30,
-  },
-  emojiText: {
-    fontSize: 30,
+  plusIconBg: {
+    backgroundColor: "#3b82f6",
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
   },
   storyName: {
-    fontSize: 12,
+    fontSize: 11,
     color: "#4b5563",
     fontWeight: "500",
+  },
+  storyViewerOverlay: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  storyViewerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    zIndex: 10,
+  },
+  storyViewerProfilePic: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: '#333'
+  },
+  storyViewerUsername: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600'
+  },
+  storyViewerContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#000'
+  },
+  storyViewerImage: {
+    width: '100%',
+    height: '100%',
   },
   dashboardContainer: {
     marginHorizontal: 15,

@@ -8,6 +8,8 @@ const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const authenticateToken = require('./middleware/auth');
+const homeRoutes = require('./routes/homeRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -65,7 +67,7 @@ const initDB = async () => {
     try {
         console.log("Checking database connection...");
         await db.query('SELECT NOW()'); // Simple ping to verify connection
-        
+
         await db.query(`
             CREATE TABLE IF NOT EXISTS users (
                 id SERIAL PRIMARY KEY,
@@ -99,6 +101,78 @@ const initDB = async () => {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
+
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS stories (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                media_url TEXT NOT NULL,
+                media_type VARCHAR(50) DEFAULT 'image',
+                caption TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                expires_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP + INTERVAL '24 hours',
+                is_active BOOLEAN DEFAULT TRUE
+            );
+        `);
+
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS tasks (
+                id SERIAL PRIMARY KEY,
+                title VARCHAR(255) NOT NULL,
+                description TEXT,
+                category VARCHAR(100),
+                points_reward INTEGER DEFAULT 0,
+                duration INTEGER, 
+                image_url TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS user_tasks (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+                status VARCHAR(50) DEFAULT 'not_started', 
+                progress INTEGER DEFAULT 0,
+                started_at TIMESTAMP,
+                completed_at TIMESTAMP,
+                UNIQUE(user_id, task_id)
+            );
+        `);
+
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS points_history (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
+                points INTEGER NOT NULL,
+                source VARCHAR(100) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        // Migrations
+        try { await db.query('ALTER TABLE users ADD COLUMN streak_count INTEGER DEFAULT 0'); } catch(e) {}
+        try { await db.query('ALTER TABLE users ADD COLUMN last_streak_date DATE'); } catch(e) {}
+
+
+        // Seed Tasks if empty so UI task bindings have IDs to hit API with
+        const taskCountRes = await db.query('SELECT COUNT(*) FROM tasks');
+        if (parseInt(taskCountRes.rows[0].count, 10) === 0) {
+            await db.query(`
+                INSERT INTO tasks (title, description, category, points_reward, duration) VALUES 
+                ('Reflect', 'Write down your thoughts', 'Mental', 100, 5),
+                ('Smile', 'Smile for 10 seconds', 'Mental', 150, 1),
+                ('Breathe', 'Take deep breaths', 'Health', 50, 3),
+                ('Stretch', 'Stretch your body', 'Physical', 100, 5),
+                ('Silent', 'Sit in absolute silence', 'Mental', 200, 10),
+                ('Outside', 'Go outside and look around', 'Physical', 100, 10)
+            `);
+            console.log("Seeded default tasks.");
+        }
+
         console.log("PostgreSQL tables initialized.");
     } catch (err) {
         console.error("Error creating tables:", err);
@@ -108,20 +182,6 @@ const initDB = async () => {
 
 
 // Login Endpoint
-// Middleware to verify JWT
-const authenticateToken = (req, res, next) => {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-
-    if (!token) return res.sendStatus(401);
-
-    jwt.verify(token, process.env.JWT_SECRET || 'secret123', (err, user) => {
-        if (err) return res.sendStatus(403);
-        req.user = user;
-        next();
-    });
-};
-
 app.get('/api/me', authenticateToken, async (req, res) => {
     try {
         const result = await db.query('SELECT id, username, email, phone_number, profession, about, image_url FROM users WHERE id = $1', [req.user.id]);
@@ -483,22 +543,25 @@ app.patch('/user/:id', authenticateToken, async (req, res) => {
 });
 
 app.get('/user/:id', async (req, res) => {
-  const { id } = req.params;
-  try {
-    const result = await db.query('SELECT username, email, profession, about, image_url FROM users WHERE id = $1', [id]);
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
+    const { id } = req.params;
+    try {
+        const result = await db.query('SELECT username, email, profession, about, image_url FROM users WHERE id = $1', [id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Get user error:', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error('Get user error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
 });
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: "OK", database: "PostgreSQL Configured" });
+    res.json({ status: "OK", database: "PostgreSQL Configured" });
 });
+
+// Home Page Routes
+app.use('/api/home', homeRoutes);
 
 // Start Server
 app.listen(PORT, () => {
