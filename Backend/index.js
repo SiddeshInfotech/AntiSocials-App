@@ -98,6 +98,7 @@ const initDB = async () => {
                 purpose VARCHAR(20) NOT NULL,
                 expires_at TIMESTAMP NOT NULL,
                 is_verified BOOLEAN DEFAULT false,
+                attempts INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
@@ -156,6 +157,7 @@ const initDB = async () => {
         // Migrations
         try { await db.query('ALTER TABLE users ADD COLUMN streak_count INTEGER DEFAULT 0'); } catch(e) {}
         try { await db.query('ALTER TABLE users ADD COLUMN last_streak_date DATE'); } catch(e) {}
+        try { await db.query('ALTER TABLE otp_verifications ADD COLUMN attempts INTEGER DEFAULT 0'); } catch(e) {}
 
 
         // Seed Tasks if empty so UI task bindings have IDs to hit API with

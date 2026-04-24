@@ -10,7 +10,6 @@ import * as SecureStore from "expo-secure-store";
 import {
   Alert,
   Animated,
-  Dimensions,
   Easing,
   Image,
   Platform,
@@ -27,10 +26,7 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
-import Svg, { Circle, G, Line } from "react-native-svg";
-import { API_BASE_URL } from "../../constants/Api";
 
-const { width } = Dimensions.get("window");
 
 // No longer using trigonometry, fully refactored to responsive Flexbox layout!
 
@@ -654,12 +650,53 @@ export default function HomeScreen() {
       const data = await response.json();
       if (!response.ok) {
         Alert.alert("Upload Failed", data.error || "Could not upload image");
-      } else {
-        // setMyStories([data.imageUrl, ...myStories]); // Note: myStories might need to be defined or handled
+        return null;
       }
+      return data.imageUrl;
     } catch (error) {
       console.error("Upload Error:", error);
       Alert.alert("Error", "Could not connect to server for image upload.");
+      return null;
+    }
+  };
+
+  const uploadStoryToServer = async () => {
+    if (!previewStoryImage) return;
+    try {
+      setIsUploading(true);
+      
+      // Step 1: Upload image to get URL
+      const imageUrl = await uploadImageToServer(previewStoryImage);
+      if (!imageUrl) return;
+
+      // Step 2: Create story record
+      const token = await SecureStore.getItemAsync('token');
+      const response = await fetch(`${API_BASE_URL}/api/home/stories`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          media_url: imageUrl,
+          media_type: 'image',
+          caption: ''
+        })
+      });
+
+      if (response.ok) {
+        fetchHomeData(); 
+        setPreviewStoryImage(null);
+        Alert.alert("Success", "Story uploaded successfully!");
+      } else {
+        const data = await response.json();
+        Alert.alert("Error", data.error || "Failed to upload story");
+      }
+    } catch (e) {
+      console.error(e);
+      Alert.alert("Error", "Network error");
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -676,7 +713,7 @@ export default function HomeScreen() {
       base64: true
     });
     if (!result.canceled && result.assets) {
-      uploadImageToServer(result.assets[0].uri);
+      setPreviewStoryImage(result.assets[0].uri);
     }
   };
 
@@ -693,7 +730,7 @@ export default function HomeScreen() {
       base64: true
     });
     if (!result.canceled && result.assets) {
-      uploadImageToServer(result.assets[0].uri);
+      setPreviewStoryImage(result.assets[0].uri);
     }
   };
 
@@ -743,6 +780,22 @@ export default function HomeScreen() {
               >
                 <View style={[styles.storyCircle, styles.userStoryBorder]}>
                   <Image source={{ uri: homeData.user?.image_url || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png' }} style={styles.uploadedStoryImage} />
+                </View>
+                <Text style={styles.storyName} numberOfLines={1}>Your Story</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.storyItemContainer}
+                activeOpacity={0.8}
+                onPress={handleAddStory}
+              >
+                <View style={styles.addStoryProfileWrap}>
+                  <Image source={{ uri: homeData?.user?.image_url || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png' }} style={styles.addStoryProfileImage} />
+                  <View style={styles.plusIconWrap}>
+                    <View style={styles.plusIconBg}>
+                      <Feather name="plus" size={12} color="#fff" />
+                    </View>
+                  </View>
                 </View>
                 <Text style={styles.storyName} numberOfLines={1}>Your Story</Text>
               </TouchableOpacity>
