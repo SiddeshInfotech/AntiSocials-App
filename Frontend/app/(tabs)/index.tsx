@@ -22,6 +22,7 @@ import {
   Modal,
 } from "react-native";
 import { API_BASE_URL } from "../../constants/Api";
+import { resolveImageUrl } from "../../constants/ImageUtils";
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -779,7 +780,7 @@ export default function HomeScreen() {
                 onPress={() => setViewingStory(homeData.own_stories[0])}
               >
                 <View style={[styles.storyCircle, styles.userStoryBorder]}>
-                  <Image source={{ uri: homeData.user?.image_url || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png' }} style={styles.uploadedStoryImage} />
+                  <Image source={{ uri: resolveImageUrl(homeData.user?.image_url) }} style={styles.uploadedStoryImage} />
                 </View>
                 <Text style={styles.storyName} numberOfLines={1}>Your Story</Text>
               </TouchableOpacity>
@@ -790,7 +791,7 @@ export default function HomeScreen() {
                 onPress={handleAddStory}
               >
                 <View style={styles.addStoryProfileWrap}>
-                  <Image source={{ uri: homeData?.user?.image_url || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png' }} style={styles.addStoryProfileImage} />
+                  <Image source={{ uri: resolveImageUrl(homeData?.user?.image_url) }} style={styles.addStoryProfileImage} />
                   <View style={styles.plusIconWrap}>
                     <View style={styles.plusIconBg}>
                       <Feather name="plus" size={12} color="#fff" />
@@ -813,7 +814,7 @@ export default function HomeScreen() {
                   colors={["#c026d3", "#f43f5e", "#f59e0b"]}
                   style={styles.storyRing}
                 >
-                  <Image source={{ uri: story.profile_image || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png' }} style={styles.storyProfileImage} />
+                  <Image source={{ uri: resolveImageUrl(story.profile_image) }} style={styles.storyProfileImage} />
                 </LinearGradient>
                 <Text style={styles.storyName} numberOfLines={1}>{story.username}</Text>
               </TouchableOpacity>
@@ -930,7 +931,7 @@ export default function HomeScreen() {
           <SafeAreaView style={{ flex: 1, position: 'relative' }}>
             <View style={styles.storyViewerHeader}>
                <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                 <Image source={{ uri: viewingStory?.profile_image || homeData?.user?.image_url || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png' }} style={styles.storyViewerProfilePic} />
+                 <Image source={{ uri: resolveImageUrl(viewingStory?.profile_image || homeData?.user?.image_url) }} style={styles.storyViewerProfilePic} />
                  <Text style={styles.storyViewerUsername}>{viewingStory?.username || 'Your Story'}</Text>
                </View>
                <TouchableOpacity onPress={() => setViewingStory(null)} style={{padding: 10}}>
@@ -938,7 +939,7 @@ export default function HomeScreen() {
                </TouchableOpacity>
             </View>
             <View style={styles.storyViewerContent}>
-               <Image source={{ uri: viewingStory?.media_url }} style={styles.storyViewerImage} resizeMode="contain" />
+               <Image source={{ uri: resolveImageUrl(viewingStory?.media_url) }} style={styles.storyViewerImage} resizeMode="contain" />
             </View>
           </SafeAreaView>
         </View>
@@ -971,7 +972,7 @@ export default function HomeScreen() {
                   opacity: isUploading ? 0.7 : 1,
                 }}
               >
-                <Image source={{ uri: homeData?.user?.image_url || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png' }} style={{ width: 24, height: 24, borderRadius: 12, marginRight: 8 }} />
+                <Image source={{ uri: resolveImageUrl(homeData?.user?.image_url) }} style={{ width: 24, height: 24, borderRadius: 12, marginRight: 8 }} />
                 <Text style={{ fontSize: 14, fontWeight: '600', color: '#000' }}>
                   {isUploading ? 'Uploading...' : 'Your story'}
                 </Text>

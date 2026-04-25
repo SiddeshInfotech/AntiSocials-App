@@ -49,9 +49,9 @@ app.post('/upload', upload.single('image'), (req, res) => {
     if (!req.file) {
         return res.status(400).json({ error: "No image provided" });
     }
-    // Return absolute URL
-    const publicUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
-    res.status(200).json({ imageUrl: publicUrl });
+    // Return relative path only — frontend constructs the full URL using API_BASE_URL
+    const relativePath = `/uploads/${req.file.filename}`;
+    res.status(200).json({ imageUrl: relativePath });
 });
 
 // Initialize Database Table
