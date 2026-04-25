@@ -7,6 +7,7 @@ const db = require('./db');
 const jwt = require('jsonwebtoken');
 const authenticateToken = require('./middleware/auth');
 const homeRoutes = require('./routes/homeRoutes');
+const storyRoutes = require('./routes/storyRoutes');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -108,10 +109,43 @@ const initDB = async () => {
                 user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
                 media_url TEXT NOT NULL,
                 media_type VARCHAR(50) DEFAULT 'image',
+                text_content TEXT,
+                text_elements JSONB DEFAULT '[]',
+                music_data JSONB DEFAULT '{}',
+                music_name VARCHAR(255),
                 caption TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 expires_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP + INTERVAL '24 hours',
                 is_active BOOLEAN DEFAULT TRUE
+            );
+        `);
+
+        // Ensure new columns exist in stories table
+        await db.query(`
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='stories' AND column_name='text_elements') THEN
+                    ALTER TABLE stories ADD COLUMN text_elements JSONB DEFAULT '[]';
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='stories' AND column_name='music_data') THEN
+                    ALTER TABLE stories ADD COLUMN music_data JSONB DEFAULT '{}';
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='stories' AND column_name='text_position') THEN
+                    ALTER TABLE stories ADD COLUMN text_position JSONB DEFAULT '{}';
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='stories' AND column_name='view_count') THEN
+                    ALTER TABLE stories ADD COLUMN view_count INTEGER DEFAULT 0;
+                END IF;
+            END $$;
+        `);
+
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS story_views (
+                id SERIAL PRIMARY KEY,
+                story_id INTEGER REFERENCES stories(id) ON DELETE CASCADE,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                viewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(story_id, user_id)
             );
         `);
 
@@ -154,8 +188,8 @@ const initDB = async () => {
         `);
 
         // Migrations
-        try { await db.query('ALTER TABLE users ADD COLUMN streak_count INTEGER DEFAULT 0'); } catch(e) {}
-        try { await db.query('ALTER TABLE users ADD COLUMN last_streak_date DATE'); } catch(e) {}
+        try { await db.query('ALTER TABLE users ADD COLUMN streak_count INTEGER DEFAULT 0'); } catch (e) { }
+        try { await db.query('ALTER TABLE users ADD COLUMN last_streak_date DATE'); } catch (e) { }
 
 
         // Seed Tasks if empty so UI task bindings have IDs to hit API with
@@ -211,7 +245,7 @@ const sendWhatsAppOTP = async (phoneNumber, otp, retries = 1) => {
         }
 
         const requestId = "auth_" + Date.now();
-        
+
         const payload = {
             "messaging_product": "whatsapp",
             "to": cleanPhone,
@@ -288,10 +322,10 @@ app.post('/test-whatsapp', async (req, res) => {
 
     const result = await sendWhatsAppOTP(phoneNumber, "123456");
     if (!result.success) {
-        return res.status(500).json({ 
-            error: "Failed to send WhatsApp message", 
-            details: result.error, 
-            status: result.status 
+        return res.status(500).json({
+            error: "Failed to send WhatsApp message",
+            details: result.error,
+            status: result.status
         });
     }
 
@@ -316,7 +350,7 @@ app.post('/auth/send-otp', async (req, res) => {
         }
 
         const userCheck = await db.query("SELECT * FROM users WHERE phone_number = $1", [phoneNumber]);
-        
+
         if (purpose === 'signup') {
             if (userCheck.rows.length > 0) {
                 return res.status(409).json({ error: "Phone number already registered" });
@@ -337,7 +371,7 @@ app.post('/auth/send-otp', async (req, res) => {
         );
 
         const waResult = await sendWhatsAppOTP(phoneNumber, otp);
-        
+
         if (!waResult.success) {
             // Delete the un-sendable OTP so user can try again without hitting limits as easily
             await db.query("DELETE FROM otp_verifications WHERE phone_number = $1 AND otp = $2", [phoneNumber, otp]);
@@ -389,7 +423,7 @@ app.post('/auth/verify-otp', async (req, res) => {
 
 app.post('/auth/register', async (req, res) => {
     const { phoneNumber, username, email, profession, about, imageUrl } = req.body;
-    
+
     if (!phoneNumber || !username) {
         return res.status(400).json({ error: "Phone number and username are required" });
     }
@@ -421,8 +455,8 @@ app.post('/auth/register', async (req, res) => {
 
         const user = newUserInfo.rows[0];
         const token = jwt.sign(
-            { id: user.id, username: user.username, phoneNumber: user.phone_number }, 
-            process.env.JWT_SECRET || 'secret123', 
+            { id: user.id, username: user.username, phoneNumber: user.phone_number },
+            process.env.JWT_SECRET || 'secret123',
             { expiresIn: '7d' }
         );
 
@@ -440,7 +474,7 @@ app.post('/auth/register', async (req, res) => {
 
 app.post('/auth/login', async (req, res) => {
     const { phoneNumber } = req.body;
-    
+
     if (!phoneNumber) return res.status(400).json({ error: "Phone number required" });
 
     try {
@@ -454,7 +488,7 @@ app.post('/auth/login', async (req, res) => {
         }
 
         const userResult = await db.query('SELECT * FROM users WHERE phone_number = $1', [phoneNumber]);
-        
+
         if (userResult.rows.length === 0) {
             return res.status(404).json({ error: "User not found" });
         }
@@ -464,7 +498,7 @@ app.post('/auth/login', async (req, res) => {
 
         const user = userResult.rows[0];
         const token = jwt.sign(
-            { id: user.id, username: user.username, phoneNumber: user.phone_number }, 
+            { id: user.id, username: user.username, phoneNumber: user.phone_number },
             process.env.JWT_SECRET || 'secret123',
             { expiresIn: '7d' }
         );
@@ -561,8 +595,9 @@ app.get('/api/health', (req, res) => {
     res.json({ status: "OK", database: "PostgreSQL Configured" });
 });
 
-// Home Page Routes
+// Routes
 app.use('/api/home', homeRoutes);
+app.use('/api/stories', storyRoutes);
 
 // Start Server
 app.listen(PORT, () => {

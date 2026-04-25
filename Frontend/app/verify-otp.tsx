@@ -10,11 +10,11 @@ import { API_BASE_URL } from '../constants/Api';
 export default function VerifyOtpScreen() {
   const router = useRouter();
   const { email } = useLocalSearchParams<{ email: string }>();
-  
+
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  
+
   const inputRefs = useRef<Array<TextInput | null>>([]);
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
@@ -57,14 +57,14 @@ export default function VerifyOtpScreen() {
   const handleVerify = async () => {
     setError('');
     const otpCode = otp.join('');
-    
+
     if (otpCode.length < 6) {
       setError('Please enter the 6-digit code');
       return;
     }
 
     setIsLoading(true);
-    
+
     try {
       const response = await fetch(`${API_BASE_URL}/verify-reset-otp`, {
         method: "POST",
@@ -79,10 +79,10 @@ export default function VerifyOtpScreen() {
         setIsLoading(false);
         return;
       }
-      
+
       // Navigate to Reset Password Screen with the email
       router.replace({ pathname: '/reset-password', params: { email } });
-      
+
     } catch (err) {
       console.error("OTP Verification Error: ", err);
       setError("Unable to connect to the server.");
@@ -99,13 +99,13 @@ export default function VerifyOtpScreen() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
-      if(response.ok) {
+      if (response.ok) {
         alert('Verification code resent to your email.');
       } else {
         setError('Failed to resend code.');
       }
     } catch (err) {
-       setError("Network error. Could not resend.");
+      setError("Network error. Could not resend.");
     }
   };
 
@@ -120,8 +120,8 @@ export default function VerifyOtpScreen() {
         end={{ x: 1, y: 1 }}
         style={styles.background}
       />
-      
-      <KeyboardAvoidingView 
+
+      <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
@@ -130,13 +130,13 @@ export default function VerifyOtpScreen() {
             {/* Logo */}
             <Animated.View style={[
               styles.logoContainer,
-              { 
+              {
                 opacity: opacityAnim,
                 transform: [{ scale: scaleAnim }]
               }
             ]}>
-              <Image 
-                source={require('../assets/images/logo.png')} 
+              <Image
+                source={require('../assets/images/logo.png')}
                 style={styles.logoImage}
                 resizeMode="contain"
               />
@@ -155,7 +155,7 @@ export default function VerifyOtpScreen() {
               {otp.map((digit, index) => (
                 <TextInput
                   key={index}
-                  ref={(ref) => inputRefs.current[index] = ref}
+                  ref={(ref) => { inputRefs.current[index] = ref; }}
                   style={[styles.otpInput, error ? styles.otpInputError : null]}
                   value={digit}
                   onChangeText={(val) => handleOtpChange(val, index)}
@@ -168,9 +168,9 @@ export default function VerifyOtpScreen() {
             </View>
 
             {/* Button */}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[
-                styles.button, 
+                styles.button,
                 (!isOtpComplete) ? styles.buttonDisabled : styles.buttonActive
               ]}
               disabled={!isOtpComplete || isLoading}
