@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Animated, Image, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -260,12 +260,20 @@ export default function VerifyOtpScreen() {
               {isLoading ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={[
-                  styles.buttonText,
-                  (!isOtpComplete) ? styles.buttonTextDisabled : styles.buttonTextActive
-                ]}>
-                  Verify & Continue
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                  <MaterialCommunityIcons 
+                    name="whatsapp" 
+                    size={22} 
+                    color={!isOtpComplete ? "#9CA3AF" : "#FFFFFF"} 
+                    style={{ marginRight: 8 }} 
+                  />
+                  <Text style={[
+                    styles.buttonText,
+                    (!isOtpComplete) ? styles.buttonTextDisabled : styles.buttonTextActive
+                  ]}>
+                    Verify & Continue
+                  </Text>
+                </View>
               )}
             </TouchableOpacity>
 
