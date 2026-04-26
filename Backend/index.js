@@ -50,9 +50,9 @@ app.post('/upload', upload.single('image'), (req, res) => {
     if (!req.file) {
         return res.status(400).json({ error: "No image provided" });
     }
-    // Return absolute URL
-    const publicUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
-    res.status(200).json({ imageUrl: publicUrl });
+    // Return relative path only — frontend constructs the full URL using API_BASE_URL
+    const relativePath = `/uploads/${req.file.filename}`;
+    res.status(200).json({ imageUrl: relativePath });
 });
 
 // Initialize Database Table
@@ -99,6 +99,7 @@ const initDB = async () => {
                 purpose VARCHAR(20) NOT NULL,
                 expires_at TIMESTAMP NOT NULL,
                 is_verified BOOLEAN DEFAULT false,
+                attempts INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
@@ -187,9 +188,38 @@ const initDB = async () => {
             );
         `);
 
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS activities (
+                id SERIAL PRIMARY KEY,
+                creator_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                category VARCHAR(100) NOT NULL,
+                title VARCHAR(255) NOT NULL,
+                description TEXT,
+                date_str VARCHAR(100),
+                time_str VARCHAR(100),
+                location VARCHAR(255) NOT NULL,
+                capacity INTEGER NOT NULL,
+                image_url TEXT,
+                emoji VARCHAR(10),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS activity_participants (
+                id SERIAL PRIMARY KEY,
+                activity_id INTEGER REFERENCES activities(id) ON DELETE CASCADE,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(activity_id, user_id)
+            );
+        `);
+
         // Migrations
         try { await db.query('ALTER TABLE users ADD COLUMN streak_count INTEGER DEFAULT 0'); } catch (e) { }
         try { await db.query('ALTER TABLE users ADD COLUMN last_streak_date DATE'); } catch (e) { }
+        try { await db.query('ALTER TABLE otp_verifications ADD COLUMN attempts INTEGER DEFAULT 0'); } catch (e) { }
 
 
         // Seed Tasks if empty so UI task bindings have IDs to hit API with
@@ -595,9 +625,14 @@ app.get('/api/health', (req, res) => {
     res.json({ status: "OK", database: "PostgreSQL Configured" });
 });
 
+const activityRoutes = require('./routes/activityRoutes');
+
 // Routes
 app.use('/api/home', homeRoutes);
 app.use('/api/stories', storyRoutes);
+
+// Activity Routes
+app.use('/api/activities', activityRoutes);
 
 // Start Server
 app.listen(PORT, () => {

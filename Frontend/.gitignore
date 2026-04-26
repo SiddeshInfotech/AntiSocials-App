@@ -48,3 +48,6 @@ app-example
 
 # vscode settings
 .vscode/
+
+# sensitive config
+constants/Api.ts

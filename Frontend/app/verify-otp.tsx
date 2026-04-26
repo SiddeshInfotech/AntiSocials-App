@@ -1,19 +1,33 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Animated, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Animated, Image, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as SecureStore from 'expo-secure-store';
 import { API_BASE_URL } from '../constants/Api';
 
 export default function VerifyOtpScreen() {
   const router = useRouter();
-  const { email } = useLocalSearchParams<{ email: string }>();
+  const params = useLocalSearchParams<{
+    phone?: string;
+    purpose?: string;
+    username?: string;
+    email?: string;
+    profession?: string;
+    about?: string;
+    imageUrl?: string;
+  }>();
+
+  const phone = params.phone || '';
+  const purpose = params.purpose || 'login';
+  const displayPhone = phone ? `******${phone.slice(-4)}` : '+91 XXXX XXXX';
 
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [timer, setTimer] = useState(30);
 
   const inputRefs = useRef<Array<TextInput | null>>([]);
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
@@ -36,14 +50,26 @@ export default function VerifyOtpScreen() {
     ]).start();
   }, []);
 
+  // Resend cooldown timer
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval>;
+    if (timer > 0) {
+      interval = setInterval(() => {
+        setTimer((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [timer]);
+
   const handleOtpChange = (value: string, index: number) => {
     setError('');
+    const numericValue = value.replace(/[^0-9]/g, '');
     const newOtp = [...otp];
-    newOtp[index] = value;
+    newOtp[index] = numericValue;
     setOtp(newOtp);
 
     // Auto focus next input
-    if (value && index < 5 && inputRefs.current[index + 1]) {
+    if (numericValue && index < 5 && inputRefs.current[index + 1]) {
       inputRefs.current[index + 1]?.focus();
     }
   };
@@ -51,6 +77,9 @@ export default function VerifyOtpScreen() {
   const handleKeyPress = (e: any, index: number) => {
     if (e.nativeEvent.key === 'Backspace' && !otp[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
+      const newOtp = [...otp];
+      newOtp[index - 1] = '';
+      setOtp(newOtp);
     }
   };
 
@@ -66,23 +95,71 @@ export default function VerifyOtpScreen() {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/verify-reset-otp`, {
+      // 1. Verify OTP with the backend
+      const verifyRes = await fetch(`${API_BASE_URL}/auth/verify-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, otp: otpCode }),
+        body: JSON.stringify({ phoneNumber: phone, otp: otpCode, purpose }),
       });
 
-      const data = await response.json();
+      const verifyData = await verifyRes.json();
 
-      if (!response.ok) {
-        setError(data.error || "Invalid code. Please try again.");
+      if (!verifyRes.ok) {
+        setError(verifyData.error || "Invalid OTP. Please try again.");
         setIsLoading(false);
         return;
       }
 
-      // Navigate to Reset Password Screen with the email
-      router.replace({ pathname: '/reset-password', params: { email } });
+      // 2. Perform Login or Register based on purpose
+      if (purpose === 'signup') {
+        const regRes = await fetch(`${API_BASE_URL}/auth/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            phoneNumber: phone,
+            username: params.username,
+            email: params.email,
+            profession: params.profession,
+            about: params.about,
+            imageUrl: params.imageUrl,
+          }),
+        });
 
+        const regData = await regRes.json();
+
+        if (!regRes.ok) {
+          setError(regData.error || "Registration failed.");
+          setIsLoading(false);
+          return;
+        }
+
+        await SecureStore.setItemAsync('token', regData.token);
+        if (regData.user && regData.user.id) {
+          await SecureStore.setItemAsync('userId', regData.user.id.toString());
+        }
+        router.replace('/onboarding' as any);
+      } else {
+        // purpose === 'login'
+        const loginRes = await fetch(`${API_BASE_URL}/auth/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phoneNumber: phone }),
+        });
+
+        const loginData = await loginRes.json();
+
+        if (!loginRes.ok) {
+          setError(loginData.error || "Login failed.");
+          setIsLoading(false);
+          return;
+        }
+
+        await SecureStore.setItemAsync('token', loginData.token);
+        if (loginData.user && loginData.user.id) {
+          await SecureStore.setItemAsync('userId', loginData.user.id.toString());
+        }
+        router.replace('/(tabs)' as any);
+      }
     } catch (err) {
       console.error("OTP Verification Error: ", err);
       setError("Unable to connect to the server.");
@@ -93,16 +170,18 @@ export default function VerifyOtpScreen() {
 
   const handleResend = async () => {
     setError('');
+    setTimer(30);
     try {
-      const response = await fetch(`${API_BASE_URL}/forgot-password`, {
+      const response = await fetch(`${API_BASE_URL}/auth/send-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ phoneNumber: phone, purpose }),
       });
       if (response.ok) {
-        alert('Verification code resent to your email.');
+        Alert.alert('OTP Resent', 'A new verification code has been sent to your WhatsApp.');
       } else {
-        setError('Failed to resend code.');
+        const data = await response.json();
+        setError(data.error || 'Failed to resend code.');
       }
     } catch (err) {
       setError("Network error. Could not resend.");
@@ -145,7 +224,8 @@ export default function VerifyOtpScreen() {
             {/* Headers */}
             <Text style={styles.title}>Verify OTP</Text>
             <Text style={styles.subtitle}>
-              Enter the verification code sent to {email || 'your email'}.
+              Enter the 6-digit code sent to{'\n'}
+              <Text style={styles.boldText}>{displayPhone}</Text> via WhatsApp.
             </Text>
 
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -163,6 +243,7 @@ export default function VerifyOtpScreen() {
                   keyboardType="number-pad"
                   maxLength={1}
                   selectTextOnFocus
+                  selectionColor="#9333EA"
                 />
               ))}
             </View>
@@ -183,17 +264,20 @@ export default function VerifyOtpScreen() {
                   styles.buttonText,
                   (!isOtpComplete) ? styles.buttonTextDisabled : styles.buttonTextActive
                 ]}>
-                  Verify OTP
+                  Verify & Continue
                 </Text>
               )}
             </TouchableOpacity>
 
             {/* Resend Link */}
             <View style={styles.resendContainer}>
-              <Text style={styles.resendText}>Didn't receive code? </Text>
-              <TouchableOpacity onPress={handleResend}>
-                <Text style={styles.resendLink}>Resend OTP</Text>
-              </TouchableOpacity>
+              {timer > 0 ? (
+                <Text style={styles.resendText}>Resend code in {timer}s</Text>
+              ) : (
+                <TouchableOpacity onPress={handleResend}>
+                  <Text style={styles.resendLink}>Resend OTP</Text>
+                </TouchableOpacity>
+              )}
             </View>
 
           </View>
@@ -261,6 +345,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 24,
     lineHeight: 22,
+  },
+  boldText: {
+    fontWeight: '600',
+    color: '#374151',
   },
   errorText: {
     color: '#EF4444',

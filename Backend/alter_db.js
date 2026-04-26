@@ -14,10 +14,16 @@ async function alterTable() {
         console.log("is_phone_verified column might already exist.");
     }
     try {
-        await db.query(`ALTER TABLE users ALTER COLUMN password DROP NOT NULL;`);
-        console.log("Dropped NOT NULL on password");
+        await db.query(`ALTER TABLE users DROP COLUMN IF EXISTS password;`);
+        console.log("Dropped password column");
     } catch (e) {
-        console.log("Password column might already be dropped NOT NULL.");
+        console.log("Error dropping password column:", e.message);
+    }
+    try {
+        await db.query(`DROP TABLE IF EXISTS password_resets;`);
+        console.log("Dropped password_resets table");
+    } catch (e) {
+        console.log("Error dropping password_resets table:", e.message);
     }
     try {
         await db.query(`ALTER TABLE users ALTER COLUMN email DROP NOT NULL;`);
@@ -35,14 +41,19 @@ async function alterTable() {
                 purpose VARCHAR(20) NOT NULL,
                 expires_at TIMESTAMP NOT NULL,
                 is_verified BOOLEAN DEFAULT false,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                attempts INTEGER DEFAULT 0
             );
         `);
-        console.log("Created otp_verifications table");
+        console.log("Created/Updated otp_verifications table");
     } catch (e) {
         console.log("Error creating otp_verifications table", e);
     }
     
+    try {
+        await db.query(`ALTER TABLE otp_verifications ADD COLUMN IF NOT EXISTS attempts INTEGER DEFAULT 0;`);
+    } catch (e) {}
+
     try {
         await db.query(`ALTER TABLE users ALTER COLUMN profile_name DROP NOT NULL;`);
     } catch (e) {}
