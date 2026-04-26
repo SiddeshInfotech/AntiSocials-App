@@ -60,6 +60,9 @@ export default function LoginScreen() {
 
     setIsLoading(true);
     try {
+      // Adding AbortController to prevent infinite loading on network failure
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 seconds timeout
       const response = await fetch(`${API_BASE_URL}/auth/send-otp`, {
         method: "POST",
         headers: {

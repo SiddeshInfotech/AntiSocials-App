@@ -86,14 +86,14 @@ export default function VerifyOtpScreen() {
   const handleVerify = async () => {
     setError('');
     const otpCode = otp.join('');
-    
+
     if (otpCode.length < 6) {
       setError('Please enter the 6-digit code');
       return;
     }
 
     setIsLoading(true);
-    
+
     try {
       // 1. Verify OTP with the backend
       const verifyRes = await fetch(`${API_BASE_URL}/auth/verify-otp`, {
@@ -177,7 +177,6 @@ export default function VerifyOtpScreen() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phoneNumber: phone, purpose }),
       });
-
       if (response.ok) {
         Alert.alert('OTP Resent', 'A new verification code has been sent to your WhatsApp.');
       } else {
@@ -200,8 +199,8 @@ export default function VerifyOtpScreen() {
         end={{ x: 1, y: 1 }}
         style={styles.background}
       />
-      
-      <KeyboardAvoidingView 
+
+      <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
@@ -210,13 +209,13 @@ export default function VerifyOtpScreen() {
             {/* Logo */}
             <Animated.View style={[
               styles.logoContainer,
-              { 
+              {
                 opacity: opacityAnim,
                 transform: [{ scale: scaleAnim }]
               }
             ]}>
-              <Image 
-                source={require('../assets/images/logo.png')} 
+              <Image
+                source={require('../assets/images/logo.png')}
                 style={styles.logoImage}
                 resizeMode="contain"
               />
@@ -250,9 +249,9 @@ export default function VerifyOtpScreen() {
             </View>
 
             {/* Button */}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[
-                styles.button, 
+                styles.button,
                 (!isOtpComplete) ? styles.buttonDisabled : styles.buttonActive
               ]}
               disabled={!isOtpComplete || isLoading}
