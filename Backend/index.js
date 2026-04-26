@@ -154,6 +154,34 @@ const initDB = async () => {
             );
         `);
 
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS activities (
+                id SERIAL PRIMARY KEY,
+                creator_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                category VARCHAR(100) NOT NULL,
+                title VARCHAR(255) NOT NULL,
+                description TEXT,
+                date_str VARCHAR(100),
+                time_str VARCHAR(100),
+                location VARCHAR(255) NOT NULL,
+                capacity INTEGER NOT NULL,
+                image_url TEXT,
+                emoji VARCHAR(10),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS activity_participants (
+                id SERIAL PRIMARY KEY,
+                activity_id INTEGER REFERENCES activities(id) ON DELETE CASCADE,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(activity_id, user_id)
+            );
+        `);
+
         // Migrations
         try { await db.query('ALTER TABLE users ADD COLUMN streak_count INTEGER DEFAULT 0'); } catch(e) {}
         try { await db.query('ALTER TABLE users ADD COLUMN last_streak_date DATE'); } catch(e) {}
@@ -562,8 +590,13 @@ app.get('/api/health', (req, res) => {
     res.json({ status: "OK", database: "PostgreSQL Configured" });
 });
 
+const activityRoutes = require('./routes/activityRoutes');
+
 // Home Page Routes
 app.use('/api/home', homeRoutes);
+
+// Activity Routes
+app.use('/api/activities', activityRoutes);
 
 // Start Server
 app.listen(PORT, () => {

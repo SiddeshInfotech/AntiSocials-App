@@ -1039,12 +1039,30 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 6,
   },
+  storyCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    padding: 2,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  userStoryBorder: {
+    borderWidth: 2,
+    borderColor: "#c026d3",
+  },
   storyProfileImage: {
     width: 64,
     height: 64,
     borderRadius: 32,
     borderWidth: 2,
     borderColor: "#fff",
+  },
+  uploadedStoryImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
   },
   addStoryProfileWrap: {
     width: 72,
