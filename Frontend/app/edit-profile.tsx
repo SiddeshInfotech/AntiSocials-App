@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as SecureStore from 'expo-secure-store';
 import { API_BASE_URL } from '../constants/Api';
+import { resolveImageUrl } from '../constants/ImageUtils';
 
 export default function EditProfileScreen() {
   const router = useRouter();
@@ -195,7 +196,7 @@ export default function EditProfileScreen() {
             <View style={styles.avatarSection}>
               <TouchableOpacity onPress={showImageOptions} style={styles.avatarPlaceholderContainer}>
                 {profileImage && !profileImage.startsWith('file://') && !profileImage.startsWith('data:image') ? (
-                  <Image source={{ uri: profileImage }} style={styles.avatarImage} />
+                  <Image source={{ uri: resolveImageUrl(profileImage) }} style={styles.avatarImage} />
                 ) : (
                   <View style={styles.avatarPlaceholder}>
                     <Feather name="user" size={40} color="#4B2488" />

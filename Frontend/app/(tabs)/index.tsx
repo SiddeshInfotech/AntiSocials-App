@@ -26,6 +26,7 @@ import {
   PanResponder,
 } from "react-native";
 import { API_BASE_URL } from "../../constants/Api";
+import { resolveImageUrl } from "../../constants/ImageUtils";
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -35,7 +36,6 @@ import { Video, ResizeMode } from 'expo-av';
 
 const { width, height } = Dimensions.get("window");
 
-// Advanced Draggable Component for Story Overlays
 // Advanced Draggable Component for Story Overlays
 const DraggableElement = ({ element, onUpdate, isSelected, onSelect, onDelete, onDrag }: any) => {
   const pan = useRef(new Animated.ValueXY({ x: element.x, y: element.y })).current;
@@ -877,7 +877,7 @@ export default function HomeScreen() {
       if (!uploadRes.ok) throw new Error(uploadData.error || "Upload failed");
 
       // 2. Save story metadata
-      const response = await fetch(`${API_BASE_URL}/api/stories`, {
+      const response = await fetch(`${API_BASE_URL}/api/home/stories`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -897,9 +897,10 @@ export default function HomeScreen() {
         fetchHomeData(); 
         setPreviewStoryMedia(null);
         resetStoryEdits();
+        Alert.alert("Success", "Story uploaded successfully!");
       } else {
-        const errData = await response.json();
-        Alert.alert("Error", errData.error || "Failed to upload story");
+        const data = await response.json();
+        Alert.alert("Error", data.error || "Failed to upload story");
       }
     } catch (e: any) {
       console.error(e);
@@ -909,11 +910,10 @@ export default function HomeScreen() {
     }
   };
 
-
   const deleteStory = async (storyId: number) => {
     try {
       const token = await SecureStore.getItemAsync('token');
-      const response = await fetch(`${API_BASE_URL}/api/stories/${storyId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/home/stories/${storyId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -1016,7 +1016,7 @@ export default function HomeScreen() {
                   colors={["#c026d3", "#f43f5e", "#f59e0b"]}
                   style={styles.storyRing}
                 >
-                  <Image source={{ uri: homeData?.user?.image_url || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png' }} style={styles.storyProfileImage} />
+                  <Image source={{ uri: resolveImageUrl(homeData?.user?.image_url) }} style={styles.storyProfileImage} />
                 </LinearGradient>
                 <Text style={styles.storyName} numberOfLines={1}>Your Story</Text>
               </TouchableOpacity>
@@ -1027,7 +1027,7 @@ export default function HomeScreen() {
                 onPress={handleAddStory}
               >
                 <View style={styles.addStoryProfileWrap}>
-                  <Image source={{ uri: homeData?.user?.image_url || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png' }} style={styles.addStoryProfileImage} />
+                  <Image source={{ uri: resolveImageUrl(homeData?.user?.image_url) }} style={styles.addStoryProfileImage} />
                   <View style={styles.plusIconWrap}>
                     <View style={styles.plusIconBg}>
                       <Feather name="plus" size={12} color="#fff" />
@@ -1050,7 +1050,7 @@ export default function HomeScreen() {
                   colors={["#c026d3", "#f43f5e", "#f59e0b"]}
                   style={styles.storyRing}
                 >
-                  <Image source={{ uri: story.profile_image || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png' }} style={styles.storyProfileImage} />
+                  <Image source={{ uri: resolveImageUrl(story.profile_image) }} style={styles.storyProfileImage} />
                 </LinearGradient>
                 <Text style={styles.storyName} numberOfLines={1}>{story.username}</Text>
               </TouchableOpacity>
@@ -1172,7 +1172,7 @@ export default function HomeScreen() {
           <SafeAreaView style={{ flex: 1, position: 'relative' }}>
              <View style={styles.storyViewerHeader}>
                 <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                  <Image source={{ uri: viewingStory?.profile_image || homeData?.user?.image_url || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png' }} style={styles.storyViewerProfilePic} />
+                  <Image source={{ uri: resolveImageUrl(viewingStory?.profile_image || homeData?.user?.image_url) }} style={styles.storyViewerProfilePic} />
                   <Text style={styles.storyViewerUsername}>{viewingStory?.username || 'Your Story'}</Text>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -1407,7 +1407,7 @@ export default function HomeScreen() {
                   elevation: 5,
                 }}
               >
-                <Image source={{ uri: homeData?.user?.image_url || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png' }} style={{ width: 28, height: 28, borderRadius: 14, marginRight: 10 }} />
+                <Image source={{ uri: resolveImageUrl(homeData?.user?.image_url) }} style={{ width: 28, height: 28, borderRadius: 14, marginRight: 10 }} />
                 <Text style={{ fontSize: 15, fontWeight: '700', color: '#000' }}>
                   {isUploading ? 'Sharing...' : 'Your story'}
                 </Text>
@@ -1528,12 +1528,30 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 6,
   },
+  storyCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    padding: 2,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  userStoryBorder: {
+    borderWidth: 2,
+    borderColor: "#c026d3",
+  },
   storyProfileImage: {
     width: 64,
     height: 64,
     borderRadius: 32,
     borderWidth: 2,
     borderColor: "#fff",
+  },
+  uploadedStoryImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
   },
   addStoryProfileWrap: {
     width: 72,
