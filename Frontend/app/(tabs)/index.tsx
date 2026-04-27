@@ -757,8 +757,25 @@ export default function HomeScreen() {
   React.useEffect(() => {
     if (isFocused) {
       fetchHomeData();
+      fetchUserSummary();
     }
   }, [isFocused]);
+
+  const fetchUserSummary = async () => {
+    try {
+      const token = await SecureStore.getItemAsync('token');
+      if (!token) return;
+      const response = await fetch(`${API_BASE_URL}/api/user/summary`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (response.ok && data.points !== undefined) {
+        setHomeData((prev: any) => ({ ...prev, total_points: data.points }));
+      }
+    } catch (e) {
+      console.error('❌ fetchUserSummary error:', e);
+    }
+  };
 
   const fetchHomeData = async () => {
     try {

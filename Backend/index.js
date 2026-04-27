@@ -140,12 +140,21 @@ const initDB = async () => {
         `);
 
         await db.query(`
+            DO $$ 
+            BEGIN 
+                IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='story_views' AND column_name='user_id') THEN
+                    ALTER TABLE story_views RENAME COLUMN user_id TO viewer_user_id;
+                END IF;
+            END $$;
+        `);
+
+        await db.query(`
             CREATE TABLE IF NOT EXISTS story_views (
                 id SERIAL PRIMARY KEY,
                 story_id INTEGER REFERENCES stories(id) ON DELETE CASCADE,
-                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                viewer_user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
                 viewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(story_id, user_id)
+                UNIQUE(story_id, viewer_user_id)
             );
         `);
 
@@ -190,7 +199,17 @@ const initDB = async () => {
         // Migrations
         try { await db.query('ALTER TABLE users ADD COLUMN streak_count INTEGER DEFAULT 0'); } catch (e) { }
         try { await db.query('ALTER TABLE users ADD COLUMN last_streak_date DATE'); } catch (e) { }
+        try { await db.query('ALTER TABLE users ADD COLUMN points INTEGER DEFAULT 0'); } catch (e) { }
 
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS task_completions (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                task_name VARCHAR(255) NOT NULL,
+                points INTEGER DEFAULT 0,
+                completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
 
         // Seed Tasks if empty so UI task bindings have IDs to hit API with
         const taskCountRes = await db.query('SELECT COUNT(*) FROM tasks');
@@ -593,6 +612,70 @@ app.get('/user/:id', async (req, res) => {
 
 app.get('/api/health', (req, res) => {
     res.json({ status: "OK", database: "PostgreSQL Configured" });
+});
+
+// TASK INTEGRATION APIs
+
+app.post('/api/tasks/complete', authenticateToken, async (req, res) => {
+    const { task_name } = req.body;
+    const userId = req.user.id;
+
+    if (!task_name) {
+        return res.status(400).json({ error: "task_name is required" });
+    }
+
+    // Determine points
+    let points = 0;
+    if (task_name === "Breathe consciously for 3 minutes") {
+        points = 100;
+    } else if (task_name === "Drink a glass of water mindfully") {
+        points = 150;
+    } else {
+        // Not a task we are integrating right now or 0 points
+        return res.status(400).json({ error: "Unknown task" });
+    }
+
+    try {
+        // Check if already completed today
+        const checkResult = await db.query(`
+            SELECT * FROM task_completions 
+            WHERE user_id = $1 AND task_name = $2 
+            AND DATE(completed_at) = CURRENT_DATE
+        `, [userId, task_name]);
+
+        if (checkResult.rows.length > 0) {
+            return res.status(200).json({ message: "Task already completed today", addedPoints: 0 });
+        }
+
+        // Insert into task_completions
+        await db.query(`
+            INSERT INTO task_completions (user_id, task_name, points)
+            VALUES ($1, $2, $3)
+        `, [userId, task_name, points]);
+
+        // Add points to user total
+        await db.query(`
+            UPDATE users SET points = COALESCE(points, 0) + $1 WHERE id = $2
+        `, [points, userId]);
+
+        res.status(200).json({ message: "Task completed", addedPoints: points });
+    } catch (err) {
+        console.error("Task completion error:", err);
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
+app.get('/api/user/summary', authenticateToken, async (req, res) => {
+    try {
+        const result = await db.query('SELECT COALESCE(points, 0) as points FROM users WHERE id = $1', [req.user.id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        res.json({ points: result.rows[0].points });
+    } catch (error) {
+        console.error('User summary error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 });
 
 // Routes
