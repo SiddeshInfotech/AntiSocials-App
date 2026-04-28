@@ -116,7 +116,7 @@ export default function MeetTaskScreen() {
       >
         <TouchableOpacity
           style={styles.backBtn}
-          onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)/tasks'))}
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
           activeOpacity={0.75}
         >
           <Feather name="arrow-left" size={22} color="#fff" />
@@ -169,29 +169,29 @@ export default function MeetTaskScreen() {
             <Text style={styles.sectionTitle}>Step 1: Set your plan</Text>
             <Text style={styles.inputLabel}>Friend name</Text>
             <View ref={friendInputRef}>
-            <TextInput
-              value={friendName}
-              onChangeText={setFriendName}
-              placeholder="Who will you meet?"
-              placeholderTextColor="#94a3b8"
-              style={styles.input}
-              autoCapitalize="words"
-              onFocus={() => scrollToField(friendInputRef)}
-            />
+              <TextInput
+                value={friendName}
+                onChangeText={setFriendName}
+                placeholder="Who will you meet?"
+                placeholderTextColor="#94a3b8"
+                style={styles.input}
+                autoCapitalize="words"
+                onFocus={() => scrollToField(friendInputRef)}
+              />
             </View>
 
             <Text style={styles.inputLabel}>When/where?</Text>
             <View ref={meetingInputRef}>
-            <TextInput
-              value={meetingPlan}
-              onChangeText={setMeetingPlan}
-              placeholder="Example: Friday 6 PM at the tea stall"
-              placeholderTextColor="#94a3b8"
-              style={[styles.input, styles.multilineInput]}
-              multiline
-              textAlignVertical="top"
-              onFocus={() => scrollToField(meetingInputRef)}
-            />
+              <TextInput
+                value={meetingPlan}
+                onChangeText={setMeetingPlan}
+                placeholder="Example: Friday 6 PM at the tea stall"
+                placeholderTextColor="#94a3b8"
+                style={[styles.input, styles.multilineInput]}
+                multiline
+                textAlignVertical="top"
+                onFocus={() => scrollToField(meetingInputRef)}
+              />
             </View>
 
             <TouchableOpacity

@@ -9,6 +9,8 @@ const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
 const authenticateToken = require('./middleware/auth');
 const homeRoutes = require('./routes/homeRoutes');
+const storyRoutes = require('./routes/storyRoutes');
+const activityRoutes = require('./routes/activityRoutes');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -52,9 +54,9 @@ app.post('/upload', upload.single('image'), (req, res) => {
     if (!req.file) {
         return res.status(400).json({ error: "No image provided" });
     }
-    // Return absolute URL
-    const publicUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
-    res.status(200).json({ imageUrl: publicUrl });
+    // Return relative path only — frontend constructs the full URL using API_BASE_URL
+    const relativePath = `/uploads/${req.file.filename}`;
+    res.status(200).json({ imageUrl: relativePath });
 });
 
 // Initialize Database Table
@@ -103,6 +105,7 @@ const initDB = async () => {
                 expires_at TIMESTAMP NOT NULL,
                 attempts INTEGER DEFAULT 0,
                 is_verified BOOLEAN DEFAULT false,
+                attempts INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
@@ -127,10 +130,52 @@ const initDB = async () => {
                 user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
                 media_url TEXT NOT NULL,
                 media_type VARCHAR(50) DEFAULT 'image',
+                text_content TEXT,
+                text_elements JSONB DEFAULT '[]',
+                music_data JSONB DEFAULT '{}',
+                music_name VARCHAR(255),
                 caption TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 expires_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP + INTERVAL '24 hours',
                 is_active BOOLEAN DEFAULT TRUE
+            );
+        `);
+
+        // Ensure new columns exist in stories table
+        await db.query(`
+            DO $$ 
+            BEGIN 
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='stories' AND column_name='text_elements') THEN
+                    ALTER TABLE stories ADD COLUMN text_elements JSONB DEFAULT '[]';
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='stories' AND column_name='music_data') THEN
+                    ALTER TABLE stories ADD COLUMN music_data JSONB DEFAULT '{}';
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='stories' AND column_name='text_position') THEN
+                    ALTER TABLE stories ADD COLUMN text_position JSONB DEFAULT '{}';
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='stories' AND column_name='view_count') THEN
+                    ALTER TABLE stories ADD COLUMN view_count INTEGER DEFAULT 0;
+                END IF;
+            END $$;
+        `);
+
+        await db.query(`
+            DO $$ 
+            BEGIN 
+                IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='story_views' AND column_name='user_id') THEN
+                    ALTER TABLE story_views RENAME COLUMN user_id TO viewer_user_id;
+                END IF;
+            END $$;
+        `);
+
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS story_views (
+                id SERIAL PRIMARY KEY,
+                story_id INTEGER REFERENCES stories(id) ON DELETE CASCADE,
+                viewer_user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                viewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(story_id, viewer_user_id)
             );
         `);
 
@@ -172,6 +217,65 @@ const initDB = async () => {
             );
         `);
 
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS activities (
+                id SERIAL PRIMARY KEY,
+                creator_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                category VARCHAR(100) NOT NULL,
+                title VARCHAR(255) NOT NULL,
+                description TEXT,
+                date_str VARCHAR(100),
+                time_str VARCHAR(100),
+                location VARCHAR(255) NOT NULL,
+                capacity INTEGER NOT NULL,
+                image_url TEXT,
+                emoji VARCHAR(10),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS activity_participants (
+                id SERIAL PRIMARY KEY,
+                activity_id INTEGER REFERENCES activities(id) ON DELETE CASCADE,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(activity_id, user_id)
+            );
+        `);
+
+        // Migrations
+        try { await db.query('ALTER TABLE users ADD COLUMN streak_count INTEGER DEFAULT 0'); } catch (e) { }
+        try { await db.query('ALTER TABLE users ADD COLUMN last_streak_date DATE'); } catch (e) { }
+        try { await db.query('ALTER TABLE users ADD COLUMN points INTEGER DEFAULT 0'); } catch (e) { }
+        try { await db.query('ALTER TABLE otp_verifications ADD COLUMN attempts INTEGER DEFAULT 0'); } catch (e) { }
+
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS task_completions (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                task_name VARCHAR(255) NOT NULL,
+                points INTEGER DEFAULT 0,
+                completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        // Seed Tasks if empty so UI task bindings have IDs to hit API with
+        const taskCountRes = await db.query('SELECT COUNT(*) FROM tasks');
+        if (parseInt(taskCountRes.rows[0].count, 10) === 0) {
+            await db.query(`
+                INSERT INTO tasks (title, description, category, points_reward, duration) VALUES 
+                ('Reflect', 'Write down your thoughts', 'Mental', 100, 5),
+                ('Smile', 'Smile for 10 seconds', 'Mental', 150, 1),
+                ('Breathe', 'Take deep breaths', 'Health', 50, 3),
+                ('Stretch', 'Stretch your body', 'Physical', 100, 5),
+                ('Silent', 'Sit in absolute silence', 'Mental', 200, 10),
+                ('Outside', 'Go outside and look around', 'Physical', 100, 10)
+            `);
+            console.log("Seeded default tasks.");
+        }
+
         console.log("PostgreSQL tables initialized.");
     } catch (err) {
         console.error("Error creating tables:", err);
@@ -210,7 +314,7 @@ const sendWhatsAppOTP = async (phoneNumber, otp, retries = 1) => {
         }
 
         const requestId = "auth_" + Date.now();
-        
+
         const payload = {
             "messaging_product": "whatsapp",
             "to": cleanPhone,
@@ -287,10 +391,10 @@ app.post('/test-whatsapp', async (req, res) => {
 
     const result = await sendWhatsAppOTP(phoneNumber, "123456");
     if (!result.success) {
-        return res.status(500).json({ 
-            error: "Failed to send WhatsApp message", 
-            details: result.error, 
-            status: result.status 
+        return res.status(500).json({
+            error: "Failed to send WhatsApp message",
+            details: result.error,
+            status: result.status
         });
     }
 
@@ -315,7 +419,7 @@ app.post('/auth/send-otp', async (req, res) => {
         }
 
         const userCheck = await db.query("SELECT * FROM users WHERE phone_number = $1", [phoneNumber]);
-        
+
         if (purpose === 'signup') {
             if (userCheck.rows.length > 0) {
                 return res.status(409).json({ error: "Phone number already registered" });
@@ -336,7 +440,7 @@ app.post('/auth/send-otp', async (req, res) => {
         );
 
         const waResult = await sendWhatsAppOTP(phoneNumber, otp);
-        
+
         if (!waResult.success) {
             // Delete the un-sendable OTP so user can try again without hitting limits as easily
             await db.query("DELETE FROM otp_verifications WHERE phone_number = $1 AND otp = $2", [phoneNumber, otp]);
@@ -388,12 +492,13 @@ app.post('/auth/verify-otp', async (req, res) => {
 
 app.post('/auth/register', async (req, res) => {
     const { phoneNumber, username, email, profession, about, imageUrl } = req.body;
-    
+
     if (!phoneNumber || !username) {
         return res.status(400).json({ error: "Phone number and username are required" });
     }
 
     try {
+        // Check if verified
         const verifyCheck = await db.query(
             "SELECT * FROM otp_verifications WHERE phone_number = $1 AND purpose = 'signup' AND is_verified = true ORDER BY created_at DESC LIMIT 1",
             [phoneNumber]
@@ -659,8 +764,76 @@ app.get('/api/health', (req, res) => {
     res.json({ status: "OK", database: "PostgreSQL Configured" });
 });
 
-// Home Page Routes
+// TASK INTEGRATION APIs
+
+app.post('/api/tasks/complete', authenticateToken, async (req, res) => {
+    const { task_name } = req.body;
+    const userId = req.user.id;
+
+    if (!task_name) {
+        return res.status(400).json({ error: "task_name is required" });
+    }
+
+    // Determine points
+    let points = 0;
+    if (task_name === "Breathe consciously for 3 minutes") {
+        points = 100;
+    } else if (task_name === "Drink a glass of water mindfully") {
+        points = 150;
+    } else {
+        // Not a task we are integrating right now or 0 points
+        return res.status(400).json({ error: "Unknown task" });
+    }
+
+    try {
+        // Check if already completed today
+        const checkResult = await db.query(`
+            SELECT * FROM task_completions 
+            WHERE user_id = $1 AND task_name = $2 
+            AND DATE(completed_at) = CURRENT_DATE
+        `, [userId, task_name]);
+
+        if (checkResult.rows.length > 0) {
+            return res.status(200).json({ message: "Task already completed today", addedPoints: 0 });
+        }
+
+        // Insert into task_completions
+        await db.query(`
+            INSERT INTO task_completions (user_id, task_name, points)
+            VALUES ($1, $2, $3)
+        `, [userId, task_name, points]);
+
+        // Add points to user total
+        await db.query(`
+            UPDATE users SET points = COALESCE(points, 0) + $1 WHERE id = $2
+        `, [points, userId]);
+
+        res.status(200).json({ message: "Task completed", addedPoints: points });
+    } catch (err) {
+        console.error("Task completion error:", err);
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
+app.get('/api/user/summary', authenticateToken, async (req, res) => {
+    try {
+        const result = await db.query('SELECT COALESCE(points, 0) as points FROM users WHERE id = $1', [req.user.id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        res.json({ points: result.rows[0].points });
+    } catch (error) {
+        console.error('User summary error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Routes
 app.use('/api/home', homeRoutes);
+app.use('/api/stories', storyRoutes);
+
+// Activity Routes
+app.use('/api/activities', activityRoutes);
 
 // Start Server
 app.listen(PORT, HOST, () => {

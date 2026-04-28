@@ -16,6 +16,11 @@ const CATEGORIES = [
 ];
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
+import { Image } from 'react-native';
+
+import { API_BASE_URL } from '../constants/Api';
+import * as SecureStore from 'expo-secure-store';
 
 export default function CreateActivityScreen() {
   const router = useRouter();
@@ -26,19 +31,123 @@ export default function CreateActivityScreen() {
   const [time, setTime] = useState('');
   const [location, setLocation] = useState('');
   const [capacity, setCapacity] = useState('');
+  const [description, setDescription] = useState('');
   const [isCategoryModalVisible, setCategoryModalVisible] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [imageUri, setImageUri] = useState<string | null>(null);
 
-  const handleCreate = () => {
+  const pickImage = async () => {
+    console.log("📸 pickImage pressed");
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    console.log("📸 permission result:", permission.status);
+    
+    if (permission.status !== 'granted') {
+      Alert.alert('Permission Denied', 'Please allow gallery access to upload a cover image.');
+      return;
+    }
+
+    try {
+      console.log("📸 opening image picker...");
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.7,
+      });
+
+      console.log("📸 picker result:", result.canceled ? "canceled" : "selected");
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const selectedUri = result.assets[0].uri;
+        console.log("📸 selected file:", selectedUri);
+        setImageUri(selectedUri);
+      }
+    } catch (error) {
+      console.error("📸 picker error:", error);
+      Alert.alert("Error", "Could not open image picker.");
+    }
+  };
+
+  const uploadImageToServer = async (uri: string) => {
+    try {
+      console.log("🚀 uploading image to server:", uri);
+      const filename = uri.split('/').pop() || 'activity.jpg';
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : `image`;
+
+      const formData = new FormData();
+      formData.append('image', { uri, name: filename, type } as any);
+
+      const response = await fetch(`${API_BASE_URL}/upload`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        console.error("🚀 upload failed:", data);
+        return null;
+      }
+      console.log("🚀 upload success:", data.imageUrl);
+      return data.imageUrl;
+    } catch (error) {
+      console.error("🚀 upload error:", error);
+      return null;
+    }
+  };
+
+  const handleCreate = async () => {
     // Basic validation
-    if (!title || !category || !location) {
+    if (!title || !category || !location || !capacity) {
       Alert.alert("Missing Information", "Please fill in all required fields marked with *");
       return;
     }
 
-    // Usually you'd dispatch this to a state management store or API here
-    // For now, we'll just navigate back
-    console.log("Activity created!", { title, category, date, time, location, capacity });
-    router.back();
+    try {
+      setLoading(true);
+      const token = await SecureStore.getItemAsync('token');
+
+      let uploadedImageUrl = null;
+      if (imageUri) {
+        uploadedImageUrl = await uploadImageToServer(imageUri);
+        if (!uploadedImageUrl) {
+          Alert.alert("Upload Error", "Failed to upload image. Continue without image?");
+          // Option to return or continue
+        }
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/activities`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          title,
+          category,
+          date,
+          time,
+          location,
+          capacity: parseInt(capacity),
+          description,
+          image_url: uploadedImageUrl,
+          emoji: imageUri ? null : '📅' 
+        })
+      });
+
+      if (response.ok) {
+        Alert.alert("Success", "Activity created successfully!");
+        router.back();
+      } else {
+        const data = await response.json();
+        Alert.alert("Error", data.error || "Failed to create activity");
+      }
+    } catch (error) {
+      console.error("Create Activity Error:", error);
+      Alert.alert("Error", "Network error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -59,11 +168,25 @@ export default function CreateActivityScreen() {
           <View style={styles.formContainer}>
             
             {/* Image Placeholder */}
-            <TouchableOpacity style={styles.imageUploadContainer}>
-              <View style={styles.imageUploadContent}>
-                <Feather name="image" size={32} color="#9CA3AF" />
-                <Text style={styles.imageUploadText}>Add Cover Image</Text>
-              </View>
+            <TouchableOpacity 
+              style={[styles.imageUploadContainer, imageUri && { borderStyle: 'solid' }]}
+              onPress={pickImage}
+              activeOpacity={0.7}
+            >
+              {imageUri ? (
+                <View style={styles.imagePreviewContainer}>
+                  <Image source={{ uri: imageUri }} style={styles.imagePreview} />
+                  <View style={styles.changeImageOverlay}>
+                    <Feather name="camera" size={20} color="#FFF" />
+                    <Text style={styles.changeImageText}>Change Cover</Text>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.imageUploadContent}>
+                  <Feather name="image" size={32} color="#9CA3AF" />
+                  <Text style={styles.imageUploadText}>Add Cover Image</Text>
+                </View>
+              )}
             </TouchableOpacity>
 
             {/* Inputs */}
@@ -144,15 +267,31 @@ export default function CreateActivityScreen() {
               </View>
             </View>
 
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Description</Text>
+              <TextInput
+                style={[styles.input, { height: 100, textAlignVertical: 'top' }]}
+                placeholder="What is this activity about?"
+                placeholderTextColor="#9CA3AF"
+                multiline
+                numberOfLines={4}
+                value={description}
+                onChangeText={setDescription}
+              />
+            </View>
+
           </View>
         </ScrollView>
 
         <View style={styles.footer}>
           <TouchableOpacity 
-            style={[styles.createButton, (!title || !category || !location) && styles.createButtonDisabled]} 
+            style={[styles.createButton, (!title || !category || !location || !capacity || loading) && styles.createButtonDisabled]} 
             onPress={handleCreate}
+            disabled={loading}
           >
-            <Text style={styles.createButtonText}>Publish Activity</Text>
+            <Text style={styles.createButtonText}>
+              {loading ? 'Publishing...' : 'Publish Activity'}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -247,6 +386,34 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
+    overflow: 'hidden', // Add this
+  },
+  imagePreviewContainer: {
+    width: '100%',
+    height: '100%',
+    position: 'relative',
+  },
+  imagePreview: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  changeImageOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 8,
+    gap: 8,
+  },
+  changeImageText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '600',
   },
   imageUploadContent: {
     alignItems: 'center',

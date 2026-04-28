@@ -13,7 +13,7 @@ import {
   Platform,
   ActivityIndicator
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
@@ -329,16 +329,14 @@ export default function Signup() {
             {isLoading ? (
                <ActivityIndicator color="#fff" />
             ) : (
-               <Text style={styles.saveText}>Get OTP →</Text>
+               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                 <MaterialCommunityIcons name="whatsapp" size={20} color="#fff" style={{ marginRight: 8 }} />
+                 <Text style={styles.saveText}>Get OTP</Text>
+               </View>
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.skipBtn}
-            onPress={() => router.replace("/onboarding" as any)}
-          >
-            <Text style={styles.skipText}>Skip for now</Text>
-          </TouchableOpacity>
+
         </KeyboardAwareScrollView>
       </View>
       </LinearGradient>
@@ -485,13 +483,6 @@ const styles = StyleSheet.create({
     fontWeight: "600"
   },
 
-  skipBtn: {
-    padding: 15,
-    alignItems: "center"
-  },
 
-  skipText: {
-    color: "#777"
-  }
 });
 

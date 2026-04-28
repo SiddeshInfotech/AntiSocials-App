@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Animated, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -73,7 +73,6 @@ export default function LoginScreen() {
           phoneNumber,
           purpose: 'login'
         }),
-        signal: controller.signal
       });
 
       clearTimeout(timeoutId);
@@ -178,12 +177,20 @@ export default function LoginScreen() {
               {isLoading ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={[
-                  styles.buttonText,
-                  (!phoneNumber) ? styles.buttonTextDisabled : styles.buttonTextActive
-                ]}>
-                  Send OTP
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                  <MaterialCommunityIcons 
+                    name="whatsapp" 
+                    size={22} 
+                    color={!phoneNumber ? "#9CA3AF" : "#FFFFFF"} 
+                    style={{ marginRight: 8 }} 
+                  />
+                  <Text style={[
+                    styles.buttonText,
+                    (!phoneNumber) ? styles.buttonTextDisabled : styles.buttonTextActive
+                  ]}>
+                    Send OTP
+                  </Text>
+                </View>
               )}
             </TouchableOpacity>
 

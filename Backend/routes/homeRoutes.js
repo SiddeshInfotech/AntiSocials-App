@@ -9,11 +9,6 @@ router.use(authenticateToken);
 // Full Home Page Data
 router.get('/', homeController.getHomeData);
 
-// Stories
-router.get('/stories', homeController.getStories);
-router.post('/stories', homeController.uploadStory);
-router.delete('/stories/:id', homeController.deleteStory);
-
 // Tasks
 router.get('/tasks', homeController.getTasks);
 router.get('/tasks/:id', homeController.getTaskById);

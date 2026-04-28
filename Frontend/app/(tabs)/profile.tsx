@@ -18,6 +18,7 @@ import { useIsFocused } from "@react-navigation/native";
 import * as SecureStore from 'expo-secure-store';
 import LifeDomainsChart from "../../components/LifeDomainsChart";
 import { API_BASE_URL } from "../../constants/Api";
+import { resolveImageUrl } from "../../constants/ImageUtils";
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -113,7 +114,7 @@ export default function ProfileScreen() {
             <View style={styles.avatarPlaceholder}>
               {userData?.image_url && !userData.image_url.startsWith('file://') && !userData.image_url.startsWith('data:image') ? (
                 <Image 
-                  source={{ uri: userData.image_url }} 
+                  source={{ uri: resolveImageUrl(userData.image_url) }} 
                   style={{ width: '100%', height: '100%', borderRadius: 45 }} 
                 />
               ) : (

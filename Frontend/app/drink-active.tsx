@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
+import * as SecureStore from 'expo-secure-store';
+import { API_BASE_URL } from '../constants/Api';
 
 import Animated, {
   useSharedValue,
@@ -150,12 +152,27 @@ export default function DrinkActive() {
         {/* Button */}
         <TouchableOpacity
           style={styles.button}
-          onPress={() =>
+          onPress={async () => {
+            try {
+              const token = await SecureStore.getItemAsync('token');
+              if (token) {
+                await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                  },
+                  body: JSON.stringify({ task_name: 'Drink a glass of water mindfully' })
+                });
+              }
+            } catch (e) {
+              console.error(e);
+            }
             router.replace({
               pathname: "/task-success",
               params: { points: "150" }
-            } as any)
-          }
+            } as any);
+          }}
         >
           <Text style={styles.buttonText}>Done Drinking</Text>
         </TouchableOpacity>
