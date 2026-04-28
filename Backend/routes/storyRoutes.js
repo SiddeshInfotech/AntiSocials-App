@@ -13,7 +13,7 @@ router.get('/:id', homeController.getStoryById);
 router.delete('/:id', homeController.deleteStory);
 
 // Views
-router.post('/:id/view', homeController.trackStoryView);
-router.get('/:id/views', homeController.getStoryViewers);
+router.post('/:storyId/view', homeController.trackStoryView);
+router.get('/:storyId/views', homeController.getStoryViewers);
 
 module.exports = router;
