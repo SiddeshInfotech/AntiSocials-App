@@ -12,6 +12,7 @@ export default function EditProfileScreen() {
   const router = useRouter();
 
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [profession, setProfession] = useState('');
   const [about, setAbout] = useState('');
   const [profileImage, setProfileImage] = useState<string | null>(null);
@@ -31,16 +32,17 @@ export default function EditProfileScreen() {
           return;
         }
 
-        const response = await fetch(`${API_BASE_URL}/api/me`, {
+        const response = await fetch(`${API_BASE_URL}/api/profile/me`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
 
         if (response.ok) {
           const data = await response.json();
-          setUsername(data.username);
-          setProfession(data.profession || '');
-          setAbout(data.about || '');
-          setProfileImage(data.image_url || null);
+          setUsername(data.user.username);
+          setEmail(data.user.email || '');
+          setProfession(data.user.profession || '');
+          setAbout(data.user.about || '');
+          setProfileImage(data.user.image_url || null);
         }
       } catch (err) {
         console.error("Error fetching user data:", err);
@@ -136,14 +138,15 @@ export default function EditProfileScreen() {
       const userId = await SecureStore.getItemAsync('userId');
       const token = await SecureStore.getItemAsync('token');
 
-      const response = await fetch(`${API_BASE_URL}/user/${userId}`, {
-        method: "PATCH",
+      const response = await fetch(`${API_BASE_URL}/api/profile/update`, {
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({
           username,
+          email,
           profession,
           about,
           image_url: profileImage
@@ -227,6 +230,19 @@ export default function EditProfileScreen() {
                   autoCapitalize="none"
                 />
               </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Email Address</Text>
+              <TextInput
+                style={styles.input}
+                value={email}
+                onChangeText={setEmail}
+                placeholder="your.email@example.com"
+                placeholderTextColor="#9CA3AF"
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
             </View>
 
             <View style={styles.inputGroup}>

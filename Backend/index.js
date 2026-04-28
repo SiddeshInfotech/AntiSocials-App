@@ -8,6 +8,7 @@ const jwt = require('jsonwebtoken');
 const authenticateToken = require('./middleware/auth');
 const homeRoutes = require('./routes/homeRoutes');
 const storyRoutes = require('./routes/storyRoutes');
+const profileRoutes = require('./routes/profileRoutes');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -216,10 +217,22 @@ const initDB = async () => {
             );
         `);
 
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS user_connections (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                friend_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                status VARCHAR(50) DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, friend_id)
+            );
+        `);
+
         // Migrations
         try { await db.query('ALTER TABLE users ADD COLUMN streak_count INTEGER DEFAULT 0'); } catch (e) { }
         try { await db.query('ALTER TABLE users ADD COLUMN last_streak_date DATE'); } catch (e) { }
         try { await db.query('ALTER TABLE otp_verifications ADD COLUMN attempts INTEGER DEFAULT 0'); } catch (e) { }
+        try { await db.query('ALTER TABLE users ADD COLUMN points INTEGER DEFAULT 0'); } catch (e) { }
 
 
         // Seed Tasks if empty so UI task bindings have IDs to hit API with
@@ -630,6 +643,7 @@ const activityRoutes = require('./routes/activityRoutes');
 // Routes
 app.use('/api/home', homeRoutes);
 app.use('/api/stories', storyRoutes);
+app.use('/api/profile', profileRoutes);
 
 // Activity Routes
 app.use('/api/activities', activityRoutes);
