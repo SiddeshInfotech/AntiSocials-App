@@ -17,6 +17,15 @@ Our core philosophy is simple: **Complete real-world tasks to unlock social feat
 
 ---
 
+## 💻 Tech Stack
+- **Frontend:** React Native, Expo, React Navigation, Reanimated
+- **Backend:** Node.js, Express.js
+- **Database:** PostgreSQL (Neon Serverless DB)
+- **Authentication:** WhatsApp OTP & JWT
+- **Media & Storage:** Multer (Local Uploads)
+
+---
+
 ## 🔥 Key Features
 
 ### 🎯 The Wheel of Life Domains
@@ -34,9 +43,10 @@ Capture raw, unfiltered moments straight from your device's native Camera or Gal
 
 ### 🤝 Real Connections & Activities
 Say goodbye to strangers hiding behind screens.
-- **Discover Events:** Browse and join curated local activities (like morning yoga or photography walks) based strictly on your shared interests.
+- **Discover Events:** Browse and join curated local activities (like morning yoga or photography walks) based strictly on your shared interests, powered by live REST APIs.
 - **Verified Humans:** Ensure safety and authenticity with our Verified Tier System. Connect only with real people creating real memories!
-- **Build Streaks:** Maintain an active streak every day you check in and complete a task, unlocking exclusive profile badges like the "21-Day Builder" or "First Meet" champion!
+- **Build Streaks:** Maintain an active streak every day you check in and complete a task. All activities, tasks, and points are seamlessly tracked in our PostgreSQL database.
+- **Dynamic Profile:** Keep your interests and basic bio up to date through our comprehensive Profile Settings which reliably synchronize in real-time.
 
 ---
 
