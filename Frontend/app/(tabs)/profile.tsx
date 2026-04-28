@@ -24,6 +24,8 @@ export default function ProfileScreen() {
   const router = useRouter();
   const isFocused = useIsFocused();
   const [userData, setUserData] = useState<any>(null);
+  const [statsData, setStatsData] = useState<any>({ activitiesJoined: 0, tasksCompleted: 0, connections: 0, taskPoints: 0 });
+  const [interestsData, setInterestsData] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -38,7 +40,7 @@ export default function ProfileScreen() {
           return;
         }
 
-        const response = await fetch(`${API_BASE_URL}/api/me`, {
+        const response = await fetch(`${API_BASE_URL}/api/profile/me`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -46,8 +48,10 @@ export default function ProfileScreen() {
 
         if (response.ok) {
           const data = await response.json();
-          setUserData(data);
-          await SecureStore.setItemAsync('userId', data.id.toString());
+          setUserData(data.user);
+          setStatsData(data.stats);
+          setInterestsData(data.interests);
+          await SecureStore.setItemAsync('userId', data.user.id.toString());
         } else {
           console.error("Profile fetch failed. Status:", response.status);
           if (response.status === 401 || response.status === 403) {
@@ -235,7 +239,7 @@ export default function ProfileScreen() {
                 />
                 <Text style={styles.activityText}>Activities Joined</Text>
               </View>
-              <Text style={styles.activityValue}>15</Text>
+              <Text style={styles.activityValue}>{statsData.activitiesJoined}</Text>
             </View>
 
             <View style={styles.activityRow}>
@@ -248,7 +252,7 @@ export default function ProfileScreen() {
                 />
                 <Text style={styles.activityText}>Tasks Completed</Text>
               </View>
-              <Text style={styles.activityValue}>127</Text>
+              <Text style={styles.activityValue}>{statsData.tasksCompleted}</Text>
             </View>
 
             <View style={styles.activityRow}>
@@ -261,7 +265,7 @@ export default function ProfileScreen() {
                 />
                 <Text style={styles.activityText}>Connections</Text>
               </View>
-              <Text style={styles.activityValue}>48</Text>
+              <Text style={styles.activityValue}>{statsData.connections}</Text>
             </View>
 
             <View
@@ -279,7 +283,7 @@ export default function ProfileScreen() {
                 />
                 <Text style={styles.activityText}>Total Points</Text>
               </View>
-              <Text style={styles.activityValue}>1,250</Text>
+              <Text style={styles.activityValue}>{statsData.taskPoints}</Text>
             </View>
           </View>
 
@@ -350,12 +354,14 @@ export default function ProfileScreen() {
           {/* Your Interests */}
           <Text style={styles.sectionTitle}>Your Interests</Text>
           <View style={styles.pillsContainer}>
-            {["Cycling", "Cricket", "Meditation & Mindfulness"].map(
-              (interest, index) => (
+            {interestsData && interestsData.length > 0 ? (
+              interestsData.map((interest, index) => (
                 <View key={index} style={styles.interestPill}>
                   <Text style={styles.interestPillText}>{interest}</Text>
                 </View>
-              ),
+              ))
+            ) : (
+              <Text style={{color: '#6B7280', fontStyle: 'italic', marginBottom: 16}}>No interests added yet.</Text>
             )}
           </View>
 
