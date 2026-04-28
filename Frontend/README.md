@@ -12,8 +12,8 @@ This branch contains all the latest merged UI features and frontend layouts curr
 * **Interactive Onboarding:** Reanimated, gesture-driven horizontal swipe carousel explaining the app's core values (`app/onboarding.tsx`).
 * **Main Dashboard & Layouts:** Expo-Router configured tab layout (`app/(tabs)/`).
 * **Activities Feed:** Discover and join nearby activities, dynamic tab switching between 'Discover' and 'Joined', and a 'Create Activity' screen (`app/(tabs)/activities.tsx` & `app/create-activity.tsx`).
-* **Comprehensive Profile:** A rich interactive profile tracking Streaks, Ranks, Badges, Habits, and Activity metrics (`app/(tabs)/profile.tsx`).
-* **Account Configurations:** Screens for modifying personal data including Edit Profile, Privacy Settings, Notifications, and Interests (`app/edit-profile.tsx`, `app/privacy-settings.tsx`, etc.).
+* **Comprehensive Profile:** A rich interactive profile tracking Streaks, Ranks, Badges, Habits, and Activity metrics seamlessly integrated with our Express/PostgreSQL backend (`app/(tabs)/profile.tsx`).
+* **Account Configurations:** Dynamic screens for modifying personal data including Edit Profile, Privacy Settings, Notifications, and Interests. These securely sync changes to the backend in real-time (`app/edit-profile.tsx`, `app/your-interests.tsx`).
 
 ## 🛠️ Tech Stack
 * **Framework:** [Expo](https://expo.dev) / React Native
