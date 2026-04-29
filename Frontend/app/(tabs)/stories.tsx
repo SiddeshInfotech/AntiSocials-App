@@ -1,72 +1,72 @@
-import React from "react";
-import { View, Text, StyleSheet, FlatList, Dimensions } from "react-native";
+import React, { useEffect, useState } from "react";
+import { View, Text, StyleSheet, FlatList, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { useIsFocused } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 import StoryCard, { StoryType } from "../../components/StoryCard";
+import * as SecureStore from "expo-secure-store";
+import { API_BASE_URL } from "../../constants/Api";
+import { resolveImageUrl } from "../../constants/ImageUtils";
 
-const MOCK_STORIES: StoryType[] = [
-  {
-    id: "1",
-    user: {
-      name: "Sarah",
-      avatarEmoji: "👱‍♀️",
-      avatarBg: "#818CF8",
-    },
-    time: "2h ago",
-    tag: "Connection",
-    image:
-      "https://images.unsplash.com/photo-1542204165-65bf26472b9b?q=80&w=1000&auto=format&fit=crop", // Mountain mist cloud inversion
-    likes: 42,
-    caption: "Beautiful morning hike! 🌄",
-  },
-  {
-    id: "2",
-    user: {
-      name: "Mike",
-      avatarEmoji: "👱‍♂️",
-      avatarBg: "#818CF8",
-    },
-    time: "4h ago",
-    tag: "Connection",
-    image:
-      "https://images.unsplash.com/photo-1517404215738-15263e9f9178?q=80&w=1000&auto=format&fit=crop", // Pug looking cute
-    likes: 58,
-    caption: "Met the cutest friend today 🐕",
-  },
-  {
-    id: "3",
-    user: {
-      name: "Emma",
-      avatarEmoji: "👱‍♀️",
-      avatarBg: "#818CF8",
-    },
-    time: "6h ago",
-    tag: "Connection",
-    image:
-      "https://images.unsplash.com/photo-1506126613408-eca07ce68773?q=80&w=1000&auto=format&fit=crop", // Boat on a lake
-    likes: 112,
-    caption: "Peaceful moments by the water 🛶",
-  },
-  {
-    id: "4",
-    user: {
-      name: "John",
-      avatarEmoji: "👱‍♂️",
-      avatarBg: "#818CF8",
-    },
-    time: "8h ago",
-    tag: "Connection",
-    image:
-      "https://images.unsplash.com/photo-1518173946687-a4c8892bbd9f?q=80&w=1000&auto=format&fit=crop", // Leaves with water drops
-    likes: 34,
-    caption: "Nature is amazing 🌿",
-  },
-];
+const formatTimeAgo = (dateStr: string) => {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  if (hours < 1) {
+    const mins = Math.floor(diff / (1000 * 60));
+    return `${mins}m ago`;
+  }
+  return `${hours}h ago`;
+};
 
 export default function StoriesFeed() {
   const isFocused = useIsFocused();
+  const [stories, setStories] = useState<StoryType[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchStories = async () => {
+    try {
+      const token = await SecureStore.getItemAsync("token");
+      if (!token) return;
+
+      const response = await fetch(`${API_BASE_URL}/api/stories`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (response.ok) {
+        const formattedStories: StoryType[] = (data.stories || []).map((s: any) => ({
+          id: s.id.toString(),
+          user: {
+            name: s.username || "User",
+            avatarUrl: resolveImageUrl(s.profile_image),
+          },
+          time: formatTimeAgo(s.created_at),
+          tag: "Story",
+          image: resolveImageUrl(s.media_url),
+          likes: s.view_count || 0,
+          caption: s.caption || s.text_content || "",
+        }));
+        setStories(formattedStories);
+      }
+    } catch (e) {
+      console.error("Fetch stories error:", e);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isFocused) {
+      fetchStories();
+    }
+  }, [isFocused]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchStories();
+  };
 
   const renderHeader = () => (
     <View style={styles.headerContainer}>
@@ -81,7 +81,7 @@ export default function StoriesFeed() {
           color="#9333EA"
           style={{ marginRight: 6 }}
         />
-        <Text style={styles.pointsText}>3393</Text>
+        <Text style={styles.pointsText}>Trending</Text>
       </View>
     </View>
   );
@@ -91,12 +91,22 @@ export default function StoriesFeed() {
       {isFocused && <StatusBar style="dark" backgroundColor="#FAFAFA" />}
 
       <FlatList
-        data={MOCK_STORIES}
+        data={stories}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => <StoryCard story={item} />}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={renderHeader}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+        ListEmptyComponent={
+          !loading ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>No stories right now.</Text>
+            </View>
+          ) : null
+        }
       />
     </SafeAreaView>
   );
@@ -105,7 +115,7 @@ export default function StoriesFeed() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F9FAFB", // Extremely light neutral background matching design
+    backgroundColor: "#F9FAFB",
   },
   listContent: {
     paddingHorizontal: 20,
@@ -141,5 +151,14 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#9333EA",
   },
+  emptyContainer: {
+    padding: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    color: '#9CA3AF',
+    fontSize: 16,
+  }
 });
 

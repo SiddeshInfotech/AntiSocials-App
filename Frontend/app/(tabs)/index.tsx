@@ -877,7 +877,7 @@ export default function HomeScreen() {
       if (!uploadRes.ok) throw new Error(uploadData.error || "Upload failed");
 
       // 2. Save story metadata
-      const response = await fetch(`${API_BASE_URL}/api/home/stories`, {
+      const response = await fetch(`${API_BASE_URL}/api/stories`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -913,7 +913,7 @@ export default function HomeScreen() {
   const deleteStory = async (storyId: number) => {
     try {
       const token = await SecureStore.getItemAsync('token');
-      const response = await fetch(`${API_BASE_URL}/api/home/stories/${storyId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/stories/${storyId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -1197,7 +1197,7 @@ export default function HomeScreen() {
              <View style={styles.storyViewerContent}>
                 {viewingStory?.media_type === 'video' ? (
                   <Video
-                    source={{ uri: viewingStory?.media_url }}
+                    source={{ uri: resolveImageUrl(viewingStory?.media_url) }}
                     style={styles.storyViewerImage}
                     resizeMode={ResizeMode.CONTAIN}
                     shouldPlay
@@ -1205,7 +1205,7 @@ export default function HomeScreen() {
                     useNativeControls
                   />
                 ) : (
-                  <Image source={{ uri: viewingStory?.media_url }} style={styles.storyViewerImage} resizeMode="contain" />
+                  <Image source={{ uri: resolveImageUrl(viewingStory?.media_url) }} style={styles.storyViewerImage} resizeMode="contain" />
                 )}
 
                 {/* Overlays in Viewer (Instagram Style) */}
