@@ -62,8 +62,10 @@ const Particle = ({ x, color, size, delay, duration }: typeof PARTICLES[0]) => {
 export default function TaskSuccessScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { points } = useLocalSearchParams<{ points: string }>();
-  const displayPoints = points ?? '300';
+  const { points, totalPoints, streak } = useLocalSearchParams<{ points: string, totalPoints: string, streak: string }>();
+  const displayPoints = points ?? '0';
+  const displayTotal = totalPoints ?? '0';
+  const displayStreak = streak ?? '0';
 
   // Animation refs
   const bgScale     = useRef(new Animated.Value(0)).current;
@@ -206,7 +208,7 @@ export default function TaskSuccessScreen() {
             <View style={styles.statRow}>
               <View style={styles.statItem}>
                 <Ionicons name="flame" size={20} color="#f59e0b" />
-                <Text style={styles.statNum}>1</Text>
+                <Text style={styles.statNum}>{displayStreak}</Text>
                 <Text style={styles.statLbl}>Day Streak</Text>
               </View>
               <View style={styles.statDivider} />
@@ -218,7 +220,7 @@ export default function TaskSuccessScreen() {
               <View style={styles.statDivider} />
               <View style={styles.statItem}>
                 <Ionicons name="trophy" size={20} color="#a855f7" />
-                <Text style={styles.statNum}>200</Text>
+                <Text style={styles.statNum}>{displayTotal}</Text>
                 <Text style={styles.statLbl}>Total Pts</Text>
               </View>
             </View>
@@ -235,7 +237,7 @@ export default function TaskSuccessScreen() {
 
         {/* Buttons */}
         <Animated.View style={[styles.btnArea, { opacity: btnOpacity, transform: [{ translateY: btnSlide }] }]}>
-          <TouchableOpacity activeOpacity={0.85} onPress={() => router.replace('/(tabs)')}>
+          <TouchableOpacity activeOpacity={0.85} onPress={() => router.replace({ pathname: '/(tabs)', params: { updatedPoints: displayTotal, updatedStreak: displayStreak } } as any)}>
             <LinearGradient
               colors={['#a855f7', '#6366f1']}
               start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
@@ -249,7 +251,7 @@ export default function TaskSuccessScreen() {
           <TouchableOpacity
             style={styles.secondaryBtn}
             activeOpacity={0.7}
-            onPress={() => router.replace('/(tabs)')}
+            onPress={() => router.replace({ pathname: '/(tabs)', params: { updatedPoints: displayTotal, updatedStreak: displayStreak } } as any)}
           >
             <Text style={styles.secondaryBtnText}>Back to Home</Text>
           </TouchableOpacity>
