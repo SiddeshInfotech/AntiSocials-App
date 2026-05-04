@@ -167,11 +167,11 @@ exports.getStoryById = async (req, res) => {
 exports.trackStoryView = async (req, res) => {
     try {
         const userId = req.user.id;
-        const storyId = req.params.id;
+        const storyId = req.params.storyId;
 
         // Add view record
         const viewResult = await db.query(
-            'INSERT INTO story_views (story_id, user_id) VALUES ($1, $2) ON CONFLICT (story_id, user_id) DO NOTHING RETURNING *',
+            'INSERT INTO story_views (story_id, viewer_user_id) VALUES ($1, $2) ON CONFLICT (story_id, viewer_user_id) DO NOTHING RETURNING *',
             [storyId, userId]
         );
 
@@ -180,44 +180,59 @@ exports.trackStoryView = async (req, res) => {
             await db.query('UPDATE stories SET view_count = view_count + 1 WHERE id = $1', [storyId]);
         }
 
-        return res.status(200).json({ message: 'View tracked' });
+        return res.status(200).json({ success: true, message: 'View tracked' });
     } catch (err) {
         console.error('trackStoryView error:', err);
-        return res.status(500).json({ error: 'Internal server error' });
+        return res.status(500).json({ success: false, error: 'Internal server error' });
     }
 };
 
 exports.getStoryViewers = async (req, res) => {
     try {
         const userId = req.user.id;
-        const storyId = req.params.id;
+        const storyId = req.params.storyId;
+        console.log(`📌 getStoryViewers: storyId=${storyId}, userId=${userId}`);
 
         if (!storyId || storyId === 'undefined') {
-            return res.status(400).json({ error: 'Invalid story ID' });
+            console.log('❌ Invalid storyId in getStoryViewers');
+            return res.status(400).json({ success: false, error: 'Invalid story ID' });
         }
 
         // Verify ownership and get view count
         const storyRes = await db.query('SELECT user_id, view_count FROM stories WHERE id = $1', [storyId]);
-        if (storyRes.rows.length === 0) return res.status(404).json({ error: 'Story not found' });
+        if (storyRes.rows.length === 0) {
+            console.log(`❌ Story ${storyId} not found`);
+            return res.status(404).json({ success: false, error: 'Story not found' });
+        }
         
         // Use loose equality to handle possible string/number mismatches
-        if (storyRes.rows[0].user_id != userId) return res.status(403).json({ error: 'Unauthorized' });
+        if (storyRes.rows[0].user_id != userId) {
+            console.log(`❌ Unauthorized: story.user_id=${storyRes.rows[0].user_id}, req.user.id=${userId}`);
+            return res.status(403).json({ success: false, error: 'Unauthorized' });
+        }
 
         const viewersRes = await db.query(`
-            SELECT u.id as user_id, u.username, u.image_url as profile_image, sv.viewed_at
+            SELECT 
+                u.id as user_id, 
+                u.username, 
+                u.image_url as profile_image, 
+                sv.viewed_at
             FROM story_views sv
-            JOIN users u ON sv.user_id = u.id
+            JOIN users u ON sv.viewer_user_id = u.id
             WHERE sv.story_id = $1
             ORDER BY sv.viewed_at DESC
         `, [storyId]);
 
+        console.log(`✅ Found ${viewersRes.rows.length} viewers for story ${storyId}`);
+
         return res.status(200).json({ 
+            success: true,
             viewsCount: storyRes.rows[0].view_count || 0,
             viewers: viewersRes.rows || []
         });
     } catch (err) {
-        console.error('getStoryViewers error:', err);
-        return res.status(500).json({ error: 'Internal server error' });
+        console.error('❌ getStoryViewers error:', err);
+        return res.status(500).json({ success: false, error: 'Internal server error' });
     }
 };
 

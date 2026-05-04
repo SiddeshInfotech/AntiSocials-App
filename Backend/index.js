@@ -142,12 +142,21 @@ const initDB = async () => {
         `);
 
         await db.query(`
+            DO $$ 
+            BEGIN 
+                IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='story_views' AND column_name='user_id') THEN
+                    ALTER TABLE story_views RENAME COLUMN user_id TO viewer_user_id;
+                END IF;
+            END $$;
+        `);
+
+        await db.query(`
             CREATE TABLE IF NOT EXISTS story_views (
                 id SERIAL PRIMARY KEY,
                 story_id INTEGER REFERENCES stories(id) ON DELETE CASCADE,
-                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                viewer_user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
                 viewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(story_id, user_id)
+                UNIQUE(story_id, viewer_user_id)
             );
         `);
 
@@ -231,9 +240,21 @@ const initDB = async () => {
         // Migrations
         try { await db.query('ALTER TABLE users ADD COLUMN streak_count INTEGER DEFAULT 0'); } catch (e) { }
         try { await db.query('ALTER TABLE users ADD COLUMN last_streak_date DATE'); } catch (e) { }
-        try { await db.query('ALTER TABLE otp_verifications ADD COLUMN attempts INTEGER DEFAULT 0'); } catch (e) { }
         try { await db.query('ALTER TABLE users ADD COLUMN points INTEGER DEFAULT 0'); } catch (e) { }
+        try { await db.query('ALTER TABLE otp_verifications ADD COLUMN attempts INTEGER DEFAULT 0'); } catch (e) { }
 
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS task_completions (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                task_name VARCHAR(255) NOT NULL,
+                points INTEGER DEFAULT 0,
+                completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        // Enforce uniqueness to prevent duplicate tasks per user
+        try { await db.query('ALTER TABLE task_completions ADD CONSTRAINT unique_user_task UNIQUE (user_id, task_name);'); } catch (e) { }
 
         // Seed Tasks if empty so UI task bindings have IDs to hit API with
         const taskCountRes = await db.query('SELECT COUNT(*) FROM tasks');
@@ -407,6 +428,8 @@ app.post('/auth/send-otp', async (req, res) => {
         // Generate 6 digit OTP
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         const expiresAt = new Date(Date.now() + 5 * 60000); // 5 mins
+
+        console.log(`🔔 OTP for ${phoneNumber} (${purpose}): ${otp}`);
 
         await db.query(
             "INSERT INTO otp_verifications (phone_number, otp, purpose, expires_at) VALUES ($1, $2, $3, $4)",
@@ -636,6 +659,125 @@ app.get('/user/:id', async (req, res) => {
 
 app.get('/api/health', (req, res) => {
     res.json({ status: "OK", database: "PostgreSQL Configured" });
+});
+
+// TASK INTEGRATION APIs
+
+app.post('/api/tasks/complete', authenticateToken, async (req, res) => {
+    const { task_name } = req.body;
+    const userId = req.user.id;
+
+    if (!task_name) {
+        return res.status(400).json({ error: "task_name is required" });
+    }
+
+    // Determine points
+    let points = 0;
+    if (task_name === "Breathe consciously for 3 minutes") {
+        points = 100;
+    } else if (task_name === "Drink a glass of water mindfully") {
+        points = 150;
+    } else if (task_name === "Sit without phone for 2 minutes") {
+        points = 200;
+    } else if (task_name === "Stretch neck & shoulders") {
+        points = 250;
+    } else if (task_name === "Smile intentionally") {
+        points = 100;
+    } else if (task_name === "Call an old friend") {
+        points = 400;
+    } else if (task_name === "Spend 20 minutes offline with someone") {
+        points = 500;
+    } else {
+        // Not a task we are integrating right now or 0 points
+        return res.status(400).json({ error: "Unknown task" });
+    }
+
+    try {
+        // Fetch current total points
+        const userResult = await db.query('SELECT COALESCE(points, 0) as points, COALESCE(streak_count, 0) as streak_count FROM users WHERE id = $1', [userId]);
+        let totalPoints = userResult.rows[0] ? userResult.rows[0].points : 0;
+        let streak = userResult.rows[0] ? userResult.rows[0].streak_count : 0;
+
+        // Check if already completed ever (prevent duplicate points entirely)
+        const checkResult = await db.query(`
+            SELECT * FROM task_completions 
+            WHERE user_id = $1 AND task_name = $2
+        `, [userId, task_name]);
+
+        if (checkResult.rows.length > 0) {
+            // Compute current streak from total task completions
+            const completedRes = await db.query('SELECT COUNT(*) FROM task_completions WHERE user_id = $1', [userId]);
+            streak = Math.floor(parseInt(completedRes.rows[0].count) / 7);
+
+            // Fetch completed tasks list
+            const completedListRes = await db.query('SELECT task_name FROM task_completions WHERE user_id = $1', [userId]);
+            const completedTasks = completedListRes.rows.map(row => row.task_name);
+
+            return res.status(200).json({ 
+                success: true, 
+                message: "Task already completed", 
+                pointsAdded: 0, 
+                totalPoints,
+                streak,
+                completedTasks
+            });
+        }
+
+        // Insert into task_completions
+        await db.query(`
+            INSERT INTO task_completions (user_id, task_name, points)
+            VALUES ($1, $2, $3)
+        `, [userId, task_name, points]);
+
+        // Add points to user total
+        totalPoints += points;
+        
+        // Compute new streak
+        const completedRes = await db.query('SELECT COUNT(*) FROM task_completions WHERE user_id = $1', [userId]);
+        streak = Math.floor(parseInt(completedRes.rows[0].count) / 7);
+
+        await db.query(`
+            UPDATE users SET points = $1, streak_count = $3 WHERE id = $2
+        `, [totalPoints, userId, streak]);
+
+        // Fetch completed tasks list
+        const completedListRes = await db.query('SELECT task_name FROM task_completions WHERE user_id = $1', [userId]);
+        const completedTasks = completedListRes.rows.map(row => row.task_name);
+
+        res.status(200).json({ 
+            success: true, 
+            message: "Task completed", 
+            pointsAdded: points, 
+            totalPoints,
+            streak,
+            completedTasks
+        });
+    } catch (err) {
+        console.error("Task completion error:", err);
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
+app.get('/api/user/summary', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const result = await db.query('SELECT COALESCE(points, 0) as points, COALESCE(streak_count, 0) as streak_count FROM users WHERE id = $1', [userId]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        
+        const completedListRes = await db.query('SELECT task_name FROM task_completions WHERE user_id = $1', [userId]);
+        const completedTasks = completedListRes.rows.map(row => row.task_name);
+        
+        res.json({ 
+            points: result.rows[0].points,
+            streak: result.rows[0].streak_count,
+            completedTasks
+        });
+    } catch (error) {
+        console.error('User summary error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 });
 
 const activityRoutes = require('./routes/activityRoutes');

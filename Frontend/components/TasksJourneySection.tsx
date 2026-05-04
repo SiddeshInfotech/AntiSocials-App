@@ -9,7 +9,7 @@ import {
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 
-export default function TasksJourneySection() {
+export default function TasksJourneySection({ completedTasks = [] }: { completedTasks?: string[] }) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("100-Day Journey");
   const [activePrototype, setActivePrototype] = useState("Day 1");
@@ -340,11 +340,14 @@ export default function TasksJourneySection() {
 
       {/* TASKS LIST */}
       <View style={styles.tasksListContainer}>
-        {tasksData.map((task, idx) => (
+        {tasksData.map((task, idx) => {
+          const isCompleted = completedTasks.includes(task.title);
+          return (
           <TouchableOpacity
             key={idx}
-            style={styles.taskCard}
+            style={[styles.taskCard, isCompleted && { opacity: 0.6, backgroundColor: '#f9fafb' }]}
             activeOpacity={0.7}
+            disabled={isCompleted}
             onPress={() => {
               if (task.route) {
                 router.push(task.route as any);
@@ -386,11 +389,13 @@ export default function TasksJourneySection() {
                   {task.difficulty}
                 </Text>
               </View>
-              <Text style={styles.taskTitle}>{task.title}</Text>
+              <Text style={[styles.taskTitle, isCompleted && { textDecorationLine: 'line-through', color: '#9ca3af' }]}>{task.title}</Text>
               <Text style={styles.taskSubtitle}>{task.subtitle}</Text>
               <View style={styles.taskBottomRow}>
-                <Text style={styles.taskPoints}>{task.points}</Text>
-                {!task.route && (
+                <Text style={[styles.taskPoints, isCompleted && { color: '#16a34a', fontWeight: 'bold' }]}>
+                  {isCompleted ? "✓ Completed" : task.points}
+                </Text>
+                {!task.route && !isCompleted && (
                   <View style={styles.comingSoonBadge}>
                     <Text style={styles.comingSoonText}>🔒 Coming Soon</Text>
                   </View>
@@ -398,7 +403,7 @@ export default function TasksJourneySection() {
               </View>
             </View>
           </TouchableOpacity>
-        ))}
+        )})}
       </View>
     </View>
   );

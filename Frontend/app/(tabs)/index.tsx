@@ -1,5 +1,6 @@
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useIsFocused } from "@react-navigation/native";
+import { useLocalSearchParams } from "expo-router";
 import TasksJourneySection from "../../components/TasksJourneySection";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
@@ -654,6 +655,7 @@ const AnimatedBuddyContainer = ({
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
+  const { updatedPoints, updatedStreak } = useLocalSearchParams<{ updatedPoints?: string, updatedStreak?: string }>();
   const [activeTask, setActiveTask] = useState<string | null>(null);
   const [circleSize, setCircleSize] = useState<{ w: number; h: number }>({
     w: 320,
@@ -756,9 +758,44 @@ export default function HomeScreen() {
 
   React.useEffect(() => {
     if (isFocused) {
+      if ((updatedPoints || updatedStreak) && homeData) {
+        setHomeData((prev: any) => ({ 
+          ...prev, 
+          total_points: updatedPoints ? parseInt(updatedPoints, 10) : prev.total_points,
+          user: {
+            ...prev.user,
+            streak_count: updatedStreak ? parseInt(updatedStreak, 10) : prev.user?.streak_count
+          }
+        }));
+      }
       fetchHomeData();
+      fetchUserSummary();
     }
-  }, [isFocused]);
+  }, [isFocused, updatedPoints, updatedStreak]);
+
+  const fetchUserSummary = async () => {
+    try {
+      const token = await SecureStore.getItemAsync('token');
+      if (!token) return;
+      const response = await fetch(`${API_BASE_URL}/api/user/summary`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (response.ok && data.points !== undefined) {
+        setHomeData((prev: any) => ({ 
+          ...prev, 
+          total_points: data.points, 
+          completedTasks: data.completedTasks,
+          user: {
+            ...prev?.user,
+            streak_count: data.streak
+          }
+        }));
+      }
+    } catch (e) {
+      console.error('❌ fetchUserSummary error:', e);
+    }
+  };
 
   const fetchHomeData = async () => {
     try {
@@ -787,31 +824,35 @@ export default function HomeScreen() {
 
   const completeTaskApi = async (taskName: string) => {
     try {
-      console.log('📌 completeTaskApi called with taskName:', taskName);
-      console.log('📌 homeData?.tasks:', JSON.stringify(homeData?.tasks?.map((t: any) => ({ id: t.id, title: t.title }))));
-      const taskObj = homeData?.tasks?.find((t: any) => t.title === taskName);
-      console.log('📌 Found taskObj:', taskObj ? `id=${taskObj.id}, title=${taskObj.title}` : 'NOT FOUND');
-      if (!taskObj) {
-        console.log('❌ Task not found in homeData.tasks! Cannot complete.');
-        return;
-      }
+      const taskMap: Record<string, string> = {
+        'Reflect': 'Write 1 word about how you feel',
+        'Smile': 'Smile intentionally',
+        'Breathe': 'Breathe consciously for 3 minutes',
+        'Stretch': 'Stretch neck & shoulders',
+        'Silent': 'Sit without phone for 2 minutes',
+        'Outside': 'Look outside for 2 minutes'
+      };
+      const fullTaskName = taskMap[taskName] || taskName;
 
       const token = await SecureStore.getItemAsync('token');
-      console.log('📌 Token exists:', !!token);
-      const url = `${API_BASE_URL}/api/home/tasks/${taskObj.id}/complete`;
-      console.log('📌 Calling:', url);
-      const response = await fetch(url, {
+      const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ task_name: fullTaskName })
       });
-      console.log('📌 Response status:', response.status);
-      const responseData = await response.json();
-      console.log('📌 Response data:', JSON.stringify(responseData));
-      if (response.ok) {
-        console.log('✅ Task completed successfully! Refreshing home data...');
+      const data = await response.json();
+      
+      if (response.ok || data.success) {
+        setHomeData((prev: any) => ({ 
+          ...prev, 
+          total_points: data.totalPoints !== undefined ? data.totalPoints : prev.total_points,
+          completedTasks: data.completedTasks || prev.completedTasks,
+          user: {
+            ...prev?.user,
+            streak_count: data.streak !== undefined ? data.streak : prev?.user?.streak_count
+          }
+        }));
         fetchHomeData(); 
-      } else {
-        console.log('❌ Task completion failed:', responseData);
       }
     } catch (e) {
       console.error('❌ completeTaskApi error:', e);
@@ -1125,7 +1166,7 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <TasksJourneySection />
+        <TasksJourneySection completedTasks={homeData?.completedTasks || []} />
 
         {/* --- Feed Locked Section --- */}
         <View style={styles.feedLockedContainer}>
