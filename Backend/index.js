@@ -240,15 +240,8 @@ const initDB = async () => {
         // Migrations
         try { await db.query('ALTER TABLE users ADD COLUMN streak_count INTEGER DEFAULT 0'); } catch (e) { }
         try { await db.query('ALTER TABLE users ADD COLUMN last_streak_date DATE'); } catch (e) { }
-<<<<<<< HEAD
         try { await db.query('ALTER TABLE users ADD COLUMN points INTEGER DEFAULT 0'); } catch (e) { }
-=======
         try { await db.query('ALTER TABLE otp_verifications ADD COLUMN attempts INTEGER DEFAULT 0'); } catch (e) { }
-<<<<<<< HEAD
-        try { await db.query('ALTER TABLE users ADD COLUMN points INTEGER DEFAULT 0'); } catch (e) { }
-=======
->>>>>>> 33a0dd8a609ccc56df87942bef3ebb780af3a7c1
->>>>>>> 42ce1eee2ce844a4fe515ae3351decd18ad0414f
 
         await db.query(`
             CREATE TABLE IF NOT EXISTS task_completions (
@@ -663,7 +656,6 @@ app.get('/api/health', (req, res) => {
     res.json({ status: "OK", database: "PostgreSQL Configured" });
 });
 
-<<<<<<< HEAD
 // TASK INTEGRATION APIs
 
 app.post('/api/tasks/complete', authenticateToken, async (req, res) => {
@@ -727,9 +719,8 @@ app.get('/api/user/summary', authenticateToken, async (req, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 });
-=======
+
 const activityRoutes = require('./routes/activityRoutes');
->>>>>>> 33a0dd8a609ccc56df87942bef3ebb780af3a7c1
 
 // Routes
 app.use('/api/home', homeRoutes);
