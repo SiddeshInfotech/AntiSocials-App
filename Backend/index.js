@@ -211,6 +211,9 @@ const initDB = async () => {
             );
         `);
 
+        // Enforce uniqueness to prevent duplicate tasks per user
+        try { await db.query('ALTER TABLE task_completions ADD CONSTRAINT unique_user_task UNIQUE (user_id, task_name);'); } catch (e) { }
+
         // Seed Tasks if empty so UI task bindings have IDs to hit API with
         const taskCountRes = await db.query('SELECT COUNT(*) FROM tasks');
         if (parseInt(taskCountRes.rows[0].count, 10) === 0) {
@@ -383,6 +386,8 @@ app.post('/auth/send-otp', async (req, res) => {
         // Generate 6 digit OTP
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         const expiresAt = new Date(Date.now() + 5 * 60000); // 5 mins
+
+        console.log(`🔔 OTP for ${phoneNumber} (${purpose}): ${otp}`);
 
         await db.query(
             "INSERT INTO otp_verifications (phone_number, otp, purpose, expires_at) VALUES ($1, $2, $3, $4)",
@@ -630,21 +635,50 @@ app.post('/api/tasks/complete', authenticateToken, async (req, res) => {
         points = 100;
     } else if (task_name === "Drink a glass of water mindfully") {
         points = 150;
+    } else if (task_name === "Sit without phone for 2 minutes") {
+        points = 200;
+    } else if (task_name === "Stretch neck & shoulders") {
+        points = 250;
+    } else if (task_name === "Smile intentionally") {
+        points = 100;
+    } else if (task_name === "Call an old friend") {
+        points = 400;
+    } else if (task_name === "Spend 20 minutes offline with someone") {
+        points = 500;
     } else {
         // Not a task we are integrating right now or 0 points
         return res.status(400).json({ error: "Unknown task" });
     }
 
     try {
-        // Check if already completed today
+        // Fetch current total points
+        const userResult = await db.query('SELECT COALESCE(points, 0) as points, COALESCE(streak_count, 0) as streak_count FROM users WHERE id = $1', [userId]);
+        let totalPoints = userResult.rows[0] ? userResult.rows[0].points : 0;
+        let streak = userResult.rows[0] ? userResult.rows[0].streak_count : 0;
+
+        // Check if already completed ever (prevent duplicate points entirely)
         const checkResult = await db.query(`
             SELECT * FROM task_completions 
-            WHERE user_id = $1 AND task_name = $2 
-            AND DATE(completed_at) = CURRENT_DATE
+            WHERE user_id = $1 AND task_name = $2
         `, [userId, task_name]);
 
         if (checkResult.rows.length > 0) {
-            return res.status(200).json({ message: "Task already completed today", addedPoints: 0 });
+            // Compute current streak from total task completions
+            const completedRes = await db.query('SELECT COUNT(*) FROM task_completions WHERE user_id = $1', [userId]);
+            streak = Math.floor(parseInt(completedRes.rows[0].count) / 7);
+
+            // Fetch completed tasks list
+            const completedListRes = await db.query('SELECT task_name FROM task_completions WHERE user_id = $1', [userId]);
+            const completedTasks = completedListRes.rows.map(row => row.task_name);
+
+            return res.status(200).json({ 
+                success: true, 
+                message: "Task already completed", 
+                pointsAdded: 0, 
+                totalPoints,
+                streak,
+                completedTasks
+            });
         }
 
         // Insert into task_completions
@@ -654,11 +688,28 @@ app.post('/api/tasks/complete', authenticateToken, async (req, res) => {
         `, [userId, task_name, points]);
 
         // Add points to user total
-        await db.query(`
-            UPDATE users SET points = COALESCE(points, 0) + $1 WHERE id = $2
-        `, [points, userId]);
+        totalPoints += points;
+        
+        // Compute new streak
+        const completedRes = await db.query('SELECT COUNT(*) FROM task_completions WHERE user_id = $1', [userId]);
+        streak = Math.floor(parseInt(completedRes.rows[0].count) / 7);
 
-        res.status(200).json({ message: "Task completed", addedPoints: points });
+        await db.query(`
+            UPDATE users SET points = $1, streak_count = $3 WHERE id = $2
+        `, [totalPoints, userId, streak]);
+
+        // Fetch completed tasks list
+        const completedListRes = await db.query('SELECT task_name FROM task_completions WHERE user_id = $1', [userId]);
+        const completedTasks = completedListRes.rows.map(row => row.task_name);
+
+        res.status(200).json({ 
+            success: true, 
+            message: "Task completed", 
+            pointsAdded: points, 
+            totalPoints,
+            streak,
+            completedTasks
+        });
     } catch (err) {
         console.error("Task completion error:", err);
         res.status(500).json({ error: "Internal server error" });
@@ -667,11 +718,20 @@ app.post('/api/tasks/complete', authenticateToken, async (req, res) => {
 
 app.get('/api/user/summary', authenticateToken, async (req, res) => {
     try {
-        const result = await db.query('SELECT COALESCE(points, 0) as points FROM users WHERE id = $1', [req.user.id]);
+        const userId = req.user.id;
+        const result = await db.query('SELECT COALESCE(points, 0) as points, COALESCE(streak_count, 0) as streak_count FROM users WHERE id = $1', [userId]);
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'User not found' });
         }
-        res.json({ points: result.rows[0].points });
+        
+        const completedListRes = await db.query('SELECT task_name FROM task_completions WHERE user_id = $1', [userId]);
+        const completedTasks = completedListRes.rows.map(row => row.task_name);
+        
+        res.json({ 
+            points: result.rows[0].points,
+            streak: result.rows[0].streak_count,
+            completedTasks
+        });
     } catch (error) {
         console.error('User summary error:', error);
         res.status(500).json({ error: 'Internal server error' });
