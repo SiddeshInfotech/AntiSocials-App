@@ -3,6 +3,10 @@ const db = require('../db');
 exports.getActivities = async (req, res) => {
     try {
         const userId = req.user.id;
+        
+        const userRes = await db.query('SELECT pincode FROM users WHERE id = $1', [userId]);
+        const userPincode = userRes.rows[0]?.pincode || null;
+
         const query = `
             SELECT 
                 a.*, 
@@ -12,9 +16,10 @@ exports.getActivities = async (req, res) => {
                 EXISTS(SELECT 1 FROM activity_participants WHERE activity_id = a.id AND user_id = $1) as is_joined
             FROM activities a
             JOIN users u ON a.creator_id = u.id
+            WHERE $2::varchar IS NULL OR a.pincode = $2
             ORDER BY a.created_at DESC
         `;
-        const result = await db.query(query, [userId]);
+        const result = await db.query(query, [userId, userPincode]);
         
         const activities = result.rows.map(row => ({
             id: row.id.toString(),
@@ -24,6 +29,8 @@ exports.getActivities = async (req, res) => {
             date: row.date_str,
             time: row.time_str,
             location: row.location,
+            pincode: row.pincode,
+            city: row.city,
             joined: parseInt(row.joined_count),
             capacity: row.capacity,
             isJoined: row.is_joined,
@@ -145,21 +152,25 @@ exports.getActivityById = async (req, res) => {
 
 exports.createActivity = async (req, res) => {
     try {
-        const { title, category, date, time, location, capacity, description, image_url, emoji } = req.body;
+        const { title, category, date, time, location, capacity, description, image_url, emoji, pincode, city } = req.body;
         const creator_id = req.user.id;
 
-        if (!title || !category || !location || !capacity) {
+        if (!title || !category || !location || !capacity || !pincode) {
             return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        if (!/^\d{6}$/.test(pincode)) {
+            return res.status(400).json({ error: 'Please enter a valid Indian pincode.' });
         }
 
         const query = `
             INSERT INTO activities (
-                creator_id, category, title, description, date_str, time_str, location, capacity, image_url, emoji
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                creator_id, category, title, description, date_str, time_str, location, capacity, image_url, emoji, pincode, city
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             RETURNING *
         `;
         const result = await db.query(query, [
-            creator_id, category, title, description || '', date, time, location, capacity, image_url || null, emoji || '📅'
+            creator_id, category, title, description || '', date, time, location, capacity, image_url || null, emoji || '📅', pincode, city || null
         ]);
 
         const newActivity = result.rows[0];
@@ -250,10 +261,14 @@ exports.joinActivity = async (req, res) => {
         const { id } = req.params;
         const userId = req.user.id;
 
-        // Check capacity
+        const userRes = await db.query('SELECT pincode FROM users WHERE id = $1', [userId]);
+        const userPincode = userRes.rows[0]?.pincode;
+
+        // Check capacity and pincode
         const activityResult = await db.query(`
             SELECT 
                 capacity, 
+                pincode,
                 (SELECT COUNT(*) FROM activity_participants WHERE activity_id = $1) as joined_count 
             FROM activities WHERE id = $1
         `, [id]);
@@ -262,7 +277,12 @@ exports.joinActivity = async (req, res) => {
             return res.status(404).json({ error: 'Activity not found' });
         }
 
-        const { capacity, joined_count } = activityResult.rows[0];
+        const { capacity, joined_count, pincode: activityPincode } = activityResult.rows[0];
+
+        if (activityPincode && activityPincode !== userPincode) {
+            return res.status(403).json({ error: 'This activity is only available for users from the same area.' });
+        }
+
         if (parseInt(joined_count) >= capacity) {
             return res.status(400).json({ error: 'Activity is full' });
         }

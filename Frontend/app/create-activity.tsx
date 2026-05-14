@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Modal, FlatList, Pressable, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -35,6 +35,27 @@ export default function CreateActivityScreen() {
   const [isCategoryModalVisible, setCategoryModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [imageUri, setImageUri] = useState<string | null>(null);
+  const [pincode, setPincode] = useState('');
+  const [city, setCity] = useState('');
+
+  useEffect(() => {
+    const fetchUserLocation = async () => {
+      try {
+        const token = await SecureStore.getItemAsync('token');
+        if (token) {
+          const response = await fetch(`${API_BASE_URL}/api/profile/me`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (response.ok) {
+            const data = await response.json();
+            if (data.user?.pincode) setPincode(data.user.pincode);
+            if (data.user?.city) setCity(data.user.city);
+          }
+        }
+      } catch (e) {}
+    };
+    fetchUserLocation();
+  }, []);
 
   const pickImage = async () => {
     console.log("📸 pickImage pressed");
@@ -98,8 +119,13 @@ export default function CreateActivityScreen() {
 
   const handleCreate = async () => {
     // Basic validation
-    if (!title || !category || !location || !capacity) {
+    if (!title || !category || !location || !capacity || !pincode) {
       Alert.alert("Missing Information", "Please fill in all required fields marked with *");
+      return;
+    }
+
+    if (!/^\d{6}$/.test(pincode)) {
+      Alert.alert("Invalid Pincode", "Please enter a valid 6-digit Indian pincode.");
       return;
     }
 
@@ -131,7 +157,9 @@ export default function CreateActivityScreen() {
           capacity: parseInt(capacity),
           description,
           image_url: uploadedImageUrl,
-          emoji: imageUri ? null : '📅' 
+          emoji: imageUri ? null : '📅',
+          pincode,
+          city 
         })
       });
 
@@ -253,6 +281,30 @@ export default function CreateActivityScreen() {
             </View>
 
             <View style={styles.inputGroup}>
+              <Text style={styles.label}>Pincode (Indian) *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. 440001"
+                placeholderTextColor="#9CA3AF"
+                value={pincode}
+                onChangeText={setPincode}
+                keyboardType="number-pad"
+                maxLength={6}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>City</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. Nagpur"
+                placeholderTextColor="#9CA3AF"
+                value={city}
+                onChangeText={setCity}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
               <Text style={styles.label}>Maximum Capacity</Text>
               <View style={styles.inputWithIcon}>
                 <Feather name="users" size={20} color="#9CA3AF" style={styles.inputIcon} />
@@ -285,7 +337,7 @@ export default function CreateActivityScreen() {
 
         <View style={styles.footer}>
           <TouchableOpacity 
-            style={[styles.createButton, (!title || !category || !location || !capacity || loading) && styles.createButtonDisabled]} 
+            style={[styles.createButton, (!title || !category || !location || !capacity || !pincode || loading) && styles.createButtonDisabled]} 
             onPress={handleCreate}
             disabled={loading}
           >

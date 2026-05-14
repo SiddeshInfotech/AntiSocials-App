@@ -27,6 +27,8 @@ interface Activity {
   imageColor: string;
   imageUrl: string | null;
   emoji: string;
+  pincode?: string;
+  city?: string;
 }
 
 export default function ActivitiesScreen() {
@@ -198,7 +200,9 @@ export default function ActivitiesScreen() {
                   </View>
                   <View style={styles.detailRow}>
                     <Feather name="map-pin" size={16} color="#6B7280" style={styles.detailIcon} />
-                    <Text style={styles.detailText}>{activity.location}</Text>
+                    <Text style={styles.detailText}>
+                      {activity.location} {activity.city ? `(${activity.city})` : ''} {activity.pincode ? `• ${activity.pincode}` : ''}
+                    </Text>
                   </View>
                   <View style={styles.detailRow}>
                     <Feather name="users" size={16} color="#6B7280" style={styles.detailIcon} />
