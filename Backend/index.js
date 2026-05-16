@@ -245,8 +245,13 @@ const initDB = async () => {
         try { await db.query('ALTER TABLE users ADD COLUMN pincode VARCHAR(10)'); } catch (e) { }
         try { await db.query('ALTER TABLE users ADD COLUMN city VARCHAR(100)'); } catch (e) { }
         try { await db.query('ALTER TABLE users ADD COLUMN state VARCHAR(100)'); } catch (e) { }
+        try { await db.query('ALTER TABLE users ADD COLUMN latitude DECIMAL(10, 7)'); } catch (e) { }
+        try { await db.query('ALTER TABLE users ADD COLUMN longitude DECIMAL(10, 7)'); } catch (e) { }
         try { await db.query('ALTER TABLE activities ADD COLUMN pincode VARCHAR(10)'); } catch (e) { }
         try { await db.query('ALTER TABLE activities ADD COLUMN city VARCHAR(100)'); } catch (e) { }
+        try { await db.query('ALTER TABLE activities ADD COLUMN latitude DECIMAL(10, 7)'); } catch (e) { }
+        try { await db.query('ALTER TABLE activities ADD COLUMN longitude DECIMAL(10, 7)'); } catch (e) { }
+        try { await db.query('ALTER TABLE activities ADD COLUMN location_name VARCHAR(255)'); } catch (e) { }
         try { await db.query('CREATE INDEX IF NOT EXISTS idx_activities_pincode ON activities(pincode)'); } catch (e) { }
 
         await db.query(`
@@ -288,7 +293,7 @@ const initDB = async () => {
 // Login Endpoint
 app.get('/api/me', authenticateToken, async (req, res) => {
     try {
-        const result = await db.query('SELECT id, username, email, phone_number, profession, about, image_url, pincode, city, state FROM users WHERE id = $1', [req.user.id]);
+        const result = await db.query('SELECT id, username, email, phone_number, profession, about, image_url, pincode, city, state, latitude, longitude FROM users WHERE id = $1', [req.user.id]);
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'User not found' });
         }
@@ -494,7 +499,7 @@ app.post('/auth/verify-otp', async (req, res) => {
 });
 
 app.post('/auth/register', async (req, res) => {
-    const { phoneNumber, username, email, profession, about, imageUrl, pincode, city, state } = req.body;
+    const { phoneNumber, username, email, profession, about, imageUrl, pincode, city, state, latitude, longitude } = req.body;
 
     if (!phoneNumber || !username) {
         return res.status(400).json({ error: "Phone number and username are required" });
@@ -521,9 +526,9 @@ app.post('/auth/register', async (req, res) => {
         }
 
         const newUserInfo = await db.query(
-            `INSERT INTO users (phone_number, username, email, profession, about, image_url, is_phone_verified, pincode, city, state) 
-             VALUES ($1, $2, $3, $4, $5, $6, true, $7, $8, $9) RETURNING id, username, phone_number, email, profession, about, image_url, pincode, city, state, created_at`,
-            [phoneNumber, username, email || null, profession || null, about || null, imageUrl || null, pincode || null, city || null, state || null]
+            `INSERT INTO users (phone_number, username, email, profession, about, image_url, is_phone_verified, pincode, city, state, latitude, longitude) 
+             VALUES ($1, $2, $3, $4, $5, $6, true, $7, $8, $9, $10, $11) RETURNING id, username, phone_number, email, profession, about, image_url, pincode, city, state, latitude, longitude, created_at`,
+            [phoneNumber, username, email || null, profession || null, about || null, imageUrl || null, pincode || null, city || null, state || null, latitude || null, longitude || null]
         );
 
         // Clear verification to prevent reuse
@@ -624,7 +629,7 @@ app.post('/save-interests', async (req, res) => {
 
 app.patch('/user/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
-    const { username, profession, about, image_url, pincode, city, state } = req.body;
+    const { username, profession, about, image_url, pincode, city, state, latitude, longitude } = req.body;
 
     if (pincode && !/^\d{6}$/.test(pincode)) {
         return res.status(400).json({ error: "Please enter a valid Indian pincode." });
@@ -644,9 +649,11 @@ app.patch('/user/:id', authenticateToken, async (req, res) => {
                  image_url = COALESCE($4, image_url),
                  pincode = COALESCE($5, pincode),
                  city = COALESCE($6, city),
-                 state = COALESCE($7, state)
-             WHERE id = $8 RETURNING *`,
-            [username, profession, about, image_url, pincode, city, state, id]
+                 state = COALESCE($7, state),
+                 latitude = COALESCE($8, latitude),
+                 longitude = COALESCE($9, longitude)
+             WHERE id = $10 RETURNING *`,
+            [username, profession, about, image_url, pincode, city, state, latitude, longitude, id]
         );
 
         if (result.rows.length === 0) {
