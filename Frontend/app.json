@@ -35,7 +35,13 @@
           }
         }
       ],
-      "expo-video"
+      "expo-video",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow AntiSocial to use your location to show you nearby community activities."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

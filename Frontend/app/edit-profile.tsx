@@ -15,6 +15,9 @@ export default function EditProfileScreen() {
   const [email, setEmail] = useState('');
   const [profession, setProfession] = useState('');
   const [about, setAbout] = useState('');
+  const [pincode, setPincode] = useState('');
+  const [city, setCity] = useState('');
+  const [state, setState] = useState('');
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [isPrivate, setIsPrivate] = useState(false);
   const [emailNotifications, setEmailNotifications] = useState(true);
@@ -42,6 +45,9 @@ export default function EditProfileScreen() {
           setEmail(data.user.email || '');
           setProfession(data.user.profession || '');
           setAbout(data.user.about || '');
+          setPincode(data.user.pincode || '');
+          setCity(data.user.city || '');
+          setState(data.user.state || '');
           setProfileImage(data.user.image_url || null);
         }
       } catch (err) {
@@ -135,6 +141,12 @@ export default function EditProfileScreen() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      if (pincode && !/^\d{6}$/.test(pincode)) {
+        Alert.alert("Error", "Please enter a valid 6-digit Indian pincode.");
+        setIsSaving(false);
+        return;
+      }
+
       const userId = await SecureStore.getItemAsync('userId');
       const token = await SecureStore.getItemAsync('token');
 
@@ -149,6 +161,9 @@ export default function EditProfileScreen() {
           email,
           profession,
           about,
+          pincode,
+          city,
+          state,
           image_url: profileImage
         })
       });
@@ -252,6 +267,41 @@ export default function EditProfileScreen() {
                 value={profession}
                 onChangeText={setProfession}
                 placeholder="What do you do?"
+                placeholderTextColor="#9CA3AF"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Pincode (Indian)</Text>
+              <TextInput
+                style={styles.input}
+                value={pincode}
+                onChangeText={setPincode}
+                placeholder="e.g. 440001"
+                placeholderTextColor="#9CA3AF"
+                keyboardType="number-pad"
+                maxLength={6}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>City</Text>
+              <TextInput
+                style={styles.input}
+                value={city}
+                onChangeText={setCity}
+                placeholder="e.g. Nagpur"
+                placeholderTextColor="#9CA3AF"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>State</Text>
+              <TextInput
+                style={styles.input}
+                value={state}
+                onChangeText={setState}
+                placeholder="e.g. Maharashtra"
                 placeholderTextColor="#9CA3AF"
               />
             </View>
