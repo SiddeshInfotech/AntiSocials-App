@@ -4,11 +4,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { HapticTab } from "@/components/haptic-tab";
 import { Feather } from "@expo/vector-icons";
-import { Colors } from "@/constants/theme";
-import { useColorScheme } from "@/hooks/use-color-scheme";
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
 
   return (

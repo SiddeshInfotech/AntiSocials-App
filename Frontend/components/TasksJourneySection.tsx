@@ -12,7 +12,21 @@ import { useRouter } from "expo-router";
 export default function TasksJourneySection() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("100-Day Journey");
-  const [activePrototype, setActivePrototype] = useState("Day 1");
+  const [activePrototype, setActivePrototype] = useState("Day 1-7");
+
+  // Calculate day range info
+  const dayRanges = [
+    { name: "Day 1-7", startDay: 1, endDay: 7, colorbg: "#dcfce7", colortxt: "#16a34a" },
+    { name: "Day 8-14", startDay: 8, endDay: 14, colorbg: "#dbeafe", colortxt: "#2563eb" },
+    { name: "Day 15-21", startDay: 15, endDay: 21, colorbg: "#f3e8ff", colortxt: "#9333ea" },
+    { name: "Day 22-28", startDay: 22, endDay: 28, colorbg: "#ffedd5", colortxt: "#ea580c" },
+  ];
+
+  // Get current day range info
+  const currentRange = dayRanges.find((r) => r.name === activePrototype);
+  const rangeIndex = dayRanges.findIndex((r) => r.name === activePrototype);
+  const startTaskIndex = rangeIndex * 7;
+  const endTaskIndex = startTaskIndex + 7;
 
   const tasksData = [
     {
@@ -224,15 +238,10 @@ export default function TasksJourneySection() {
       {/* PROTOTYPE TABS */}
       <View style={styles.prototypeContainer}>
         <Text style={styles.prototypeLabel}>
-          Prototype: Test Different Days
+          Prototype: Test Different Weeks
         </Text>
         <View style={styles.prototypeTabsRow}>
-          {[
-            { name: "Day 1", colorbg: "#dcfce7", colortxt: "#16a34a" },
-            { name: "Day 25", colorbg: "#dbeafe", colortxt: "#2563eb" },
-            { name: "Day 45", colorbg: "#f3e8ff", colortxt: "#9333ea" },
-            { name: "Day 75", colorbg: "#ffedd5", colortxt: "#ea580c" },
-          ].map((pt) => (
+          {dayRanges.map((pt) => (
             <TouchableOpacity
               key={pt.name}
               onPress={() => setActivePrototype(pt.name)}
@@ -266,58 +275,122 @@ export default function TasksJourneySection() {
       <View style={styles.dayBigCard}>
         <View style={styles.dayBigRow}>
           <View style={styles.dayBigCircle}>
-            <Text style={styles.dayBigCircleText}>1</Text>
+            <Text style={styles.dayBigCircleText}>{currentRange?.startDay}</Text>
           </View>
           <View style={{ flex: 1, marginLeft: 16 }}>
-            <Text style={styles.dayBigTitle}>Day 1 of 100</Text>
+            <Text style={styles.dayBigTitle}>{currentRange?.name} of 100</Text>
             <Text style={styles.dayBigSubtitle}>Stage 1: Habit Foundation</Text>
             <View style={styles.dayBigProgressBg}>
-              <View style={[styles.dayBigProgressFill, { width: "2%" }]} />
+              <View style={[styles.dayBigProgressFill, { width: `${(currentRange?.startDay || 1) / 100 * 100}%` }]} />
             </View>
           </View>
         </View>
 
         <View style={styles.stageTabsRow}>
-          <View style={styles.stageTabActive}>
+          <TouchableOpacity
+            style={activePrototype === "Day 1-7" ? styles.stageTabActive : styles.stageTabInactive}
+            onPress={() => setActivePrototype("Day 1-7")}
+            activeOpacity={0.7}
+          >
             <Feather
               name="calendar"
               size={16}
-              color="#16a34a"
+              color={activePrototype === "Day 1-7" ? "#16a34a" : "#d1d5db"}
               style={{ marginBottom: 4 }}
             />
-            <Text style={styles.stageTabActiveTitle}>Day 1-21</Text>
-            <Text style={styles.stageTabActiveDesc}>Habits</Text>
-          </View>
-          <View style={styles.stageTabInactive}>
+            <Text
+              style={[
+                activePrototype === "Day 1-7" ? styles.stageTabActiveTitle : styles.stageTabInactiveTitle,
+              ]}
+            >
+              Day 1-7
+            </Text>
+            <Text
+              style={[
+                activePrototype === "Day 1-7" ? styles.stageTabActiveDesc : styles.stageTabInactiveDesc,
+              ]}
+            >
+              Week 1
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={activePrototype === "Day 8-14" ? styles.stageTabActive : styles.stageTabInactive}
+            onPress={() => setActivePrototype("Day 8-14")}
+            activeOpacity={0.7}
+          >
             <Feather
               name="heart"
               size={16}
-              color="#d1d5db"
+              color={activePrototype === "Day 8-14" ? "#16a34a" : "#d1d5db"}
               style={{ marginBottom: 4 }}
             />
-            <Text style={styles.stageTabInactiveTitle}>Day 22-40</Text>
-            <Text style={styles.stageTabInactiveDesc}>Social</Text>
-          </View>
-          <View style={styles.stageTabInactive}>
+            <Text
+              style={[
+                activePrototype === "Day 8-14" ? styles.stageTabActiveTitle : styles.stageTabInactiveTitle,
+              ]}
+            >
+              Day 8-14
+            </Text>
+            <Text
+              style={[
+                activePrototype === "Day 8-14" ? styles.stageTabActiveDesc : styles.stageTabInactiveDesc,
+              ]}
+            >
+              Week 2
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={activePrototype === "Day 15-21" ? styles.stageTabActive : styles.stageTabInactive}
+            onPress={() => setActivePrototype("Day 15-21")}
+            activeOpacity={0.7}
+          >
             <Feather
               name="users"
               size={16}
-              color="#d1d5db"
+              color={activePrototype === "Day 15-21" ? "#16a34a" : "#d1d5db"}
               style={{ marginBottom: 4 }}
             />
-            <Text style={styles.stageTabInactiveTitle}>Day 41-70</Text>
-            <Text style={styles.stageTabInactiveDesc}>Community</Text>
-          </View>
-          <View style={styles.stageTabInactive}>
+            <Text
+              style={[
+                activePrototype === "Day 15-21" ? styles.stageTabActiveTitle : styles.stageTabInactiveTitle,
+              ]}
+            >
+              Day 15-21
+            </Text>
+            <Text
+              style={[
+                activePrototype === "Day 15-21" ? styles.stageTabActiveDesc : styles.stageTabInactiveDesc,
+              ]}
+            >
+              Week 3
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={activePrototype === "Day 22-28" ? styles.stageTabActive : styles.stageTabInactive}
+            onPress={() => setActivePrototype("Day 22-28")}
+            activeOpacity={0.7}
+          >
             <Feather
               name="sun"
               size={16}
-              color="#d1d5db"
+              color={activePrototype === "Day 22-28" ? "#16a34a" : "#d1d5db"}
               style={{ marginBottom: 4 }}
             />
-            <Text style={styles.stageTabInactiveTitle}>Day 71-100</Text>
-            <Text style={styles.stageTabInactiveDesc}>Leadership</Text>
-          </View>
+            <Text
+              style={[
+                activePrototype === "Day 22-28" ? styles.stageTabActiveTitle : styles.stageTabInactiveTitle,
+              ]}
+            >
+              Day 22-28
+            </Text>
+            <Text
+              style={[
+                activePrototype === "Day 22-28" ? styles.stageTabActiveDesc : styles.stageTabInactiveDesc,
+              ]}
+            >
+              Week 4
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -340,7 +413,7 @@ export default function TasksJourneySection() {
 
       {/* TASKS LIST */}
       <View style={styles.tasksListContainer}>
-        {tasksData.map((task, idx) => (
+        {tasksData.slice(startTaskIndex, endTaskIndex).map((task, idx) => (
           <TouchableOpacity
             key={idx}
             style={styles.taskCard}

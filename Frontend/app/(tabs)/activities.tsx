@@ -47,7 +47,18 @@ export default function ActivitiesScreen() {
         }
       });
       if (response.ok) {
-        const data = await response.json();
+        const contentType = response.headers.get("content-type") || "";
+        const rawBody = await response.text();
+        let data: any = [];
+        
+        if (contentType.includes("application/json")) {
+          try {
+            data = JSON.parse(rawBody);
+          } catch {
+            data = [];
+          }
+        }
+        
         setActivities(data);
       }
     } catch (error) {
@@ -91,7 +102,20 @@ export default function ActivitiesScreen() {
           return a;
         }));
       } else {
-        const data = await response.json();
+        const contentType = response.headers.get("content-type") || "";
+        const rawBody = await response.text();
+        let data: any = {};
+        
+        if (contentType.includes("application/json")) {
+          try {
+            data = JSON.parse(rawBody);
+          } catch {
+            data = { error: "Invalid JSON response from server" };
+          }
+        } else {
+          data = { error: rawBody?.trim() || "Unexpected server response" };
+        }
+        
         Alert.alert('Error', data.error || 'Failed to update activity status');
       }
     } catch (error) {

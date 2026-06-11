@@ -741,7 +741,19 @@ export default function HomeScreen() {
       const response = await fetch(`${API_BASE_URL}/api/stories/${storyId}/views`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      const data = await response.json();
+      
+      const contentType = response.headers.get("content-type") || "";
+      const rawBody = await response.text();
+      let data: any = {};
+      
+      if (contentType.includes("application/json")) {
+        try {
+          data = JSON.parse(rawBody);
+        } catch {
+          data = {};
+        }
+      }
+      
       if (response.ok) {
         setStoryViewers(Array.isArray(data.viewers) ? data.viewers : []);
         setShowViewersList(true);
@@ -768,7 +780,19 @@ export default function HomeScreen() {
       const response = await fetch(`${API_BASE_URL}/api/user/summary`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      const data = await response.json();
+      
+      const contentType = response.headers.get("content-type") || "";
+      const rawBody = await response.text();
+      let data: any = {};
+      
+      if (contentType.includes("application/json")) {
+        try {
+          data = JSON.parse(rawBody);
+        } catch {
+          data = {};
+        }
+      }
+      
       if (response.ok && data.points !== undefined) {
         setHomeData((prev: any) => ({ ...prev, total_points: data.points }));
       }
@@ -785,7 +809,19 @@ export default function HomeScreen() {
       const response = await fetch(`${API_BASE_URL}/api/home`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      const data = await response.json();
+      
+      const contentType = response.headers.get("content-type") || "";
+      const rawBody = await response.text();
+      let data: any = {};
+      
+      if (contentType.includes("application/json")) {
+        try {
+          data = JSON.parse(rawBody);
+        } catch {
+          data = {};
+        }
+      }
+      
       console.log('📌 fetchHomeData response status:', response.status);
       console.log('📌 fetchHomeData tasks count:', data?.tasks?.length);
       console.log('📌 fetchHomeData total_points:', data?.total_points);
@@ -822,7 +858,19 @@ export default function HomeScreen() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       console.log('📌 Response status:', response.status);
-      const responseData = await response.json();
+      
+      const contentType = response.headers.get("content-type") || "";
+      const rawBody = await response.text();
+      let responseData: any = {};
+      
+      if (contentType.includes("application/json")) {
+        try {
+          responseData = JSON.parse(rawBody);
+        } catch {
+          responseData = {};
+        }
+      }
+      
       console.log('📌 Response data:', JSON.stringify(responseData));
       if (response.ok) {
         console.log('✅ Task completed successfully! Refreshing home data...');
@@ -899,7 +947,20 @@ export default function HomeScreen() {
         resetStoryEdits();
         Alert.alert("Success", "Story uploaded successfully!");
       } else {
-        const data = await response.json();
+        const contentType = response.headers.get("content-type") || "";
+        const rawBody = await response.text();
+        let data: any = {};
+        
+        if (contentType.includes("application/json")) {
+          try {
+            data = JSON.parse(rawBody);
+          } catch {
+            data = { error: "Invalid JSON response from server" };
+          }
+        } else {
+          data = { error: rawBody?.trim() || "Unexpected server response" };
+        }
+        
         Alert.alert("Error", data.error || "Failed to upload story");
       }
     } catch (e: any) {

@@ -102,7 +102,19 @@ export default function VerifyOtpScreen() {
         body: JSON.stringify({ phoneNumber: phone, otp: otpCode, purpose }),
       });
 
-      const verifyData = await verifyRes.json();
+      const verifyContentType = verifyRes.headers.get("content-type") || "";
+      const verifyBody = await verifyRes.text();
+      let verifyData: any = {};
+      
+      if (verifyContentType.includes("application/json")) {
+        try {
+          verifyData = JSON.parse(verifyBody);
+        } catch {
+          verifyData = { error: "Invalid JSON response from server" };
+        }
+      } else {
+        verifyData = { error: verifyBody?.trim() || "Unexpected server response" };
+      }
 
       if (!verifyRes.ok) {
         setError(verifyData.error || "Invalid OTP. Please try again.");
@@ -125,7 +137,19 @@ export default function VerifyOtpScreen() {
           }),
         });
 
-        const regData = await regRes.json();
+        const regContentType = regRes.headers.get("content-type") || "";
+        const regBody = await regRes.text();
+        let regData: any = {};
+        
+        if (regContentType.includes("application/json")) {
+          try {
+            regData = JSON.parse(regBody);
+          } catch {
+            regData = { error: "Invalid JSON response from server" };
+          }
+        } else {
+          regData = { error: regBody?.trim() || "Unexpected server response" };
+        }
 
         if (!regRes.ok) {
           setError(regData.error || "Registration failed.");
@@ -146,7 +170,19 @@ export default function VerifyOtpScreen() {
           body: JSON.stringify({ phoneNumber: phone }),
         });
 
-        const loginData = await loginRes.json();
+        const loginContentType = loginRes.headers.get("content-type") || "";
+        const loginBody = await loginRes.text();
+        let loginData: any = {};
+        
+        if (loginContentType.includes("application/json")) {
+          try {
+            loginData = JSON.parse(loginBody);
+          } catch {
+            loginData = { error: "Invalid JSON response from server" };
+          }
+        } else {
+          loginData = { error: loginBody?.trim() || "Unexpected server response" };
+        }
 
         if (!loginRes.ok) {
           setError(loginData.error || "Login failed.");
@@ -177,10 +213,24 @@ export default function VerifyOtpScreen() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phoneNumber: phone, purpose }),
       });
+      
+      const contentType = response.headers.get("content-type") || "";
+      const rawBody = await response.text();
+      let data: any = {};
+      
+      if (contentType.includes("application/json")) {
+        try {
+          data = JSON.parse(rawBody);
+        } catch {
+          data = { error: "Invalid JSON response from server" };
+        }
+      } else {
+        data = { error: rawBody?.trim() || "Unexpected server response" };
+      }
+      
       if (response.ok) {
         Alert.alert('OTP Resent', 'A new verification code has been sent to your WhatsApp.');
       } else {
-        const data = await response.json();
         setError(data.error || 'Failed to resend code.');
       }
     } catch (err) {

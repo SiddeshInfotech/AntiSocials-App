@@ -145,7 +145,20 @@ export default function Signup() {
         body: formData,
       });
 
-      const data = await response.json();
+      const contentType = response.headers.get("content-type") || "";
+      const rawBody = await response.text();
+      let data: any = {};
+      
+      if (contentType.includes("application/json")) {
+        try {
+          data = JSON.parse(rawBody);
+        } catch {
+          data = { error: "Invalid JSON response from server" };
+        }
+      } else {
+        data = { error: rawBody?.trim() || "Unexpected server response" };
+      }
+      
       if (!response.ok) {
         Alert.alert("Upload Failed", data.error || "Could not upload image");
       } else {

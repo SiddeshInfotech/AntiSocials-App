@@ -45,7 +45,18 @@ export default function ProfileScreen() {
         });
 
         if (response.ok) {
-          const data = await response.json();
+          const contentType = response.headers.get("content-type") || "";
+          const rawBody = await response.text();
+          let data: any = {};
+          
+          if (contentType.includes("application/json")) {
+            try {
+              data = JSON.parse(rawBody);
+            } catch {
+              data = {};
+            }
+          }
+          
           setUserData(data);
           await SecureStore.setItemAsync('userId', data.id.toString());
         } else {
