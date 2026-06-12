@@ -10,6 +10,7 @@ const nodemailer = require('nodemailer');
 const authenticateToken = require('./middleware/auth');
 const homeRoutes = require('./routes/homeRoutes');
 const storyRoutes = require('./routes/storyRoutes');
+const profileRoutes = require('./routes/profileRoutes');
 const activityRoutes = require('./routes/activityRoutes');
 const multer = require('multer');
 const path = require('path');
@@ -105,7 +106,6 @@ const initDB = async () => {
                 expires_at TIMESTAMP NOT NULL,
                 attempts INTEGER DEFAULT 0,
                 is_verified BOOLEAN DEFAULT false,
-                attempts INTEGER DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
@@ -245,11 +245,33 @@ const initDB = async () => {
             );
         `);
 
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS user_connections (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                friend_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                status VARCHAR(50) DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, friend_id)
+            );
+        `);
+
         // Migrations
         try { await db.query('ALTER TABLE users ADD COLUMN streak_count INTEGER DEFAULT 0'); } catch (e) { }
         try { await db.query('ALTER TABLE users ADD COLUMN last_streak_date DATE'); } catch (e) { }
         try { await db.query('ALTER TABLE users ADD COLUMN points INTEGER DEFAULT 0'); } catch (e) { }
         try { await db.query('ALTER TABLE otp_verifications ADD COLUMN attempts INTEGER DEFAULT 0'); } catch (e) { }
+        try { await db.query('ALTER TABLE users ADD COLUMN pincode VARCHAR(10)'); } catch (e) { }
+        try { await db.query('ALTER TABLE users ADD COLUMN city VARCHAR(100)'); } catch (e) { }
+        try { await db.query('ALTER TABLE users ADD COLUMN state VARCHAR(100)'); } catch (e) { }
+        try { await db.query('ALTER TABLE users ADD COLUMN latitude DECIMAL(10, 7)'); } catch (e) { }
+        try { await db.query('ALTER TABLE users ADD COLUMN longitude DECIMAL(10, 7)'); } catch (e) { }
+        try { await db.query('ALTER TABLE activities ADD COLUMN pincode VARCHAR(10)'); } catch (e) { }
+        try { await db.query('ALTER TABLE activities ADD COLUMN city VARCHAR(100)'); } catch (e) { }
+        try { await db.query('ALTER TABLE activities ADD COLUMN latitude DECIMAL(10, 7)'); } catch (e) { }
+        try { await db.query('ALTER TABLE activities ADD COLUMN longitude DECIMAL(10, 7)'); } catch (e) { }
+        try { await db.query('ALTER TABLE activities ADD COLUMN location_name VARCHAR(255)'); } catch (e) { }
+        try { await db.query('CREATE INDEX IF NOT EXISTS idx_activities_pincode ON activities(pincode)'); } catch (e) { }
 
         await db.query(`
             CREATE TABLE IF NOT EXISTS task_completions (
@@ -260,6 +282,9 @@ const initDB = async () => {
                 completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
+
+        // Enforce uniqueness to prevent duplicate tasks per user
+        try { await db.query('ALTER TABLE task_completions ADD CONSTRAINT unique_user_task UNIQUE (user_id, task_name);'); } catch (e) { }
 
         // Seed Tasks if empty so UI task bindings have IDs to hit API with
         const taskCountRes = await db.query('SELECT COUNT(*) FROM tasks');
@@ -287,7 +312,7 @@ const initDB = async () => {
 // Login Endpoint
 app.get('/api/me', authenticateToken, async (req, res) => {
     try {
-        const result = await db.query('SELECT id, username, email, phone_number, profession, about, image_url FROM users WHERE id = $1', [req.user.id]);
+        const result = await db.query('SELECT id, username, email, phone_number, profession, about, image_url, pincode, city, state, latitude, longitude FROM users WHERE id = $1', [req.user.id]);
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'User not found' });
         }
@@ -434,6 +459,8 @@ app.post('/auth/send-otp', async (req, res) => {
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         const expiresAt = new Date(Date.now() + 5 * 60000); // 5 mins
 
+        console.log(`🔔 OTP for ${phoneNumber} (${purpose}): ${otp}`);
+
         await db.query(
             "INSERT INTO otp_verifications (phone_number, otp, purpose, expires_at) VALUES ($1, $2, $3, $4)",
             [phoneNumber, otp, purpose, expiresAt]
@@ -491,10 +518,14 @@ app.post('/auth/verify-otp', async (req, res) => {
 });
 
 app.post('/auth/register', async (req, res) => {
-    const { phoneNumber, username, email, profession, about, imageUrl } = req.body;
+    const { phoneNumber, username, email, profession, about, imageUrl, pincode, city, state, latitude, longitude } = req.body;
 
     if (!phoneNumber || !username) {
         return res.status(400).json({ error: "Phone number and username are required" });
+    }
+
+    if (pincode && !/^\d{6}$/.test(pincode)) {
+        return res.status(400).json({ error: "Please enter a valid Indian pincode." });
     }
 
     try {
@@ -514,9 +545,9 @@ app.post('/auth/register', async (req, res) => {
         }
 
         const newUserInfo = await db.query(
-            `INSERT INTO users (phone_number, username, email, profession, about, image_url, is_phone_verified) 
-             VALUES ($1, $2, $3, $4, $5, $6, true) RETURNING id, username, phone_number, email, profession, about, image_url, created_at`,
-            [phoneNumber, username, email || null, profession || null, about || null, imageUrl || null]
+            `INSERT INTO users (phone_number, username, email, profession, about, image_url, is_phone_verified, pincode, city, state, latitude, longitude) 
+             VALUES ($1, $2, $3, $4, $5, $6, true, $7, $8, $9, $10, $11) RETURNING id, username, phone_number, email, profession, about, image_url, pincode, city, state, latitude, longitude, created_at`,
+            [phoneNumber, username, email || null, profession || null, about || null, imageUrl || null, pincode || null, city || null, state || null, latitude || null, longitude || null]
         );
 
         await db.query("DELETE FROM otp_verifications WHERE phone_number = $1", [phoneNumber]);
@@ -717,7 +748,11 @@ app.post('/save-interests', async (req, res) => {
 
 app.patch('/user/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
-    const { username, profession, about, image_url } = req.body;
+    const { username, profession, about, image_url, pincode, city, state, latitude, longitude } = req.body;
+
+    if (pincode && !/^\d{6}$/.test(pincode)) {
+        return res.status(400).json({ error: "Please enter a valid Indian pincode." });
+    }
 
     // Security: Only allow user to update their own profile
     if (req.user.id.toString() !== id) {
@@ -730,9 +765,14 @@ app.patch('/user/:id', authenticateToken, async (req, res) => {
              SET username = COALESCE($1, username), 
                  profession = COALESCE($2, profession), 
                  about = COALESCE($3, about), 
-                 image_url = COALESCE($4, image_url)
-             WHERE id = $5 RETURNING *`,
-            [username, profession, about, image_url, id]
+                 image_url = COALESCE($4, image_url),
+                 pincode = COALESCE($5, pincode),
+                 city = COALESCE($6, city),
+                 state = COALESCE($7, state),
+                 latitude = COALESCE($8, latitude),
+                 longitude = COALESCE($9, longitude)
+             WHERE id = $10 RETURNING *`,
+            [username, profession, about, image_url, pincode, city, state, latitude, longitude, id]
         );
 
         if (result.rows.length === 0) {
@@ -780,21 +820,50 @@ app.post('/api/tasks/complete', authenticateToken, async (req, res) => {
         points = 100;
     } else if (task_name === "Drink a glass of water mindfully") {
         points = 150;
+    } else if (task_name === "Sit without phone for 2 minutes") {
+        points = 200;
+    } else if (task_name === "Stretch neck & shoulders") {
+        points = 250;
+    } else if (task_name === "Smile intentionally") {
+        points = 100;
+    } else if (task_name === "Call an old friend") {
+        points = 400;
+    } else if (task_name === "Spend 20 minutes offline with someone") {
+        points = 500;
     } else {
         // Not a task we are integrating right now or 0 points
         return res.status(400).json({ error: "Unknown task" });
     }
 
     try {
-        // Check if already completed today
+        // Fetch current total points
+        const userResult = await db.query('SELECT COALESCE(points, 0) as points, COALESCE(streak_count, 0) as streak_count FROM users WHERE id = $1', [userId]);
+        let totalPoints = userResult.rows[0] ? userResult.rows[0].points : 0;
+        let streak = userResult.rows[0] ? userResult.rows[0].streak_count : 0;
+
+        // Check if already completed ever (prevent duplicate points entirely)
         const checkResult = await db.query(`
             SELECT * FROM task_completions 
-            WHERE user_id = $1 AND task_name = $2 
-            AND DATE(completed_at) = CURRENT_DATE
+            WHERE user_id = $1 AND task_name = $2
         `, [userId, task_name]);
 
         if (checkResult.rows.length > 0) {
-            return res.status(200).json({ message: "Task already completed today", addedPoints: 0 });
+            // Compute current streak from total task completions
+            const completedRes = await db.query('SELECT COUNT(*) FROM task_completions WHERE user_id = $1', [userId]);
+            streak = Math.floor(parseInt(completedRes.rows[0].count) / 7);
+
+            // Fetch completed tasks list
+            const completedListRes = await db.query('SELECT task_name FROM task_completions WHERE user_id = $1', [userId]);
+            const completedTasks = completedListRes.rows.map(row => row.task_name);
+
+            return res.status(200).json({ 
+                success: true, 
+                message: "Task already completed", 
+                pointsAdded: 0, 
+                totalPoints,
+                streak,
+                completedTasks
+            });
         }
 
         // Insert into task_completions
@@ -804,11 +873,28 @@ app.post('/api/tasks/complete', authenticateToken, async (req, res) => {
         `, [userId, task_name, points]);
 
         // Add points to user total
-        await db.query(`
-            UPDATE users SET points = COALESCE(points, 0) + $1 WHERE id = $2
-        `, [points, userId]);
+        totalPoints += points;
+        
+        // Compute new streak
+        const completedRes = await db.query('SELECT COUNT(*) FROM task_completions WHERE user_id = $1', [userId]);
+        streak = Math.floor(parseInt(completedRes.rows[0].count) / 7);
 
-        res.status(200).json({ message: "Task completed", addedPoints: points });
+        await db.query(`
+            UPDATE users SET points = $1, streak_count = $3 WHERE id = $2
+        `, [totalPoints, userId, streak]);
+
+        // Fetch completed tasks list
+        const completedListRes = await db.query('SELECT task_name FROM task_completions WHERE user_id = $1', [userId]);
+        const completedTasks = completedListRes.rows.map(row => row.task_name);
+
+        res.status(200).json({ 
+            success: true, 
+            message: "Task completed", 
+            pointsAdded: points, 
+            totalPoints,
+            streak,
+            completedTasks
+        });
     } catch (err) {
         console.error("Task completion error:", err);
         res.status(500).json({ error: "Internal server error" });
@@ -817,20 +903,31 @@ app.post('/api/tasks/complete', authenticateToken, async (req, res) => {
 
 app.get('/api/user/summary', authenticateToken, async (req, res) => {
     try {
-        const result = await db.query('SELECT COALESCE(points, 0) as points FROM users WHERE id = $1', [req.user.id]);
+        const userId = req.user.id;
+        const result = await db.query('SELECT COALESCE(points, 0) as points, COALESCE(streak_count, 0) as streak_count FROM users WHERE id = $1', [userId]);
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'User not found' });
         }
-        res.json({ points: result.rows[0].points });
+        
+        const completedListRes = await db.query('SELECT task_name FROM task_completions WHERE user_id = $1', [userId]);
+        const completedTasks = completedListRes.rows.map(row => row.task_name);
+        
+        res.json({ 
+            points: result.rows[0].points,
+            streak: result.rows[0].streak_count,
+            completedTasks
+        });
     } catch (error) {
         console.error('User summary error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
 
+
 // Routes
 app.use('/api/home', homeRoutes);
 app.use('/api/stories', storyRoutes);
+app.use('/api/profile', profileRoutes);
 
 // Activity Routes
 app.use('/api/activities', activityRoutes);

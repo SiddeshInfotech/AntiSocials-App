@@ -8,6 +8,8 @@ import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import * as SecureStore from 'expo-secure-store';
+import { API_BASE_URL } from '../constants/Api';
 
 const { width } = Dimensions.get('window');
 const TOTAL_SECONDS = 1200; // 20 minutes
@@ -77,7 +79,7 @@ export default function OfflineTaskScreen() {
       }).start();
 
     } else if (isActive && timeLeft <= 0) {
-      router.replace({ pathname: '/task-success', params: { points: '400' } } as any);
+      handleComplete();
     }
 
     return () => { if (interval) clearInterval(interval); };
@@ -104,6 +106,33 @@ export default function OfflineTaskScreen() {
     createRing(ring2, 1100);
     createRing(ring3, 2200);
   }, [isActive]);
+
+  const handleComplete = async () => {
+    let pointsData = { pointsAdded: '0', totalPoints: '0', streak: '0' };
+    try {
+      const token = await SecureStore.getItemAsync('token');
+      if (token) {
+        const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ task_name: 'Spend 20 minutes offline with someone' })
+        });
+        const data = await response.json();
+        if (response.ok || data.success) {
+          pointsData = { 
+            pointsAdded: data.pointsAdded?.toString() || "0", 
+            totalPoints: data.totalPoints?.toString() || "0",
+            streak: data.streak?.toString() || "0"
+          };
+        }
+      }
+    } catch(e) { console.error(e); }
+
+    router.replace({ 
+      pathname: '/task-success', 
+      params: { points: pointsData.pointsAdded, totalPoints: pointsData.totalPoints, streak: pointsData.streak } 
+    } as any);
+  };
 
   const handleStart = () => setIsActive(true);
 
@@ -194,7 +223,7 @@ export default function OfflineTaskScreen() {
           ) : (
             <>
               <View style={styles.pill}>
-                <Text style={styles.pillText}>Light Reconnection · +400 pts</Text>
+                <Text style={styles.pillText}>Light Reconnection · +500 pts</Text>
               </View>
               <Text style={styles.title}>Spend 20 mins{'\n'}offline together</Text>
               <Text style={styles.subtitle}>Put your screens away and give someone your full, undivided attention.</Text>
@@ -282,7 +311,7 @@ export default function OfflineTaskScreen() {
           <View style={styles.activeFooter}>
             <TouchableOpacity
               style={styles.completeEarlyBtn}
-              onPress={() => router.replace({ pathname: '/task-success', params: { points: '400' } } as any)}
+              onPress={handleComplete}
             >
               <Ionicons name="checkmark-circle-outline" size={20} color="#7c3aed" style={{ marginRight: 8 }} />
               <Text style={styles.completeEarlyText}>Complete Early</Text>

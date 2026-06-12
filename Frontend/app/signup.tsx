@@ -30,6 +30,9 @@ export default function Signup() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [profession, setProfession] = useState("");
   const [about, setAbout] = useState("");
+  const [pincode, setPincode] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
   const [image, setImage] = useState<string | null>(null);
 
   const [isLoading, setIsLoading] = useState(false);
@@ -53,6 +56,11 @@ export default function Signup() {
     const phoneRegex = /^\+?[0-9]{10,15}$/;
     if (!phoneNumber.trim() || !phoneRegex.test(phoneNumber)) {
       newErrors.phoneNumber = "Valid phone number is required (e.g. +91...)";
+      valid = false;
+    }
+
+    if (!pincode.trim() || !/^\d{6}$/.test(pincode)) {
+      newErrors.pincode = "Valid 6-digit Indian pincode is required";
       valid = false;
     }
 
@@ -118,7 +126,10 @@ export default function Signup() {
           email,
           profession,
           about,
-          imageUrl: image
+          imageUrl: image,
+          pincode,
+          city,
+          state
         }
       });
 
@@ -310,6 +321,36 @@ export default function Signup() {
             autoCapitalize="none"
           />
           {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
+
+          {/* Pincode */}
+          <Text style={styles.label}>Pincode (Indian) *</Text>
+          <TextInput
+            style={[styles.input, errors.pincode && styles.inputError]}
+            placeholder="e.g. 440001"
+            value={pincode}
+            onChangeText={(text) => { setPincode(text); setErrors({ ...errors, pincode: null }); }}
+            keyboardType="number-pad"
+            maxLength={6}
+          />
+          {errors.pincode && <Text style={styles.errorText}>{errors.pincode}</Text>}
+
+          {/* City */}
+          <Text style={styles.label}>City (Optional)</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g. Nagpur"
+            value={city}
+            onChangeText={setCity}
+          />
+
+          {/* State */}
+          <Text style={styles.label}>State (Optional)</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g. Maharashtra"
+            value={state}
+            onChangeText={setState}
+          />
 
           {/* Profession */}
           <Text style={styles.label}>Profession (Optional)</Text>

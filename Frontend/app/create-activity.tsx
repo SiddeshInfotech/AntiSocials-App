@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Modal, FlatList, Pressable, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -18,6 +18,7 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'react-native';
+import * as Location from 'expo-location';
 
 import { API_BASE_URL } from '../constants/Api';
 import * as SecureStore from 'expo-secure-store';
@@ -35,6 +36,105 @@ export default function CreateActivityScreen() {
   const [isCategoryModalVisible, setCategoryModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [imageUri, setImageUri] = useState<string | null>(null);
+  const [pincode, setPincode] = useState('');
+  const [city, setCity] = useState('');
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  
+  const [locationSuggestions, setLocationSuggestions] = useState<any[]>([]);
+  const [suggestionCache, setSuggestionCache] = useState<Record<string, any[]>>({});
+  const [selectedLocation, setSelectedLocation] = useState<any | null>(null);
+  const [userCity, setUserCity] = useState('');
+  const [locationFocused, setLocationFocused] = useState(false);
+
+  useEffect(() => {
+    const fetchUserLocation = async () => {
+      try {
+        let { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert("Location Required", "Please allow location permission to create activities.");
+          return;
+        }
+        
+        const providerStatus = await Location.getProviderStatusAsync();
+        if (!providerStatus.locationServicesEnabled) {
+          Alert.alert("Location Required", "Please enable GPS/location services to create activities.");
+          return;
+        }
+
+        let loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        
+        setLatitude(loc.coords.latitude);
+        setLongitude(loc.coords.longitude);
+        
+        let reverseGeocode = await Location.reverseGeocodeAsync({ 
+          latitude: loc.coords.latitude, 
+          longitude: loc.coords.longitude 
+        });
+        
+        if (reverseGeocode.length > 0) {
+          if (reverseGeocode[0].postalCode) setPincode(reverseGeocode[0].postalCode);
+          if (reverseGeocode[0].city || reverseGeocode[0].subregion) {
+             const foundCity = reverseGeocode[0].city || reverseGeocode[0].subregion || '';
+             setCity(foundCity);
+             setUserCity(foundCity);
+          }
+        }
+      } catch (e: any) {
+        console.log("Location fetch skipped/failed:", e.message || e);
+        Alert.alert("Location Unavailable", "Please ensure your GPS is enabled and functioning.");
+      }
+    };
+    fetchUserLocation();
+  }, []);
+
+  useEffect(() => {
+    if (!location || location.length < 3 || selectedLocation?.name === location || selectedLocation?.display_name === location) {
+      setLocationSuggestions([]);
+      return;
+    }
+
+    if (suggestionCache[location]) {
+      setLocationSuggestions(suggestionCache[location]);
+      return;
+    }
+
+    const delayDebounceFn = setTimeout(async () => {
+      try {
+        let queryUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(location)}&addressdetails=1&limit=3`;
+        if (userCity) {
+          queryUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(location + ', ' + userCity)}&addressdetails=1&limit=3`;
+        }
+        
+        const response = await fetch(queryUrl, {
+          headers: { 'User-Agent': 'AntiSocialsApp/1.0' }
+        });
+        const data = await response.json();
+        setSuggestionCache(prev => ({ ...prev, [location]: data }));
+        setLocationSuggestions(data);
+      } catch (error) {
+        // Silently fail, do not block user
+      }
+    }, 1000);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [location, userCity, selectedLocation]);
+
+  const handleSelectLocation = (item: any) => {
+    const address = item.address || {};
+    const itemCity = address.city || address.town || address.village || address.county || '';
+    
+    setSelectedLocation(item);
+    setLocation(item.name || item.display_name.split(',')[0]);
+    setLatitude(parseFloat(item.lat));
+    setLongitude(parseFloat(item.lon));
+    
+    if (address.postcode) setPincode(address.postcode);
+    if (itemCity) setCity(itemCity);
+    
+    setLocationSuggestions([]);
+    setLocationFocused(false);
+  };
 
   const pickImage = async () => {
     console.log("📸 pickImage pressed");
@@ -110,9 +210,18 @@ export default function CreateActivityScreen() {
   };
 
   const handleCreate = async () => {
-    // Basic validation
     if (!title || !category || !location || !capacity) {
       Alert.alert("Missing Information", "Please fill in all required fields marked with *");
+      return;
+    }
+
+    if (!pincode && (!latitude || !longitude)) {
+      Alert.alert("Missing Location", "Please provide a pincode or allow location access.");
+      return;
+    }
+
+    if (pincode && !/^\d{6}$/.test(pincode)) {
+      Alert.alert("Invalid Pincode", "Please enter a valid 6-digit Indian pincode.");
       return;
     }
 
@@ -144,7 +253,12 @@ export default function CreateActivityScreen() {
           capacity: parseInt(capacity),
           description,
           image_url: uploadedImageUrl,
-          emoji: imageUri ? null : '📅' 
+          emoji: imageUri ? null : '📅',
+          pincode,
+          city,
+          latitude,
+          longitude,
+          location_name: location
         })
       });
 
@@ -264,18 +378,66 @@ export default function CreateActivityScreen() {
               </View>
             </View>
 
-            <View style={styles.inputGroup}>
+            <View style={[styles.inputGroup, { zIndex: 1000 }]}>
               <Text style={styles.label}>Location *</Text>
               <View style={styles.inputWithIcon}>
                 <Feather name="map-pin" size={20} color="#9CA3AF" style={styles.inputIcon} />
                 <TextInput
                   style={styles.inputInner}
-                  placeholder="e.g. Central Park"
+                  placeholder={userCity ? `e.g. Shivaji Garden, ${userCity}` : "e.g. Cafe Buddy"}
                   placeholderTextColor="#9CA3AF"
                   value={location}
-                  onChangeText={setLocation}
+                  onChangeText={(text) => {
+                    setLocation(text);
+                    if (selectedLocation && text !== selectedLocation.name && text !== selectedLocation.display_name) {
+                      setSelectedLocation(null);
+                    }
+                  }}
+                  onFocus={() => setLocationFocused(true)}
+                  onBlur={() => setTimeout(() => setLocationFocused(false), 200)}
                 />
               </View>
+              
+              {locationFocused && locationSuggestions.length > 0 && (
+                <View style={styles.suggestionsContainer}>
+                  {locationSuggestions.map((item, index) => (
+                    <TouchableOpacity 
+                      key={item.place_id || index} 
+                      style={styles.suggestionItem}
+                      onPress={() => handleSelectLocation(item)}
+                    >
+                      <Feather name="map-pin" size={16} color="#6B7280" style={{ marginRight: 8, marginTop: 2 }} />
+                      <Text style={styles.suggestionText} numberOfLines={2}>
+                        {item.display_name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Pincode (Indian) {(!latitude || !longitude) ? '*' : ''}</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. 440001"
+                placeholderTextColor="#9CA3AF"
+                value={pincode}
+                onChangeText={setPincode}
+                keyboardType="number-pad"
+                maxLength={6}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>City</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. Nagpur"
+                placeholderTextColor="#9CA3AF"
+                value={city}
+                onChangeText={setCity}
+              />
             </View>
 
             <View style={styles.inputGroup}>
@@ -311,7 +473,7 @@ export default function CreateActivityScreen() {
 
         <View style={styles.footer}>
           <TouchableOpacity 
-            style={[styles.createButton, (!title || !category || !location || !capacity || loading) && styles.createButtonDisabled]} 
+            style={[styles.createButton, (!title || !category || !location || !capacity || (!pincode && (!latitude || !longitude)) || loading) && styles.createButtonDisabled]} 
             onPress={handleCreate}
             disabled={loading}
           >
@@ -489,6 +651,37 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     fontSize: 16,
     color: '#111827',
+  },
+  suggestionsContainer: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderTopWidth: 0,
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+    maxHeight: 200,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    alignItems: 'flex-start',
+  },
+  suggestionText: {
+    fontSize: 14,
+    color: '#374151',
+    flex: 1,
   },
   footer: {
     padding: 20,

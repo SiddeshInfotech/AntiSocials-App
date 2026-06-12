@@ -5,6 +5,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as SecureStore from 'expo-secure-store';
+import { API_BASE_URL } from '../constants/Api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -101,10 +103,33 @@ export default function SmileConfirmScreen() {
     Animated.parallel([
       Animated.timing(uiFadeAnim, { toValue: 0, duration: 800, useNativeDriver: true }),
       Animated.timing(successFade, { toValue: 1, duration: 1500, useNativeDriver: true })
-    ]).start(() => {
+    ]).start(async () => {
+      let pointsData = { pointsAdded: '0', totalPoints: '0', streak: '0' };
+      try {
+        const token = await SecureStore.getItemAsync('token');
+        if (token) {
+          const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ task_name: 'Smile intentionally' })
+          });
+          const data = await response.json();
+          if (response.ok || data.success) {
+            pointsData = { 
+              pointsAdded: data.pointsAdded?.toString() || "0", 
+              totalPoints: data.totalPoints?.toString() || "0",
+              streak: data.streak?.toString() || "0"
+            };
+          }
+        }
+      } catch(e) { console.error(e); }
+
       // Pause to let them feel the happiness, then proceed
       setTimeout(() => {
-        router.replace({ pathname: '/task-success', params: { points: '100' } } as any);
+        router.replace({ 
+          pathname: '/task-success', 
+          params: { points: pointsData.pointsAdded, totalPoints: pointsData.totalPoints, streak: pointsData.streak } 
+        } as any);
       }, 1800);
     });
   };

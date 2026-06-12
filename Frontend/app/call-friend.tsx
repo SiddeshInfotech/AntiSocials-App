@@ -5,6 +5,8 @@ import { Feather, Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import * as SecureStore from 'expo-secure-store';
+import { API_BASE_URL } from '../constants/Api';
 
 const { width, height } = Dimensions.get('window');
 const AnimatedSafeArea = Animated.createAnimatedComponent(SafeAreaView);
@@ -109,9 +111,32 @@ export default function CallFriendTaskScreen() {
   
   const handleEndCall = () => {
     setStep('done');
-    Animated.timing(successFade, { toValue: 1, duration: 1000, useNativeDriver: true }).start(() => {
+    Animated.timing(successFade, { toValue: 1, duration: 1000, useNativeDriver: true }).start(async () => {
+      let pointsData = { pointsAdded: '0', totalPoints: '0', streak: '0' };
+      try {
+        const token = await SecureStore.getItemAsync('token');
+        if (token) {
+          const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ task_name: 'Call an old friend' })
+          });
+          const data = await response.json();
+          if (response.ok || data.success) {
+            pointsData = { 
+              pointsAdded: data.pointsAdded?.toString() || "0", 
+              totalPoints: data.totalPoints?.toString() || "0",
+              streak: data.streak?.toString() || "0"
+            };
+          }
+        }
+      } catch(e) { console.error(e); }
+
       setTimeout(() => {
-        router.replace({ pathname: '/task-success', params: { points: '300' } } as any);
+        router.replace({ 
+          pathname: '/task-success', 
+          params: { points: pointsData.pointsAdded, totalPoints: pointsData.totalPoints, streak: pointsData.streak } 
+        } as any);
       }, 1500);
     });
   };
@@ -174,7 +199,7 @@ export default function CallFriendTaskScreen() {
                <Text style={styles.infoTitle}>Why this matters:</Text>
                <View style={styles.rewardRow}>
                   <Feather name="check-circle" size={18} color="#f97316" />
-                  <Text style={styles.rewardText}>Earn 300 points after completion</Text>
+                  <Text style={styles.rewardText}>Earn 400 points after completion</Text>
                </View>
             </View>
           </Animated.View>

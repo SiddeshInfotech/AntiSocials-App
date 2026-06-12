@@ -5,6 +5,8 @@ import { useRouter } from 'expo-router';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as SecureStore from 'expo-secure-store';
+import { API_BASE_URL } from '../constants/Api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -51,7 +53,34 @@ export default function TaskDetailScreen() {
     } else if (timeLeft <= 0 && isActive) {
       clearInterval(interval);
       pulseAnim.stopAnimation();
-      router.replace('/task-complete');
+      
+      const completeTask = async () => {
+        let pointsData = { pointsAdded: '0', totalPoints: '0', streak: '0' };
+        try {
+          const token = await SecureStore.getItemAsync('token');
+          if (token) {
+            const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+              body: JSON.stringify({ task_name: 'Sit without phone for 2 minutes' })
+            });
+            const data = await response.json();
+            if (response.ok || data.success) {
+              pointsData = { 
+                pointsAdded: data.pointsAdded?.toString() || "0", 
+                totalPoints: data.totalPoints?.toString() || "0",
+                streak: data.streak?.toString() || "0"
+              };
+            }
+          }
+        } catch(e) { console.error(e); }
+
+        router.replace({ 
+          pathname: '/task-success', 
+          params: { points: pointsData.pointsAdded, totalPoints: pointsData.totalPoints, streak: pointsData.streak } 
+        } as any);
+      };
+      completeTask();
     } else {
       pulseAnim.stopAnimation();
     }
@@ -137,7 +166,32 @@ export default function TaskDetailScreen() {
 
                 <TouchableOpacity 
                   activeOpacity={0.9}
-                  onPress={() => router.replace({ pathname: '/task-success', params: { points: '200' } } as any)}
+                  onPress={async () => {
+                    let pointsData = { pointsAdded: '0', totalPoints: '0', streak: '0' };
+                    try {
+                      const token = await SecureStore.getItemAsync('token');
+                      if (token) {
+                        const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                          body: JSON.stringify({ task_name: 'Sit without phone for 2 minutes' })
+                        });
+                        const data = await response.json();
+                        if (response.ok || data.success) {
+                          pointsData = { 
+                            pointsAdded: data.pointsAdded?.toString() || "0", 
+                            totalPoints: data.totalPoints?.toString() || "0",
+                            streak: data.streak?.toString() || "0"
+                          };
+                        }
+                      }
+                    } catch(e) { console.error(e); }
+
+                    router.replace({ 
+                      pathname: '/task-success', 
+                      params: { points: pointsData.pointsAdded, totalPoints: pointsData.totalPoints, streak: pointsData.streak } 
+                    } as any);
+                  }}
                   style={styles.completeBtnWrap}
                 >
                   <LinearGradient

@@ -73,10 +73,10 @@ export default function LoginScreen() {
           phoneNumber,
           purpose: 'login'
         }),
+        signal: controller.signal
       });
 
       clearTimeout(timeoutId);
-
       const contentType = response.headers.get("content-type") || "";
       const rawBody = await response.text();
       let data: any = {};
