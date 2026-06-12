@@ -6,7 +6,7 @@ exports.getProfile = async (req, res) => {
         
         // Fetch user data
         const userResult = await db.query(
-            'SELECT id, username, email, phone_number, profession, about, image_url, created_at, points, pincode, city, state FROM users WHERE id = $1', 
+            'SELECT id, username, email, phone_number, profession, about, image_url, created_at, points, pincode, city, state, latitude, longitude FROM users WHERE id = $1', 
             [userId]
         );
         
