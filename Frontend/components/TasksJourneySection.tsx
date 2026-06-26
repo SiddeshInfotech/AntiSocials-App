@@ -72,6 +72,14 @@ export default function TasksJourneySection() {
       route: "/drink-task",
     },
     {
+      emoji: "👁️",
+      difficulty: "easy",
+      title: "Eye Rest (2 min)",
+      subtitle: "Look at something far away",
+      points: "+150 points",
+      route: "/eye-rest-task",
+    },
+    {
       emoji: "🤫",
       difficulty: "medium",
       title: "Sit without phone for 2 minutes",
@@ -102,6 +110,14 @@ export default function TasksJourneySection() {
       subtitle: "Text input",
       points: "+300 points",
       route: "/write-task",
+    },
+    {
+      emoji: "🧘",
+      difficulty: "easy",
+      title: "Confirm Presence",
+      subtitle: "Pause and be present",
+      points: "+10 points",
+      route: "/confirm-presence-task",
     },
     {
       emoji: "😊",
