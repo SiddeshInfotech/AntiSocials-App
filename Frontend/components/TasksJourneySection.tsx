@@ -9,7 +9,7 @@ import {
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 
-export default function TasksJourneySection() {
+export default function TasksJourneySection({ completedTasks = [] }: { completedTasks?: string[] }) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("100-Day Journey");
   const [activePrototype, setActivePrototype] = useState(1);
@@ -403,65 +403,71 @@ export default function TasksJourneySection() {
 
       {/* TASKS LIST */}
       <View style={styles.tasksListContainer}>
-        {visibleTasks.map((task, idx) => (
-          <TouchableOpacity
-            key={idx}
-            style={styles.taskCard}
-            activeOpacity={0.7}
-            onPress={() => {
-              if (task.route) {
-                router.push(task.route as any);
-              } else if (task.title.includes("Volunteer")) {
-                router.push("/volunteer-interest" as any);
-              } else if (task.title.includes("Help someone")) {
-                router.push("/help-intro" as any);
-              }
-            }}
-          >
-            <Text style={styles.taskEmoji}>{task.emoji}</Text>
-            <View style={styles.taskCardContent}>
-              <View
-                style={[
-                  styles.difficultyPill,
-                  {
-                    backgroundColor:
-                      task.difficulty === "easy"
-                        ? "#dcfce7"
-                        : task.difficulty === "hard"
-                          ? "#fee2e2"
-                          : "#fef08a",
-                  },
-                ]}
-              >
-                <Text
+        {visibleTasks.map((task, idx) => {
+          const isCompleted = completedTasks.includes(task.title);
+          return (
+            <TouchableOpacity
+              key={`${visibleTaskStartDay}-${idx}`}
+              style={[styles.taskCard, isCompleted && { opacity: 0.6, backgroundColor: '#f9fafb' }]}
+              activeOpacity={0.7}
+              disabled={isCompleted}
+              onPress={() => {
+                if (task.route) {
+                  router.push(task.route as any);
+                } else if (task.title.includes("Volunteer")) {
+                  router.push("/volunteer-interest" as any);
+                } else if (task.title.includes("Help someone")) {
+                  router.push("/help-intro" as any);
+                }
+              }}
+            >
+              <Text style={styles.taskEmoji}>{task.emoji}</Text>
+              <View style={styles.taskCardContent}>
+                <View
                   style={[
-                    styles.difficultyText,
+                    styles.difficultyPill,
                     {
-                      color:
+                      backgroundColor:
                         task.difficulty === "easy"
-                          ? "#16a34a"
+                          ? "#dcfce7"
                           : task.difficulty === "hard"
-                            ? "#dc2626"
-                            : "#ca8a04",
+                            ? "#fee2e2"
+                            : "#fef08a",
                     },
                   ]}
                 >
-                  {task.difficulty}
-                </Text>
+                  <Text
+                    style={[
+                      styles.difficultyText,
+                      {
+                        color:
+                          task.difficulty === "easy"
+                            ? "#16a34a"
+                            : task.difficulty === "hard"
+                              ? "#dc2626"
+                              : "#ca8a04",
+                      },
+                    ]}
+                  >
+                    {task.difficulty}
+                  </Text>
+                </View>
+                <Text style={[styles.taskTitle, isCompleted && { textDecorationLine: 'line-through', color: '#9ca3af' }]}>{task.title}</Text>
+                <Text style={styles.taskSubtitle}>{task.subtitle}</Text>
+                <View style={styles.taskBottomRow}>
+                  <Text style={[styles.taskPoints, isCompleted && { color: '#16a34a', fontWeight: 'bold' }]}>
+                    {isCompleted ? "✓ Completed" : task.points}
+                  </Text>
+                  {!task.route && !isCompleted && (
+                    <View style={styles.comingSoonBadge}>
+                      <Text style={styles.comingSoonText}>🔒 Coming Soon</Text>
+                    </View>
+                  )}
+                </View>
               </View>
-              <Text style={styles.taskTitle}>{task.title}</Text>
-              <Text style={styles.taskSubtitle}>{task.subtitle}</Text>
-              <View style={styles.taskBottomRow}>
-                <Text style={styles.taskPoints}>{task.points}</Text>
-                {!task.route && (
-                  <View style={styles.comingSoonBadge}>
-                    <Text style={styles.comingSoonText}>🔒 Coming Soon</Text>
-                  </View>
-                )}
-              </View>
-            </View>
-          </TouchableOpacity>
-        ))}
+            </TouchableOpacity>
+          );
+        })}
       </View>
     </View>
   );

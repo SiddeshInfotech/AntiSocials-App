@@ -5,6 +5,8 @@ import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as SecureStore from 'expo-secure-store';
+import { API_BASE_URL } from '../constants/Api';
 
 const TOTAL_SECONDS = 180;
 const BREATH_CYCLE_SECONDS = 16;
@@ -123,9 +125,36 @@ export default function BreathTaskScreen() {
     return () => clearInterval(interval);
   }, [isActive]);
 
+  const handleCompleteTask = async () => {
+    let pointsData = { pointsAdded: '0', totalPoints: '0', streak: '0' };
+    try {
+      const token = await SecureStore.getItemAsync('token');
+      if (token) {
+        const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ task_name: 'Breathe consciously for 3 minutes' })
+        });
+        const data = await response.json();
+        if (response.ok || data.success) {
+          pointsData = { 
+            pointsAdded: data.pointsAdded?.toString() || "0", 
+            totalPoints: data.totalPoints?.toString() || "0",
+            streak: data.streak?.toString() || "0"
+          };
+        }
+      }
+    } catch(e) { console.error(e); }
+
+    router.replace({ 
+      pathname: '/task-success', 
+      params: { points: pointsData.pointsAdded, totalPoints: pointsData.totalPoints, streak: pointsData.streak } 
+    } as any);
+  };
+
   useEffect(() => {
     if (isActive && timeLeft <= 0) {
-      router.replace({ pathname: '/task-success', params: { points: '100' } } as any);
+      handleCompleteTask();
     }
   }, [isActive, router, timeLeft]);
 
@@ -398,9 +427,7 @@ export default function BreathTaskScreen() {
             <View style={{ width: '100%', gap: 12 }}>
               <TouchableOpacity 
                 style={[styles.stopBtn, { backgroundColor: '#10b981', borderColor: '#059669' }]} 
-                onPress={() => {
-                  router.replace({ pathname: '/task-success', params: { points: '100' } } as any);
-                }}
+                onPress={handleCompleteTask}
                 activeOpacity={0.8}
               >
                 <Text style={styles.stopBtnText}>Done Challenge</Text>

@@ -6,13 +6,18 @@ import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as SecureStore from 'expo-secure-store';
 import { API_BASE_URL } from '../constants/Api';
+import { resolveImageUrl } from '../constants/ImageUtils';
 
 export default function EditProfileScreen() {
   const router = useRouter();
 
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [profession, setProfession] = useState('');
   const [about, setAbout] = useState('');
+  const [pincode, setPincode] = useState('');
+  const [city, setCity] = useState('');
+  const [state, setState] = useState('');
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [isPrivate, setIsPrivate] = useState(false);
   const [emailNotifications, setEmailNotifications] = useState(true);
@@ -30,16 +35,20 @@ export default function EditProfileScreen() {
           return;
         }
 
-        const response = await fetch(`${API_BASE_URL}/api/me`, {
+        const response = await fetch(`${API_BASE_URL}/api/profile/me`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
 
         if (response.ok) {
           const data = await response.json();
-          setUsername(data.username);
-          setProfession(data.profession || '');
-          setAbout(data.about || '');
-          setProfileImage(data.image_url || null);
+          setUsername(data.user.username);
+          setEmail(data.user.email || '');
+          setProfession(data.user.profession || '');
+          setAbout(data.user.about || '');
+          setPincode(data.user.pincode || '');
+          setCity(data.user.city || '');
+          setState(data.user.state || '');
+          setProfileImage(data.user.image_url || null);
         }
       } catch (err) {
         console.error("Error fetching user data:", err);
@@ -80,11 +89,40 @@ export default function EditProfileScreen() {
       }
 
       if (!result.canceled) {
-        setProfileImage(result.assets[0].uri);
+        await uploadImageToServer(result.assets[0].uri);
       }
     } catch (error) {
       console.log("Error taking picture: ", error);
       Alert.alert("Error", "Something went wrong while choosing an image.");
+    }
+  };
+
+  const uploadImageToServer = async (uri: string) => {
+    setIsSaving(true);
+    try {
+      const filename = uri.split('/').pop() || 'profile.jpg';
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : `image`;
+
+      const formData = new FormData();
+      formData.append('image', { uri, name: filename, type } as any);
+
+      const response = await fetch(`${API_BASE_URL}/upload`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        Alert.alert("Upload Failed", data.error || "Could not upload image");
+      } else {
+        setProfileImage(data.imageUrl);
+      }
+    } catch (error) {
+      console.error("Upload Error:", error);
+      Alert.alert("Error", "Could not connect to server for image upload.");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -103,19 +141,29 @@ export default function EditProfileScreen() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      if (pincode && !/^\d{6}$/.test(pincode)) {
+        Alert.alert("Error", "Please enter a valid 6-digit Indian pincode.");
+        setIsSaving(false);
+        return;
+      }
+
       const userId = await SecureStore.getItemAsync('userId');
       const token = await SecureStore.getItemAsync('token');
 
-      const response = await fetch(`${API_BASE_URL}/user/${userId}`, {
-        method: "PATCH",
+      const response = await fetch(`${API_BASE_URL}/api/profile/update`, {
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({
           username,
+          email,
           profession,
           about,
+          pincode,
+          city,
+          state,
           image_url: profileImage
         })
       });
@@ -165,8 +213,8 @@ export default function EditProfileScreen() {
             {/* Avatar Edit */}
             <View style={styles.avatarSection}>
               <TouchableOpacity onPress={showImageOptions} style={styles.avatarPlaceholderContainer}>
-                {profileImage ? (
-                  <Image source={{ uri: profileImage }} style={styles.avatarImage} />
+                {profileImage && !profileImage.startsWith('file://') && !profileImage.startsWith('data:image') ? (
+                  <Image source={{ uri: resolveImageUrl(profileImage) }} style={styles.avatarImage} />
                 ) : (
                   <View style={styles.avatarPlaceholder}>
                     <Feather name="user" size={40} color="#4B2488" />
@@ -200,12 +248,60 @@ export default function EditProfileScreen() {
             </View>
 
             <View style={styles.inputGroup}>
+              <Text style={styles.label}>Email Address</Text>
+              <TextInput
+                style={styles.input}
+                value={email}
+                onChangeText={setEmail}
+                placeholder="your.email@example.com"
+                placeholderTextColor="#9CA3AF"
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
               <Text style={styles.label}>Job Title or Role</Text>
               <TextInput
                 style={styles.input}
                 value={profession}
                 onChangeText={setProfession}
                 placeholder="What do you do?"
+                placeholderTextColor="#9CA3AF"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Pincode (Indian)</Text>
+              <TextInput
+                style={styles.input}
+                value={pincode}
+                onChangeText={setPincode}
+                placeholder="e.g. 440001"
+                placeholderTextColor="#9CA3AF"
+                keyboardType="number-pad"
+                maxLength={6}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>City</Text>
+              <TextInput
+                style={styles.input}
+                value={city}
+                onChangeText={setCity}
+                placeholder="e.g. Nagpur"
+                placeholderTextColor="#9CA3AF"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>State</Text>
+              <TextInput
+                style={styles.input}
+                value={state}
+                onChangeText={setState}
+                placeholder="e.g. Maharashtra"
                 placeholderTextColor="#9CA3AF"
               />
             </View>

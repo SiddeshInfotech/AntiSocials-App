@@ -1,11 +1,13 @@
-import { Feather } from "@expo/vector-icons";
+import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useIsFocused } from "@react-navigation/native";
+import { useLocalSearchParams } from "expo-router";
 import TasksJourneySection from "../../components/TasksJourneySection";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
+import * as SecureStore from "expo-secure-store";
 import {
   Alert,
   Animated,
@@ -19,14 +21,127 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Modal,
+  KeyboardAvoidingView,
+  TextInput,
+  PanResponder,
 } from "react-native";
+import { API_BASE_URL } from "../../constants/Api";
+import { resolveImageUrl } from "../../constants/ImageUtils";
 import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import Svg, { Circle, G, Line } from "react-native-svg";
+import { Video, ResizeMode } from 'expo-av';
 
-const { width } = Dimensions.get("window");
+const { width, height } = Dimensions.get("window");
+
+// Advanced Draggable Component for Story Overlays
+const DraggableElement = ({ element, onUpdate, isSelected, onSelect, onDelete, onDrag }: any) => {
+  const pan = useRef(new Animated.ValueXY({ x: element.x, y: element.y })).current;
+  const lastOffset = useRef({ x: element.x, y: element.y });
+  const isDragging = useRef(false);
+  
+  useEffect(() => {
+    pan.setValue({ x: element.x, y: element.y });
+    lastOffset.current = { x: element.x, y: element.y };
+  }, [element.x, element.y]);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (evt, gestureState) => {
+        return Math.abs(gestureState.dx) > 2 || Math.abs(gestureState.dy) > 2;
+      },
+      onPanResponderGrant: () => {
+        pan.setOffset({
+          x: lastOffset.current.x,
+          y: lastOffset.current.y
+        });
+        pan.setValue({ x: 0, y: 0 });
+        onSelect(element.id);
+        isDragging.current = true;
+      },
+      onPanResponderMove: (e, gestureState) => {
+        // Update position
+        pan.x.setValue(gestureState.dx);
+        pan.y.setValue(gestureState.dy);
+        
+        // Notify parent about current position for delete detection
+        if (onDrag) {
+          onDrag(gestureState.moveX, gestureState.moveY);
+        }
+      },
+      onPanResponderRelease: (e, gestureState) => {
+        pan.flattenOffset();
+        isDragging.current = false;
+        
+        const finalX = (pan.x as any)._value;
+        const finalY = (pan.y as any)._value;
+        lastOffset.current = { x: finalX, y: finalY };
+
+        // Extremely robust drop detection
+        const threshold = height - 250; // Generous fallback
+        const isOverDelete = gestureState.moveY > threshold || (gestureState.moveY > 0 && gestureState.moveY > height * 0.75);
+        
+        if (onDrag) onDrag(0, 0); // Reset hovering state
+
+        if (isOverDelete) {
+          onDelete(element.id);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        } else {
+          onUpdate(element.id, finalX, finalY);
+        }
+      },
+    })
+  ).current;
+
+  return (
+    <Animated.View
+      {...panResponder.panHandlers}
+      style={[
+        {
+          position: 'absolute',
+          transform: [
+            { translateX: pan.x },
+            { translateY: pan.y },
+            { rotate: `${element.rotation || 0}deg` },
+            { scale: element.scale || 1 }
+          ],
+          zIndex: isSelected ? 100 : 10,
+        },
+      ]}
+    >
+      <Pressable 
+        onPress={() => onSelect(element.id)}
+        style={{ position: 'relative', padding: 10 }}
+      >
+        <View style={{
+          backgroundColor: element.hasBackground ? element.color === '#FFFFFF' ? '#000' : '#FFFFFF' : 'transparent',
+          paddingHorizontal: 12,
+          paddingVertical: 6,
+          borderRadius: 8,
+          borderWidth: isSelected ? 1 : 0,
+          borderColor: 'rgba(255,255,255,0.5)',
+        }}>
+          <Text style={{
+            color: element.color,
+            fontSize: 28,
+            fontWeight: 'bold',
+            textAlign: 'center',
+            textShadowColor: element.hasBackground ? 'transparent' : 'rgba(0,0,0,0.5)',
+            textShadowOffset: { width: 1, height: 1 },
+            textShadowRadius: 2
+          }}>
+            {element.content}
+          </Text>
+        </View>
+      </Pressable>
+    </Animated.View>
+  );
+};
 
 // No longer using trigonometry, fully refactored to responsive Flexbox layout!
 
@@ -107,33 +222,6 @@ const InteractiveTaskItem = ({
   );
 };
 
-const AnimatedBuddyContainer = ({
-  activeTask,
-  onStartTask,
-}: {
-  activeTask: string | null;
-  onStartTask: (task: string) => void;
-}) => {
-  return (
-    <View style={styles.buddyCenter}>
-      <AnimatedBuddy activeTask={activeTask} />
-      {activeTask ? (
-        <TouchableOpacity
-          style={styles.startHeroBtn}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-            onStartTask(activeTask);
-          }}
-        >
-          <Text style={styles.startHeroBtnText}>Start {activeTask} ✨</Text>
-        </TouchableOpacity>
-      ) : (
-        <Text style={styles.buddyTextFlex}>Sitting quietly with you</Text>
-      )}
-    </View>
-  );
-};
-
 const AnimatedBuddy = ({ activeTask }: { activeTask: string | null }) => {
   const floatAnim = React.useRef(new Animated.Value(0)).current;
   const blinkAnim = React.useRef(new Animated.Value(1)).current;
@@ -150,6 +238,7 @@ const AnimatedBuddy = ({ activeTask }: { activeTask: string | null }) => {
   // Master loops to stop them properly
   const breathLoop = React.useRef<Animated.CompositeAnimation | null>(null);
   const lookLoop = React.useRef<Animated.CompositeAnimation | null>(null);
+
 
   React.useEffect(() => {
     Animated.loop(
@@ -536,19 +625,240 @@ const AnimatedBuddy = ({ activeTask }: { activeTask: string | null }) => {
   );
 };
 
+const AnimatedBuddyContainer = ({
+  activeTask,
+  onStartTask,
+}: {
+  activeTask: string | null;
+  onStartTask: (task: string) => void;
+}) => {
+  return (
+    <View style={styles.buddyCenter}>
+      <AnimatedBuddy activeTask={activeTask} />
+      {activeTask ? (
+        <TouchableOpacity
+          style={styles.startHeroBtn}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+            onStartTask(activeTask);
+          }}
+        >
+          <Text style={styles.startHeroBtnText}>Start {activeTask} ✨</Text>
+        </TouchableOpacity>
+      ) : (
+        <Text style={styles.buddyTextFlex}>Sitting quietly with you</Text>
+      )}
+    </View>
+  );
+};
+
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const [myStories, setMyStories] = useState<string[]>([]);
   const isFocused = useIsFocused();
+  const { updatedPoints, updatedStreak } = useLocalSearchParams<{ updatedPoints?: string, updatedStreak?: string }>();
   const [activeTask, setActiveTask] = useState<string | null>(null);
   const [circleSize, setCircleSize] = useState<{ w: number; h: number }>({
     w: 320,
     h: 420,
   });
 
+  const [homeData, setHomeData] = useState<any>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [viewingStory, setViewingStory] = useState<any>(null);
+  const [previewStoryMedia, setPreviewStoryMedia] = useState<string | null>(null);
+  const [previewMediaType, setPreviewMediaType] = useState<'image' | 'video'>('image');
+  
+  // Advanced Story Editing State
+  const [activeEditorMode, setActiveEditorMode] = useState<'none' | 'text'>('none');
+  const [storyElements, setStoryElements] = useState<any[]>([]);
+  const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+  const [isHoveringDelete, setIsHoveringDelete] = useState(false);
+  const [deleteAreaLayout, setDeleteAreaLayout] = useState<any>(null);
+  const [deleteAreaAbsoluteY, setDeleteAreaAbsoluteY] = useState<number | null>(null);
+  const deleteAreaRef = useRef<View>(null);
+  
+  // Viewers List State
+  const [showViewersList, setShowViewersList] = useState(false);
+  const [storyViewers, setStoryViewers] = useState<any[]>([]);
+
+  // Temporary state for text entry
+  const [tempText, setTempText] = useState("");
+  const [tempTextColor, setTempTextColor] = useState("#FFFFFF");
+  const [tempTextBg, setTempTextBg] = useState(false);
+  const [tempFontType, setTempFontType] = useState("System");
+
+  const resetStoryEdits = () => {
+    setStoryElements([]);
+    setTempText("");
+    setActiveEditorMode('none');
+  };
+
+  const addTextElement = () => {
+    if (!tempText.trim()) {
+      setActiveEditorMode('none');
+      return;
+    }
+    const newEl = {
+      id: Math.random().toString(36).substr(2, 9),
+      type: 'text',
+      content: tempText,
+      x: width / 2 - 100,
+      y: height / 2 - 50,
+      color: tempTextColor,
+      hasBackground: tempTextBg,
+      fontType: tempFontType,
+      scale: 1,
+      rotation: 0
+    };
+    setStoryElements([...storyElements, newEl]);
+    setTempText("");
+    setActiveEditorMode('none');
+  };
+
+  const updateElementPos = (id: string, x: number, y: number) => {
+    setStoryElements(prev => prev.map(el => el.id === id ? { ...el, x, y } : el));
+  };
+
+  const deleteElement = (id: string) => {
+    setStoryElements(prev => prev.filter(el => el.id !== id));
+    if (selectedElementId === id) setSelectedElementId(null);
+  };
+
+  const trackView = async (storyId: number) => {
+    try {
+      const token = await SecureStore.getItemAsync('token');
+      await fetch(`${API_BASE_URL}/api/stories/${storyId}/view`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+    } catch (e) {
+      console.error("Track view error:", e);
+    }
+  };
+
+  const fetchViewers = async (storyId: number | string) => {
+    if (!storyId) return;
+    try {
+      const token = await SecureStore.getItemAsync('token');
+      const response = await fetch(`${API_BASE_URL}/api/stories/${storyId}/views`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setStoryViewers(Array.isArray(data.viewers) ? data.viewers : []);
+        setShowViewersList(true);
+      } else {
+        Alert.alert("Error", data.error || "Failed to fetch viewers");
+      }
+    } catch (e) {
+      console.error("Fetch viewers error:", e);
+      Alert.alert("Error", "Network error while fetching viewers");
+    }
+  };
+
+  React.useEffect(() => {
+    if (isFocused) {
+      if ((updatedPoints || updatedStreak) && homeData) {
+        setHomeData((prev: any) => ({ 
+          ...prev, 
+          total_points: updatedPoints ? parseInt(updatedPoints, 10) : prev.total_points,
+          user: {
+            ...prev.user,
+            streak_count: updatedStreak ? parseInt(updatedStreak, 10) : prev.user?.streak_count
+          }
+        }));
+      }
+      fetchHomeData();
+      fetchUserSummary();
+    }
+  }, [isFocused, updatedPoints, updatedStreak]);
+
+  const fetchUserSummary = async () => {
+    try {
+      const token = await SecureStore.getItemAsync('token');
+      if (!token) return;
+      const response = await fetch(`${API_BASE_URL}/api/user/summary`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (response.ok && data.points !== undefined) {
+        setHomeData((prev: any) => ({ 
+          ...prev, 
+          total_points: data.points, 
+          completedTasks: data.completedTasks,
+          user: {
+            ...prev?.user,
+            streak_count: data.streak
+          }
+        }));
+      }
+    } catch (e) {
+      console.error('❌ fetchUserSummary error:', e);
+    }
+  };
+
+  const fetchHomeData = async () => {
+    try {
+      const token = await SecureStore.getItemAsync('token');
+      console.log('📌 fetchHomeData: token exists:', !!token);
+      if (!token) return;
+      const response = await fetch(`${API_BASE_URL}/api/home`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      console.log('📌 fetchHomeData response status:', response.status);
+      console.log('📌 fetchHomeData tasks count:', data?.tasks?.length);
+      console.log('📌 fetchHomeData total_points:', data?.total_points);
+      console.log('📌 fetchHomeData streak:', data?.user?.streak_count);
+      if (response.ok) {
+        setHomeData(data);
+      }
+    } catch (e) {
+      console.error('❌ fetchHomeData error:', e);
+    }
+  };
+
   const handleTaskPress = (label: string) => {
     setActiveTask((prev) => (prev === label ? null : label));
   };
+
+  const completeTaskApi = async (taskName: string) => {
+    try {
+      const taskMap: Record<string, string> = {
+        'Reflect': 'Write 1 word about how you feel',
+        'Smile': 'Smile intentionally',
+        'Breathe': 'Breathe consciously for 3 minutes',
+        'Stretch': 'Stretch neck & shoulders',
+        'Silent': 'Sit without phone for 2 minutes',
+        'Outside': 'Look outside for 2 minutes'
+      };
+      const fullTaskName = taskMap[taskName] || taskName;
+
+      const token = await SecureStore.getItemAsync('token');
+      const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ task_name: fullTaskName })
+      });
+      const data = await response.json();
+      
+      if (response.ok || data.success) {
+        setHomeData((prev: any) => ({ 
+          ...prev, 
+          total_points: data.totalPoints !== undefined ? data.totalPoints : prev.total_points,
+          completedTasks: data.completedTasks || prev.completedTasks,
+          user: {
+            ...prev?.user,
+            streak_count: data.streak !== undefined ? data.streak : prev?.user?.streak_count
+          }
+        }));
+        fetchHomeData(); 
+      }
+    } catch (e) {
+      console.error('❌ completeTaskApi error:', e);
+    }
+  };
+
   const handleAddStory = async () => {
     if (Platform.OS === "web") {
       const choice = window.confirm(
@@ -560,7 +870,7 @@ export default function HomeScreen() {
         openCamera();
       }
     } else {
-      Alert.alert("Add Story", "How would you like to add a story?", [
+      Alert.alert("Add Story", "Choose an option to share your moment", [
         { text: "Cancel", style: "cancel" },
         { text: "Take Photo", onPress: openCamera },
         { text: "Upload from Gallery", onPress: pickImage },
@@ -568,35 +878,117 @@ export default function HomeScreen() {
     }
   };
 
+  const uploadStoryToServer = async () => {
+    if (!previewStoryMedia) return;
+    try {
+      setIsUploading(true);
+      const token = await SecureStore.getItemAsync('token');
+
+      // 1. Upload to server to get public URL (Required for videos, better for images)
+      const filename = previewStoryMedia.split('/').pop() || (previewMediaType === 'video' ? 'story.mp4' : 'story.jpg');
+      const match = /\.(\w+)$/.exec(filename);
+      const type = previewMediaType === 'video' ? 'video/mp4' : (match ? `image/${match[1]}` : `image/jpeg`);
+
+      const formData = new FormData();
+      formData.append('image', { uri: previewStoryMedia, name: filename, type } as any);
+
+      const uploadRes = await fetch(`${API_BASE_URL}/upload`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const uploadData = await uploadRes.json();
+      if (!uploadRes.ok) throw new Error(uploadData.error || "Upload failed");
+
+      // 2. Save story metadata
+      const response = await fetch(`${API_BASE_URL}/api/stories`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          media_url: uploadData.imageUrl,
+          media_type: previewMediaType,
+          text_elements: storyElements,
+          text_content: storyElements.length > 0 ? storyElements.map(el => el.content).join(' ') : null,
+          text_position: storyElements.length > 0 ? { x: storyElements[0].x, y: storyElements[0].y } : {},
+          caption: ''
+        })
+      });
+
+      if (response.ok) {
+        fetchHomeData(); 
+        setPreviewStoryMedia(null);
+        resetStoryEdits();
+        Alert.alert("Success", "Story uploaded successfully!");
+      } else {
+        const data = await response.json();
+        Alert.alert("Error", data.error || "Failed to upload story");
+      }
+    } catch (e: any) {
+      console.error(e);
+      Alert.alert("Error", e.message || "Network error");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const deleteStory = async (storyId: number) => {
+    try {
+      const token = await SecureStore.getItemAsync('token');
+      const response = await fetch(`${API_BASE_URL}/api/stories/${storyId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        setViewingStory(null);
+        fetchHomeData();
+      } else {
+        Alert.alert("Error", "Failed to delete story");
+      }
+    } catch (e) {
+      console.error("Delete story error:", e);
+      Alert.alert("Error", "Network error");
+    }
+  };
+
   const openCamera = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (permission.granted === false) {
+    if (permission.status !== "granted") {
       Alert.alert("Permission required", "Please allow camera access!");
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: 'images',
+      mediaTypes: ImagePicker.MediaTypeOptions.All,
       allowsEditing: false,
-      quality: 1,
+      quality: 0.5,
     });
-    if (!result.canceled && result.assets) {
-      setMyStories([result.assets[0].uri, ...myStories]);
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      const asset = result.assets[0];
+      setPreviewMediaType(asset.type === 'video' ? 'video' : 'image');
+      setPreviewStoryMedia(asset.uri);
     }
   };
 
   const pickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (permission.granted === false) {
+    if (permission.status !== "granted") {
       Alert.alert("Permission required", "Please allow camera roll access!");
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: 'images',
+      mediaTypes: ImagePicker.MediaTypeOptions.All,
       allowsEditing: false,
-      quality: 1,
+      quality: 0.5,
     });
-    if (!result.canceled && result.assets) {
-      setMyStories([result.assets[0].uri, ...myStories]);
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      const asset = result.assets[0];
+      setPreviewMediaType(asset.type === 'video' ? 'video' : 'image');
+      setPreviewStoryMedia(asset.uri);
     }
   };
 
@@ -624,8 +1016,8 @@ export default function HomeScreen() {
         {/* Top Header */}
         <View style={[styles.header, { paddingTop: Math.max(insets.top, 25) }]}>
           <View style={styles.stats}>
-            <Text style={styles.statItem}>🔥 12</Text>
-            <Text style={styles.statItem}>⚡ 3450</Text>
+            <Text style={styles.statItem}>🔥 {homeData?.user?.streak_count || 0}</Text>
+            <Text style={styles.statItem}>⚡ {homeData?.total_points || 0}</Text>
           </View>
           <Text style={styles.appName}>AntiSocial</Text>
         </View>
@@ -637,37 +1029,56 @@ export default function HomeScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.storiesScroll}
           >
-            {/* Add Story Button triggers the Action Sheet */}
-            <TouchableOpacity
-              style={styles.storyItemContainer}
-              activeOpacity={0.7}
-              onPress={handleAddStory}
-            >
-              <LinearGradient
-                colors={["#8b5cf6", "#3b82f6"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[styles.storyCircle, styles.addStoryCircle]}
-              >
-                <Text style={styles.addStoryIcon}>+</Text>
-              </LinearGradient>
-              <Text style={styles.storyName}>Add Story</Text>
-            </TouchableOpacity>
-
-            {/* Uploaded Photos from Gallery or Camera map to Stories! */}
-            {myStories.map((uri, index) => (
+            {/* 1. CURRENT USER STORY (Add Story or View Own Story) */}
+            {homeData?.own_stories && homeData?.own_stories.length > 0 ? (
               <TouchableOpacity
-                key={`my-story-${index}`}
                 style={styles.storyItemContainer}
-                activeOpacity={0.7}
+                activeOpacity={0.8}
+                onPress={() => setViewingStory(homeData?.own_stories[0])}
               >
-                <View style={[styles.storyCircle, styles.userStoryBorder]}>
-                  <Image source={{ uri }} style={styles.uploadedStoryImage} />
+                <LinearGradient
+                  colors={["#c026d3", "#f43f5e", "#f59e0b"]}
+                  style={styles.storyRing}
+                >
+                  <Image source={{ uri: resolveImageUrl(homeData?.user?.image_url) }} style={styles.storyProfileImage} />
+                </LinearGradient>
+                <Text style={styles.storyName} numberOfLines={1}>Your Story</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.storyItemContainer}
+                activeOpacity={0.8}
+                onPress={handleAddStory}
+              >
+                <View style={styles.addStoryProfileWrap}>
+                  <Image source={{ uri: resolveImageUrl(homeData?.user?.image_url) }} style={styles.addStoryProfileImage} />
+                  <View style={styles.plusIconWrap}>
+                    <View style={styles.plusIconBg}>
+                      <Feather name="plus" size={12} color="#fff" />
+                    </View>
+                  </View>
                 </View>
-                <Text style={styles.storyName}>My Story</Text>
+                <Text style={styles.storyName} numberOfLines={1}>Your Story</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* 2. OTHER USERS' STORIES */}
+            {homeData?.active_stories?.map((story: any) => (
+              <TouchableOpacity
+                key={story.id}
+                style={styles.storyItemContainer}
+                activeOpacity={0.8}
+                onPress={() => setViewingStory(story)}
+              >
+                <LinearGradient
+                  colors={["#c026d3", "#f43f5e", "#f59e0b"]}
+                  style={styles.storyRing}
+                >
+                  <Image source={{ uri: resolveImageUrl(story.profile_image) }} style={styles.storyProfileImage} />
+                </LinearGradient>
+                <Text style={styles.storyName} numberOfLines={1}>{story.username}</Text>
               </TouchableOpacity>
             ))}
-
             {/* Dummy Default Stories */}
             {[
               { id: "1", name: "Sarah", emoji: "👱‍♀️" },
@@ -676,13 +1087,13 @@ export default function HomeScreen() {
               { id: "4", name: "John", emoji: "👨" },
             ].map((story) => (
               <TouchableOpacity
-                key={story.id}
+                key={`dummy-${story.id}`}
                 style={styles.storyItemContainer}
                 activeOpacity={0.7}
               >
-                <View style={[styles.storyCircle, styles.userStoryBorder]}>
-                  <View style={styles.userStoryInner}>
-                    <Text style={styles.emojiText}>{story.emoji}</Text>
+                <View style={[styles.storyRing, { borderWidth: 2, borderColor: "#c026d3", padding: 2 }]}>
+                  <View style={{ width: '100%', height: '100%', borderRadius: 30, backgroundColor: "#fdf2f8", justifyContent: "center", alignItems: "center" }}>
+                    <Text style={{ fontSize: 30 }}>{story.emoji}</Text>
                   </View>
                 </View>
                 <Text style={styles.storyName}>{story.name}</Text>
@@ -744,9 +1155,10 @@ export default function HomeScreen() {
                 Haptics.notificationAsync(
                   Haptics.NotificationFeedbackType.Success,
                 );
+                completeTaskApi(task);
                 Alert.alert(
-                  `Started ${task}`,
-                  `You are now focusing on this moment. Have a peaceful time!`,
+                  `Completed ${task}`,
+                  `You have successfully completed this task. Points added!`,
                 );
                 setActiveTask(null);
               }}
@@ -754,7 +1166,7 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <TasksJourneySection />
+        <TasksJourneySection completedTasks={homeData?.completedTasks || []} />
 
         {/* --- Feed Locked Section --- */}
         <View style={styles.feedLockedContainer}>
@@ -772,6 +1184,317 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Story Viewer Modal */}
+      <Modal 
+        visible={viewingStory !== null} 
+        animationType="fade" 
+        transparent={true}
+        onShow={() => viewingStory && viewingStory.user_id !== homeData?.user?.id && trackView(viewingStory.id)}
+      >
+        <View style={styles.storyViewerOverlay}>
+          <SafeAreaView style={{ flex: 1, position: 'relative' }}>
+             <View style={styles.storyViewerHeader}>
+                <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                  <Image source={{ uri: resolveImageUrl(viewingStory?.profile_image || homeData?.user?.image_url) }} style={styles.storyViewerProfilePic} />
+                  <Text style={styles.storyViewerUsername}>{viewingStory?.username || 'Your Story'}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  {viewingStory?.user_id === homeData?.user?.id && (
+                    <TouchableOpacity 
+                      onPress={() => {
+                        Alert.alert("Delete Story", "Are you sure you want to delete this story?", [
+                          { text: "Cancel", style: "cancel" },
+                          { text: "Delete", style: "destructive", onPress: () => deleteStory(viewingStory?.id) }
+                        ]);
+                      }} 
+                      style={{ padding: 10, marginRight: 5 }}
+                    >
+                      <Feather name="trash-2" size={22} color="#fff" />
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity onPress={() => setViewingStory(null)} style={{padding: 10}}>
+                    <Feather name="x" size={24} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+             </View>
+             <View style={styles.storyViewerContent}>
+                {viewingStory?.media_type === 'video' ? (
+                  <Video
+                    source={{ uri: resolveImageUrl(viewingStory?.media_url) }}
+                    style={styles.storyViewerImage}
+                    resizeMode={ResizeMode.CONTAIN}
+                    shouldPlay
+                    isLooping
+                    useNativeControls
+                  />
+                ) : (
+                  <Image source={{ uri: resolveImageUrl(viewingStory?.media_url) }} style={styles.storyViewerImage} resizeMode="contain" />
+                )}
+
+                {/* Overlays in Viewer (Instagram Style) */}
+                {(Array.isArray(viewingStory?.text_elements) ? viewingStory.text_elements : []).map((el: any) => (
+                  <View 
+                    key={el.id}
+                    style={{ 
+                      position: 'absolute', 
+                      left: el.x, 
+                      top: el.y,
+                      transform: [{ rotate: `${el.rotation || 0}deg` }, { scale: el.scale || 1 }]
+                    }}
+                  >
+                    <View style={{
+                      backgroundColor: el.hasBackground ? el.color === '#FFFFFF' ? '#000' : '#FFFFFF' : 'transparent',
+                      paddingHorizontal: 10,
+                      paddingVertical: 5,
+                      borderRadius: 8,
+                    }}>
+                      <Text style={{ 
+                        color: el.color || '#fff', 
+                        fontSize: 24, 
+                        fontWeight: 'bold',
+                        textAlign: 'center',
+                        textShadowColor: el.hasBackground ? 'transparent' : 'rgba(0, 0, 0, 0.5)',
+                        textShadowOffset: {width: 1, height: 1},
+                        textShadowRadius: 5
+                      }}>
+                        {el.content}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+             </View>
+
+             {/* Views Count at Bottom for Owner */}
+             {viewingStory && viewingStory.user_id === homeData?.user?.id && (
+               <TouchableOpacity 
+                 onPress={() => fetchViewers(viewingStory?.id)}
+                 style={{ 
+                   position: 'absolute', 
+                   bottom: 40, 
+                   left: 20, 
+                   flexDirection: 'row', 
+                   alignItems: 'center',
+                   backgroundColor: 'rgba(0,0,0,0.5)',
+                   paddingVertical: 8,
+                   paddingHorizontal: 15,
+                   borderRadius: 20
+                 }}
+               >
+                 <Ionicons name="eye-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+                 <Text style={{ color: '#fff', fontSize: 14, fontWeight: '600' }}>
+                   {viewingStory?.view_count || 0} views
+                 </Text>
+               </TouchableOpacity>
+             )}
+          </SafeAreaView>
+        </View>
+      </Modal>
+
+      {/* Viewers List Modal */}
+      <Modal visible={showViewersList} animationType="slide" transparent={true}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 20, height: '60%' }}>
+            <View style={{ width: 40, height: 5, backgroundColor: '#ddd', borderRadius: 5, alignSelf: 'center', marginBottom: 20 }} />
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <Text style={{ fontSize: 20, fontWeight: 'bold' }}>Viewers</Text>
+              <TouchableOpacity onPress={() => setShowViewersList(false)}>
+                <Ionicons name="close" size={28} color="#000" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {Array.isArray(storyViewers) && storyViewers.length > 0 ? storyViewers.map((viewer) => (
+                <View key={viewer.user_id || Math.random().toString()} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f5f5f5' }}>
+                  <Image 
+                    source={{ uri: viewer.profile_image || viewer.image_url || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png' }} 
+                    style={{ width: 44, height: 44, borderRadius: 22, marginRight: 15 }} 
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 16, fontWeight: '600' }}>{viewer.username || 'User'}</Text>
+                    <Text style={{ fontSize: 12, color: '#666' }}>
+                      {viewer.viewed_at ? new Date(viewer.viewed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'}
+                    </Text>
+                  </View>
+                </View>
+              )) : (
+                <View style={{ alignItems: 'center', marginTop: 40 }}>
+                   <Text style={{ color: '#666' }}>No views yet</Text>
+                </View>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Story Upload Preview Modal (Full Instagram Editor) */}
+      <Modal visible={previewStoryMedia !== null} animationType="slide" transparent={false}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#000' }}>
+          <View style={{ flex: 1, position: 'relative' }}>
+            {/* Immersive Media Preview */}
+            <View style={{ flex: 1, borderRadius: 20, overflow: 'hidden', marginHorizontal: 0, marginTop: 0 }}>
+              {previewMediaType === 'video' ? (
+                <Video
+                  source={{ uri: previewStoryMedia || '' }}
+                  style={{ flex: 1 }}
+                  resizeMode={ResizeMode.COVER}
+                  shouldPlay
+                  isLooping
+                />
+              ) : (
+                <Image source={{ uri: previewStoryMedia || '' }} style={{ flex: 1 }} resizeMode="cover" />
+              )}
+            </View>
+
+            {/* Draggable Overlays */}
+            {storyElements.map(el => (
+              <DraggableElement 
+                key={el.id} 
+                element={el} 
+                isSelected={selectedElementId === el.id}
+                onSelect={setSelectedElementId}
+                onUpdate={updateElementPos}
+                onDelete={deleteElement}
+                onDrag={(moveX: number, moveY: number) => {
+                  if (moveY === 0) {
+                    setIsHoveringDelete(false);
+                  } else {
+                    // Extremely robust collision detection
+                    // Check against absolute measured Y, with a fallback to screen height percentage
+                    const threshold = deleteAreaAbsoluteY ? deleteAreaAbsoluteY - 50 : height - 250;
+                    const isOver = moveY > threshold;
+                    setIsHoveringDelete(isOver);
+                  }
+                }}
+              />
+            ))}
+
+            {/* Delete Area Overlay (Visual hint when dragging) */}
+            {selectedElementId && (
+              <View 
+                ref={deleteAreaRef}
+                onLayout={(e) => {
+                  setDeleteAreaLayout(e.nativeEvent.layout);
+                  deleteAreaRef.current?.measureInWindow((x, y, w, h) => {
+                    if (y > 0) setDeleteAreaAbsoluteY(y);
+                  });
+                }}
+                style={{ position: 'absolute', bottom: 100, alignSelf: 'center', alignItems: 'center', zIndex: 1000 }}
+              >
+                <View style={{ 
+                  backgroundColor: isHoveringDelete ? 'rgba(255,0,0,0.6)' : 'rgba(255,0,0,0.3)', 
+                  padding: isHoveringDelete ? 20 : 15, 
+                  borderRadius: 60, 
+                  borderWidth: 2, 
+                  borderColor: isHoveringDelete ? '#fff' : 'rgba(255,255,255,0.2)',
+                  transform: [{ scale: isHoveringDelete ? 1.2 : 1 }]
+                }}>
+                  <Feather name="trash-2" size={isHoveringDelete ? 40 : 32} color="#fff" />
+                </View>
+                <Text style={{ color: '#fff', fontSize: 12, marginTop: 8, fontWeight: 'bold', textShadowColor: '#000', textShadowRadius: 4 }}>
+                  {isHoveringDelete ? 'RELEASE TO DELETE' : 'DRAG HERE TO DELETE'}
+                </Text>
+              </View>
+            )}
+
+            {/* TOP BAR TOOLS */}
+            <View style={{ position: 'absolute', top: 10, left: 0, right: 0, zIndex: 100, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 15 }}>
+               <TouchableOpacity onPress={() => !isUploading && setPreviewStoryMedia(null)} style={{ padding: 8 }}>
+                 <Feather name="chevron-left" size={32} color="#fff" />
+               </TouchableOpacity>
+
+               <View style={{ flexDirection: 'row', gap: 20, alignItems: 'center' }}>
+                  <TouchableOpacity onPress={() => setActiveEditorMode('text')}>
+                    <MaterialCommunityIcons name="format-text" size={36} color="#fff" />
+                    <Text style={{ color: '#fff', fontSize: 10, textAlign: 'center', fontWeight: '600' }}>Aa</Text>
+                  </TouchableOpacity>
+               </View>
+            </View>
+
+            {/* BOTTOM BAR ACTION */}
+            <View style={{ position: 'absolute', bottom: 20, left: 15, right: 15, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <TouchableOpacity 
+                activeOpacity={0.8}
+                onPress={uploadStoryToServer}
+                disabled={isUploading}
+                style={{
+                  backgroundColor: '#fff',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingVertical: 12,
+                  paddingHorizontal: 20,
+                  borderRadius: 30,
+                  shadowColor: "#000",
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 3.84,
+                  elevation: 5,
+                }}
+              >
+                <Image source={{ uri: resolveImageUrl(homeData?.user?.image_url) }} style={{ width: 28, height: 28, borderRadius: 14, marginRight: 10 }} />
+                <Text style={{ fontSize: 15, fontWeight: '700', color: '#000' }}>
+                  {isUploading ? 'Sharing...' : 'Your story'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={{ backgroundColor: 'rgba(255,255,255,0.2)', padding: 12, borderRadius: 30 }}>
+                <Feather name="arrow-right" size={24} color="#fff" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* FULL SCREEN TEXT EDITOR OVERLAY */}
+          <Modal visible={activeEditorMode === 'text'} transparent animationType="fade">
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)' }}>
+              <SafeAreaView style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', padding: 15 }}>
+                  <TouchableOpacity onPress={() => setTempTextBg(!tempTextBg)} style={{ padding: 10, backgroundColor: tempTextBg ? '#fff' : 'transparent', borderRadius: 10, borderWidth: 1, borderColor: '#fff' }}>
+                    <MaterialCommunityIcons name="format-color-highlight" size={24} color={tempTextBg ? '#000' : '#fff'} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={addTextElement}>
+                    <Text style={{ color: '#fff', fontSize: 18, fontWeight: 'bold', padding: 10 }}>Done</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                  <TextInput
+                    autoFocus
+                    style={{ 
+                      color: tempTextColor, 
+                      fontSize: 42, 
+                      fontWeight: 'bold', 
+                      textAlign: 'center', 
+                      width: '90%',
+                      backgroundColor: tempTextBg ? tempTextColor === '#FFFFFF' ? '#000' : '#FFFFFF' : 'transparent',
+                      paddingHorizontal: 20,
+                      borderRadius: 15
+                    }}
+                    placeholder="Type something..."
+                    placeholderTextColor="rgba(255,255,255,0.3)"
+                    value={tempText}
+                    onChangeText={setTempText}
+                    multiline
+                  />
+                </View>
+
+                {/* Color Picker */}
+                <View style={{ paddingBottom: 20 }}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 15 }}>
+                    {['#FFFFFF', '#000000', '#FF5757', '#57FF57', '#5757FF', '#FFFF57', '#FF57FF', '#57FFFF', '#FFA500'].map(color => (
+                      <TouchableOpacity 
+                        key={color} 
+                        onPress={() => setTempTextColor(color)}
+                        style={{ width: 35, height: 35, borderRadius: 17.5, backgroundColor: color, borderWidth: 3, borderColor: tempTextColor === color ? '#fff' : 'rgba(255,255,255,0.3)' }} 
+                      />
+                    ))}
+                  </ScrollView>
+                </View>
+              </SafeAreaView>
+            </KeyboardAvoidingView>
+          </Modal>
+        </SafeAreaView>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -818,49 +1541,112 @@ const styles = StyleSheet.create({
   },
   storyItemContainer: {
     alignItems: "center",
-    width: 65,
+    width: 72,
   },
-  storyCircle: {
-    width: 65,
-    height: 65,
-    borderRadius: 35,
+  storyRing: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    padding: 2,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 6,
   },
-  addStoryCircle: {
-    // Note: Background removed as we use LinearGradient locally now
-  },
-  addStoryIcon: {
-    color: "white",
-    fontSize: 28,
-    fontWeight: "400",
+  storyCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    padding: 2,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 6,
   },
   userStoryBorder: {
     borderWidth: 2,
     borderColor: "#c026d3",
-    padding: 2,
   },
-  userStoryInner: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 30,
-    backgroundColor: "#fdf2f8",
+  storyProfileImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 2,
+    borderColor: "#fff",
+  },
+  uploadedStoryImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+  },
+  addStoryProfileWrap: {
+    width: 72,
+    height: 72,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 6,
+    position: "relative",
+  },
+  addStoryProfileImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+  },
+  plusIconWrap: {
+    position: "absolute",
+    bottom: 2,
+    right: 2,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    width: 24,
+    height: 24,
     justifyContent: "center",
     alignItems: "center",
   },
-  uploadedStoryImage: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 30,
-  },
-  emojiText: {
-    fontSize: 30,
+  plusIconBg: {
+    backgroundColor: "#3b82f6",
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
   },
   storyName: {
-    fontSize: 12,
+    fontSize: 11,
     color: "#4b5563",
     fontWeight: "500",
+  },
+  storyViewerOverlay: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  storyViewerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    zIndex: 10,
+  },
+  storyViewerProfilePic: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: '#333'
+  },
+  storyViewerUsername: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600'
+  },
+  storyViewerContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#000'
+  },
+  storyViewerImage: {
+    width: '100%',
+    height: '100%',
   },
   dashboardContainer: {
     marginHorizontal: 15,

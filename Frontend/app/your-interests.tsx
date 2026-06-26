@@ -1,16 +1,56 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
+import * as SecureStore from 'expo-secure-store';
+import { API_BASE_URL } from '../constants/Api';
+
 const INTERESTS_LIST = [
-  'Cycling', 'Cricket', 'Meditation & Mindfulness', 'Photography', 'Reading', 'Gym', 'Travel', 'Art & Design', 'Music', 'Cooking', 'Gaming', 'Technology'
+  'Sports & Fitness', 'Music & Jamming', 'Reading & Book Club', 'Study Groups',
+  'Tech & Coding', 'Networking & Meetups', 'Cycling', 'Cricket',
+  'Meditation & Mindfulness', 'Photography', 'Art & Design', 'Gaming', 'Cooking'
 ];
 
 export default function YourInterestsScreen() {
   const router = useRouter();
-  const [selectedInterests, setSelectedInterests] = useState<Set<string>>(new Set(['Cycling', 'Cricket', 'Meditation & Mindfulness']));
+  const [selectedInterests, setSelectedInterests] = useState<Set<string>>(new Set());
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  React.useEffect(() => {
+    const fetchInterests = async () => {
+      try {
+        const token = await SecureStore.getItemAsync('token');
+        if (!token) return;
+
+        const response = await fetch(`${API_BASE_URL}/api/profile/interests`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const interestsArray = data.interests || (Array.isArray(data) ? data : []);
+          
+          // Normalize to match EXACT case of INTERESTS_LIST, or keep custom interest
+          const normalizedInterests = interestsArray.map((savedInterest: string) => {
+            const exactMatch = INTERESTS_LIST.find(
+              (item) => item.toLowerCase() === savedInterest.toLowerCase().trim()
+            );
+            return exactMatch || savedInterest.trim();
+          });
+
+          setSelectedInterests(new Set(normalizedInterests));
+        }
+      } catch (err) {
+        console.error("Error fetching interests:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchInterests();
+  }, []);
 
   const toggleInterest = (interest: string) => {
     setSelectedInterests(prev => {
@@ -24,10 +64,46 @@ export default function YourInterestsScreen() {
     });
   };
 
-  const handleSave = () => {
-    console.log("Interests updated", Array.from(selectedInterests));
-    router.back();
+  const handleSave = async () => {
+    if (selectedInterests.size === 0) {
+      Alert.alert("Error", "Please select at least one interest.");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const token = await SecureStore.getItemAsync('token');
+      const response = await fetch(`${API_BASE_URL}/api/profile/interests`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ interests: Array.from(selectedInterests) })
+      });
+
+      if (response.ok) {
+        console.log("Interests updated");
+        router.back();
+      } else {
+        const errorData = await response.json();
+        Alert.alert("Error", errorData.error || "Failed to update interests");
+      }
+    } catch (err) {
+      console.error("Error updating interests:", err);
+      Alert.alert("Error", "Network error while saving interests.");
+    } finally {
+      setIsSaving(false);
+    }
   };
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#8B00FF" />
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -36,8 +112,10 @@ export default function YourInterestsScreen() {
           <Feather name="arrow-left" size={24} color="#111827" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Your Interests</Text>
-        <TouchableOpacity onPress={handleSave}>
-          <Text style={styles.saveButtonText}>Save</Text>
+        <TouchableOpacity onPress={handleSave} disabled={isSaving}>
+          <Text style={[styles.saveButtonText, isSaving && { opacity: 0.5 }]}>
+            {isSaving ? "Saving..." : "Save"}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -48,7 +126,7 @@ export default function YourInterestsScreen() {
           </Text>
 
           <View style={styles.pillsContainer}>
-            {INTERESTS_LIST.map((interest, index) => {
+            {Array.from(new Set([...INTERESTS_LIST, ...Array.from(selectedInterests)])).map((interest, index) => {
               const isSelected = selectedInterests.has(interest);
               return (
                 <TouchableOpacity 

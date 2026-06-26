@@ -13,7 +13,7 @@ import {
   Platform,
   ActivityIndicator
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
@@ -27,26 +27,16 @@ export default function Signup() {
   const [profileName, setProfileName] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [profession, setProfession] = useState("");
   const [about, setAbout] = useState("");
+  const [pincode, setPincode] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
   const [image, setImage] = useState<string | null>(null);
 
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<any>({});
-
-  // Evaluate password strength
-  const getPasswordStrength = (pass: string) => {
-    if (pass.length === 0) return { label: "", color: "transparent" };
-    if (pass.length < 6) return { label: "Weak", color: "#FF4D4D" };
-    if (pass.length >= 6 && /[A-Z]/.test(pass) && /[0-9]/.test(pass) && /[^A-Za-z0-9]/.test(pass)) {
-      return { label: "Strong", color: "#4CAF50" };
-    }
-    return { label: "Medium", color: "#FFC107" };
-  };
 
   const validate = () => {
     let valid = true;
@@ -57,18 +47,20 @@ export default function Signup() {
       valid = false;
     }
     
-    if (!email.trim() || !/^\S+@\S+\.\S+$/.test(email)) {
+    // Email is optional in DB now, but we keep it if they enter it
+    if (email.trim() && !/^\S+@\S+\.\S+$/.test(email)) {
       newErrors.email = "Valid email is required";
       valid = false;
     }
 
-    if (password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters";
+    const phoneRegex = /^\+?[0-9]{10,15}$/;
+    if (!phoneNumber.trim() || !phoneRegex.test(phoneNumber)) {
+      newErrors.phoneNumber = "Valid phone number is required (e.g. +91...)";
       valid = false;
     }
 
-    if (password !== confirmPassword) {
-      newErrors.confirmPassword = "Passwords do not match";
+    if (!pincode.trim() || !/^\d{6}$/.test(pincode)) {
+      newErrors.pincode = "Valid 6-digit Indian pincode is required";
       valid = false;
     }
 
@@ -82,20 +74,24 @@ export default function Signup() {
 
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/register`, {
+      // Adding AbortController to prevent infinite loading on network failure
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 seconds timeout
+
+      // Send OTP endpoint on backend
+      const response = await fetch(`${API_BASE_URL}/auth/send-otp`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          username,
-          email,
-          password,
-          profession,
-          about,
-          imageUrl: image
+          phoneNumber,
+          purpose: 'signup'
         }),
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
 
       const data = await response.json();
 
@@ -105,19 +101,55 @@ export default function Signup() {
         return;
       }
 
-      // Successfully saved in the database!
-      // Store userId in secure store so onboarding can use it
-      if (data.user && data.user.id) {
-        await SecureStore.setItemAsync('userId', data.user.id.toString());
-      }
-      
-      Alert.alert("Success", "User registered successfully", [
-        { text: "OK", onPress: () => router.replace("/onboarding" as any) }
-      ]);
+      // Navigate to OTP screen passing all the user data
+      router.push({
+        pathname: "/otp",
+        params: {
+          phone: phoneNumber,
+          purpose: 'signup',
+          username,
+          email,
+          profession,
+          about,
+          imageUrl: image,
+          pincode,
+          city,
+          state
+        }
+      });
 
     } catch (error) {
       console.error("Network Error: ", error);
       Alert.alert("Error", "Unable to connect to the server.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const uploadImageToServer = async (uri: string) => {
+    setIsLoading(true);
+    try {
+      const filename = uri.split('/').pop() || 'profile.jpg';
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : `image`;
+
+      const formData = new FormData();
+      formData.append('image', { uri, name: filename, type } as any);
+
+      const response = await fetch(`${API_BASE_URL}/upload`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        Alert.alert("Upload Failed", data.error || "Could not upload image");
+      } else {
+        setImage(data.imageUrl);
+      }
+    } catch (error) {
+      console.error("Upload Error:", error);
+      Alert.alert("Error", "Could not connect to server for image upload.");
     } finally {
       setIsLoading(false);
     }
@@ -146,12 +178,11 @@ export default function Signup() {
       quality: 0.5,
       allowsEditing: true,
       aspect: [1, 1],
-      base64: true
+      base64: false
     });
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
-      const base64Image = `data:image/jpeg;base64,${result.assets[0].base64}`;
-      setImage(base64Image);
+      uploadImageToServer(result.assets[0].uri);
     }
   };
 
@@ -169,12 +200,11 @@ export default function Signup() {
       quality: 0.5,
       allowsEditing: true,
       aspect: [1, 1],
-      base64: true
+      base64: false
     });
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
-      const base64Image = `data:image/jpeg;base64,${result.assets[0].base64}`;
-      setImage(base64Image);
+      uploadImageToServer(result.assets[0].uri);
     }
   };
 
@@ -240,8 +270,20 @@ export default function Signup() {
           />
           {errors.username && <Text style={styles.errorText}>{errors.username}</Text>}
 
+          {/* Phone Number */}
+          <Text style={styles.label}>Phone Number *</Text>
+          <TextInput
+            style={[styles.input, errors.phoneNumber && styles.inputError]}
+            placeholder="e.g. +91 9876543210"
+            value={phoneNumber}
+            onChangeText={(text) => { setPhoneNumber(text); setErrors({ ...errors, phoneNumber: null }); }}
+            keyboardType="phone-pad"
+            autoCapitalize="none"
+          />
+          {errors.phoneNumber && <Text style={styles.errorText}>{errors.phoneNumber}</Text>}
+
           {/* Email */}
-          <Text style={styles.label}>Email Address *</Text>
+          <Text style={styles.label}>Email Address (Optional)</Text>
           <TextInput
             style={[styles.input, errors.email && styles.inputError]}
             placeholder="your@email.com"
@@ -251,6 +293,36 @@ export default function Signup() {
             autoCapitalize="none"
           />
           {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
+
+          {/* Pincode */}
+          <Text style={styles.label}>Pincode (Indian) *</Text>
+          <TextInput
+            style={[styles.input, errors.pincode && styles.inputError]}
+            placeholder="e.g. 440001"
+            value={pincode}
+            onChangeText={(text) => { setPincode(text); setErrors({ ...errors, pincode: null }); }}
+            keyboardType="number-pad"
+            maxLength={6}
+          />
+          {errors.pincode && <Text style={styles.errorText}>{errors.pincode}</Text>}
+
+          {/* City */}
+          <Text style={styles.label}>City (Optional)</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g. Nagpur"
+            value={city}
+            onChangeText={setCity}
+          />
+
+          {/* State */}
+          <Text style={styles.label}>State (Optional)</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g. Maharashtra"
+            value={state}
+            onChangeText={setState}
+          />
 
           {/* Profession */}
           <Text style={styles.label}>Profession (Optional)</Text>
@@ -272,44 +344,7 @@ export default function Signup() {
             maxLength={200}
           />
 
-          {/* Password */}
-          <Text style={styles.label}>Password *</Text>
-          <View style={[styles.passwordContainer, errors.password && styles.inputError]}>
-            <TextInput
-              style={styles.passwordInput}
-              placeholder="Min 6 characters"
-              value={password}
-              onChangeText={(text) => { setPassword(text); setErrors({ ...errors, password: null }); }}
-              secureTextEntry={!showPassword}
-              autoCapitalize="none"
-            />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-              <Feather name={showPassword ? "eye" : "eye-off"} size={20} color="#777" />
-            </TouchableOpacity>
-          </View>
-          {password.length > 0 && (
-            <Text style={[styles.strengthText, { color: getPasswordStrength(password).color }]}>
-              Strength: {getPasswordStrength(password).label}
-            </Text>
-          )}
-          {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
-
-          {/* Confirm Password */}
-          <Text style={styles.label}>Confirm Password *</Text>
-          <View style={[styles.passwordContainer, errors.confirmPassword && styles.inputError]}>
-            <TextInput
-              style={styles.passwordInput}
-              placeholder="Re-enter password"
-              value={confirmPassword}
-              onChangeText={(text) => { setConfirmPassword(text); setErrors({ ...errors, confirmPassword: null }); }}
-              secureTextEntry={!showConfirmPassword}
-              autoCapitalize="none"
-            />
-            <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeIcon}>
-              <Feather name={showConfirmPassword ? "eye" : "eye-off"} size={20} color="#777" />
-            </TouchableOpacity>
-          </View>
-          {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
+          {/* Password removed as per requirement */}
 
           {/* Buttons */}
           <TouchableOpacity 
@@ -320,16 +355,14 @@ export default function Signup() {
             {isLoading ? (
                <ActivityIndicator color="#fff" />
             ) : (
-               <Text style={styles.saveText}>Sign Up →</Text>
+               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                 <MaterialCommunityIcons name="whatsapp" size={20} color="#fff" style={{ marginRight: 8 }} />
+                 <Text style={styles.saveText}>Get OTP</Text>
+               </View>
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.skipBtn}
-            onPress={() => router.replace("/onboarding" as any)}
-          >
-            <Text style={styles.skipText}>Skip for now</Text>
-          </TouchableOpacity>
+
         </KeyboardAwareScrollView>
       </View>
       </LinearGradient>
@@ -476,13 +509,6 @@ const styles = StyleSheet.create({
     fontWeight: "600"
   },
 
-  skipBtn: {
-    padding: 15,
-    alignItems: "center"
-  },
 
-  skipText: {
-    color: "#777"
-  }
 });
 

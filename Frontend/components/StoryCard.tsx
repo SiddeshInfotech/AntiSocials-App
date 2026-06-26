@@ -14,8 +14,9 @@ export type StoryType = {
   id: string;
   user: {
     name: string;
-    avatarEmoji: string;
-    avatarBg: string;
+    avatarEmoji?: string;
+    avatarBg?: string;
+    avatarUrl?: string;
   };
   time: string;
   tag: string;
@@ -65,14 +66,21 @@ export default function StoryCard({ story }: StoryCardProps) {
         {/* Header */}
         <View style={styles.cardHeader}>
           <View style={styles.userInfo}>
-            <View
-              style={[
-                styles.avatarCircle,
-                { backgroundColor: story.user.avatarBg },
-              ]}
-            >
-              <Text style={styles.avatarEmoji}>{story.user.avatarEmoji}</Text>
-            </View>
+            {story.user.avatarUrl ? (
+              <Image 
+                source={{ uri: story.user.avatarUrl }} 
+                style={[styles.avatarCircle, { borderWidth: 0 }]} 
+              />
+            ) : (
+              <View
+                style={[
+                  styles.avatarCircle,
+                  { backgroundColor: story.user.avatarBg || '#F3E8FF' },
+                ]}
+              >
+                <Text style={styles.avatarEmoji}>{story.user.avatarEmoji || '👤'}</Text>
+              </View>
+            )}
             <View>
               <Text style={styles.userName}>{story.user.name}</Text>
               <Text style={styles.postTime}>{story.time}</Text>
@@ -85,11 +93,18 @@ export default function StoryCard({ story }: StoryCardProps) {
         </View>
 
         {/* Story Image */}
-        <Image
-          source={{ uri: story.image }}
-          style={styles.storyImage}
-          resizeMode="cover"
-        />
+        {story.image && !story.image.startsWith('file://') && !story.image.startsWith('data:image') ? (
+          <Image
+            source={{ uri: story.image }}
+            style={styles.storyImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={[styles.storyImage, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#F3E8FF' }]}>
+            <Feather name="image" size={40} color="#A855F7" />
+            <Text style={{ marginTop: 10, color: "#A855F7" }}>Update needed</Text>
+          </View>
+        )}
 
         {/* Footer actions */}
         <View style={styles.footerContainer}>

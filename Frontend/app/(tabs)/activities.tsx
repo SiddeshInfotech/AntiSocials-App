@@ -1,120 +1,188 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, RefreshControl, ActivityIndicator, Image, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { resolveImageUrl } from '../../constants/ImageUtils';
+
+import { API_BASE_URL } from '../../constants/Api';
+import * as SecureStore from 'expo-secure-store';
+import { useIsFocused } from '@react-navigation/native';
+import * as Location from 'expo-location';
 
 interface Activity {
   id: string;
   category: string;
   title: string;
   date: string;
+  time: string;
   location: string;
   joined: number;
   capacity: number;
+  isJoined: boolean;
   creator: {
     name: string;
     initial: string;
     color: string;
   };
   imageColor: string;
+  imageUrl: string | null;
   emoji: string;
+  pincode?: string;
+  city?: string;
+  distance?: number;
 }
-
-const MOCK_ACTIVITIES: Activity[] = [
-  {
-    id: '1',
-    category: 'Photography',
-    title: 'Photography Walk',
-    date: 'Sunday, Dec 22 • 9:00 AM',
-    location: 'Old Town District • 1.5 km away',
-    joined: 8,
-    capacity: 15,
-    creator: {
-      name: 'Michael Chen',
-      initial: 'M',
-      color: '#A855F7', // Purple avatar
-    },
-    imageColor: '#EA580C', // Orange
-    emoji: '📸',
-  },
-  {
-    id: '2',
-    category: 'Yoga & Wellness',
-    title: 'Morning Park Yoga',
-    date: 'Monday, Dec 23 • 7:00 AM',
-    location: 'Riverside Park • 3.2 km away',
-    joined: 12,
-    capacity: 20,
-    creator: {
-      name: 'Emma Wilson',
-      initial: 'E',
-      color: '#3B82F6', // Blue avatar
-    },
-    imageColor: '#EA580C', // Orange
-    emoji: '🧘‍♂️',
-  },
-  {
-    id: '3',
-    category: 'Book Reading',
-    title: 'Book Club Meetup',
-    date: 'Wednesday, Dec 25 • 6:00 PM',
-    location: 'Cozy Café • 0.8 km away',
-    joined: 6,
-    capacity: 10,
-    creator: {
-      name: 'David Kim',
-      initial: 'D',
-      color: '#A855F7', // Purple avatar
-    },
-    imageColor: '#EA580C', // Orange
-    emoji: '📚',
-  },
-  {
-    id: '4',
-    category: 'Running & Walking',
-    title: 'Trail Running Group',
-    date: 'Saturday, Dec 28 • 6:30 AM',
-    location: 'Mountain Trail • 5.2 km away',
-    joined: 10,
-    capacity: 15,
-    creator: {
-      name: 'Lisa Anderson',
-      initial: 'L',
-      color: '#A855F7', // Purple avatar
-    },
-    imageColor: '#EA580C', // Orange
-    emoji: '🏃‍♂️',
-  },
-];
 
 export default function ActivitiesScreen() {
   const router = useRouter();
+  const isFocused = useIsFocused();
   const [activeTab, setActiveTab] = useState<'discover' | 'joined'>('discover');
-  const [joinedActivities, setJoinedActivities] = useState<Set<string>>(new Set());
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [isLocating, setIsLocating] = useState(true);
 
-  const handleToggleJoin = (id: string) => {
-    setJoinedActivities((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(id)) {
-        newSet.delete(id);
-      } else {
-        newSet.add(id);
+  const fetchActivities = async () => {
+    try {
+      setLoading(true);
+      const token = await SecureStore.getItemAsync('token');
+      const response = await fetch(`${API_BASE_URL}/api/activities`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setActivities(data);
       }
-      return newSet;
-    });
+    } catch (error) {
+      console.error('Error fetching activities:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const requestLocationAndFetch = async () => {
+    setIsLocating(true);
+    setLocationError(null);
+    try {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setLocationError("Please enable device location to continue.");
+        setIsLocating(false);
+        return;
+      }
+
+      const providerStatus = await Location.getProviderStatusAsync();
+      if (!providerStatus.locationServicesEnabled) {
+        setLocationError("Please enable device location to continue.");
+        setIsLocating(false);
+        return;
+      }
+
+      let location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const { latitude, longitude } = location.coords;
+      
+      let reverseGeocode = await Location.reverseGeocodeAsync({ latitude, longitude });
+      let pincode, city;
+      if (reverseGeocode.length > 0) {
+        pincode = reverseGeocode[0].postalCode;
+        city = reverseGeocode[0].city || reverseGeocode[0].subregion;
+      }
+
+      const token = await SecureStore.getItemAsync('token');
+      if (token) {
+        const meResponse = await fetch(`${API_BASE_URL}/api/me`, { headers: { 'Authorization': `Bearer ${token}` } });
+        if (meResponse.ok) {
+          const meData = await meResponse.json();
+          await fetch(`${API_BASE_URL}/user/${meData.id}`, {
+            method: 'PATCH',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ latitude, longitude, pincode, city })
+          });
+          fetchActivities();
+        }
+      }
+      setIsLocating(false);
+    } catch (error: any) {
+      console.log('Location fetch failed:', error.message || error);
+      setLocationError("Location unavailable. Please check your GPS.");
+      setIsLocating(false);
+      
+      try {
+        const token = await SecureStore.getItemAsync('token');
+        if (token) {
+          const meResponse = await fetch(`${API_BASE_URL}/api/me`, { headers: { 'Authorization': `Bearer ${token}` } });
+          if (meResponse.ok) {
+            const meData = await meResponse.json();
+            await fetch(`${API_BASE_URL}/user/${meData.id}`, {
+              method: 'PATCH',
+              headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ latitude: null, longitude: null })
+            });
+          }
+        }
+      } catch(e) {}
+    }
+  };
+
+  React.useEffect(() => {
+    if (isFocused) {
+      requestLocationAndFetch();
+    }
+  }, [isFocused]);
+
+  const handleToggleJoin = async (activity: Activity) => {
+    try {
+      const token = await SecureStore.getItemAsync('token');
+      const isJoining = !activity.isJoined;
+      const method = isJoining ? 'POST' : 'DELETE';
+      const endpoint = isJoining ? 'join' : 'leave';
+
+      const response = await fetch(`${API_BASE_URL}/api/activities/${activity.id}/${endpoint}`, {
+        method: method,
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        setActivities(prev => prev.map(a => {
+          if (a.id === activity.id) {
+            return {
+              ...a,
+              isJoined: isJoining,
+              joined: isJoining ? a.joined + 1 : a.joined - 1
+            };
+          }
+          return a;
+        }));
+      } else {
+        const data = await response.json();
+        Alert.alert('Error', data.error || 'Failed to update activity status');
+      }
+    } catch (error) {
+      console.error('Error toggling join:', error);
+      Alert.alert('Error', 'Network error');
+    }
   };
 
   const displayedActivities = activeTab === 'joined' 
-    ? MOCK_ACTIVITIES.filter(a => joinedActivities.has(a.id))
-    : MOCK_ACTIVITIES;
+    ? activities.filter(a => a.isJoined)
+    : activities;
+
+  const joinedCount = activities.filter(a => a.isJoined).length;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <View style={styles.container}>
-        {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Activities</Text>
+          <Text style={styles.headerTitle}>Community Activities</Text>
           <TouchableOpacity 
             style={styles.addButton}
             onPress={() => router.push('/create-activity' as any)}
@@ -123,48 +191,87 @@ export default function ActivitiesScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Tab Toggle */}
-        <View style={styles.tabContainer}>
-          <TouchableOpacity
-            style={[styles.tabButton, activeTab === 'discover' && styles.tabButtonActive]}
-            onPress={() => setActiveTab('discover')}
-          >
-            <Text style={[styles.tabText, activeTab === 'discover' && styles.tabTextActive]}>
-              Discover
+        {isLocating ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator size="large" color="#EA580C" />
+            <Text style={{ marginTop: 16, color: '#6B7280', fontSize: 16 }}>Detecting location...</Text>
+          </View>
+        ) : locationError ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 }}>
+            <Feather name="map-pin" size={56} color="#D1D5DB" style={{ marginBottom: 20 }} />
+            <Text style={{ fontSize: 20, color: '#111827', textAlign: 'center', marginBottom: 12, fontWeight: '700' }}>
+              Location Unavailable
             </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tabButton, activeTab === 'joined' && styles.tabButtonActive]}
-            onPress={() => setActiveTab('joined')}
-          >
-            <Text style={[styles.tabText, activeTab === 'joined' && styles.tabTextActive]}>
-              Joined ({joinedActivities.size})
+            <Text style={{ fontSize: 15, color: '#6B7280', textAlign: 'center', marginBottom: 32, lineHeight: 22 }}>
+              {locationError}
             </Text>
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity 
+              style={{ backgroundColor: '#EA580C', paddingHorizontal: 32, paddingVertical: 14, borderRadius: 12, width: '100%' }}
+              onPress={requestLocationAndFetch}
+            >
+              <Text style={{ color: 'white', fontWeight: '600', fontSize: 16, textAlign: 'center' }}>Enable Location & Retry</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <>
+            {/* Tab Toggle */}
+            <View style={styles.tabContainer}>
+              <TouchableOpacity
+                style={[styles.tabButton, activeTab === 'discover' && styles.tabButtonActive]}
+                onPress={() => setActiveTab('discover')}
+              >
+                <Text style={[styles.tabText, activeTab === 'discover' && styles.tabTextActive]}>
+                  Discover
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.tabButton, activeTab === 'joined' && styles.tabButtonActive]}
+                onPress={() => setActiveTab('joined')}
+              >
+                <Text style={[styles.tabText, activeTab === 'joined' && styles.tabTextActive]}>
+                  Joined ({joinedCount})
+                </Text>
+              </TouchableOpacity>
+            </View>
 
-        {/* Filter Button */}
-        <TouchableOpacity style={styles.filterButton}>
-          <Feather name="filter" size={16} color="#4B5563" />
-          <Text style={styles.filterText}>Filter by interests</Text>
-        </TouchableOpacity>
+            {/* Filter Button */}
+            <TouchableOpacity style={styles.filterButton}>
+              <Feather name="filter" size={16} color="#4B5563" />
+              <Text style={styles.filterText}>Filter by interests</Text>
+            </TouchableOpacity>
 
-        <ScrollView style={styles.listContainer} showsVerticalScrollIndicator={false}>
-          {displayedActivities.length === 0 && activeTab === 'joined' ? (
+            <ScrollView 
+          style={styles.listContainer} 
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchActivities(); }} />
+          }
+        >
+          {loading && !refreshing ? (
+            <View style={{ padding: 20, alignItems: 'center' }}>
+               <ActivityIndicator color="#EA580C" />
+            </View>
+          ) : displayedActivities.length === 0 ? (
             <View style={styles.emptyStateContainer}>
-              <Text style={styles.emptyStateText}>You haven't joined any activities yet.</Text>
-              <TouchableOpacity onPress={() => setActiveTab('discover')} style={styles.discoverButton}>
-                 <Text style={styles.discoverButtonText}>Discover Activities</Text>
+              <Text style={styles.emptyStateText}>
+                {activeTab === 'joined' ? "You haven't joined any activities yet." : "No activities found."}
+              </Text>
+              <TouchableOpacity onPress={() => activeTab === 'joined' ? setActiveTab('discover') : router.push('/create-activity' as any)} style={styles.discoverButton}>
+                 <Text style={styles.discoverButtonText}>
+                   {activeTab === 'joined' ? 'Discover Activities' : 'Create First Activity'}
+                 </Text>
               </TouchableOpacity>
             </View>
           ) : displayedActivities.map((activity) => {
-            const isJoined = joinedActivities.has(activity.id);
             return (
             <View key={activity.id} style={styles.card}>
               {/* Card Image Placeholder */}
-              <View style={[styles.cardImage, { backgroundColor: activity.imageColor }]}>
-                {/* Normally an image goes here, we'll use an emoji as a placeholder matching the design */}
-                <Text style={styles.emojiPlaceholder}>{activity.emoji}</Text>
+              <View style={[styles.cardImage, { backgroundColor: activity.imageColor || '#f3f4f6' }]}>
+                {activity.imageUrl ? (
+                  <Image source={{ uri: resolveImageUrl(activity.imageUrl) }} style={{ width: '100%', height: '100%' }} />
+                ) : (
+                  <Text style={styles.emojiPlaceholder}>{activity.emoji}</Text>
+                )}
               </View>
 
               {/* Card Content */}
@@ -181,11 +288,14 @@ export default function ActivitiesScreen() {
                 <View style={styles.detailsContainer}>
                   <View style={styles.detailRow}>
                     <Feather name="calendar" size={16} color="#6B7280" style={styles.detailIcon} />
-                    <Text style={styles.detailText}>{activity.date}</Text>
+                    <Text style={styles.detailText}>{activity.date} • {activity.time}</Text>
                   </View>
                   <View style={styles.detailRow}>
                     <Feather name="map-pin" size={16} color="#6B7280" style={styles.detailIcon} />
-                    <Text style={styles.detailText}>{activity.location}</Text>
+                    <Text style={styles.detailText}>
+                      {activity.location} {activity.city ? `(${activity.city})` : ''} 
+                      {activity.distance ? ` • ${activity.distance.toFixed(1)} km away` : (activity.pincode ? ` • ${activity.pincode}` : '')}
+                    </Text>
                   </View>
                   <View style={styles.detailRow}>
                     <Feather name="users" size={16} color="#6B7280" style={styles.detailIcon} />
@@ -207,11 +317,11 @@ export default function ActivitiesScreen() {
                     <Text style={styles.creatorName}>by {activity.creator.name}</Text>
                   </View>
                   <TouchableOpacity 
-                    style={[styles.joinButton, isJoined && styles.joinButtonActive]}
-                    onPress={() => handleToggleJoin(activity.id)}
+                    style={[styles.joinButton, activity.isJoined && styles.joinButtonActive]}
+                    onPress={() => handleToggleJoin(activity)}
                   >
-                    <Text style={[styles.joinButtonText, isJoined && styles.joinedButtonTextActive]}>
-                      {isJoined ? 'Joined ✓' : 'Join'}
+                    <Text style={[styles.joinButtonText, activity.isJoined && styles.joinedButtonTextActive]}>
+                      {activity.isJoined ? 'Joined ✓' : 'Join'}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -231,6 +341,8 @@ export default function ActivitiesScreen() {
 
           <View style={{ height: 40 }} />
         </ScrollView>
+        </>
+        )}
       </View>
     </SafeAreaView>
   );

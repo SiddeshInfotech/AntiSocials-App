@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Animated, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,9 +10,7 @@ import { API_BASE_URL } from '../constants/Api';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const [emailOrUsername, setEmailOrUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -50,46 +48,48 @@ export default function LoginScreen() {
     */
   }, []);
 
-  const handleLogin = async () => {
+  const handleSendOTP = async () => {
     setError('');
-    if (!emailOrUsername || !password) {
-      setError('Please fill in all fields');
-      return;
-    }
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+    
+    // Basic phone validation (allowing optional + and digits)
+    const phoneRegex = /^\+?[0-9]{10,15}$/;
+    if (!phoneNumber || !phoneRegex.test(phoneNumber)) {
+      setError('Please enter a valid phone number');
       return;
     }
 
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/login`, {
+      // Adding AbortController to prevent infinite loading on network failure
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 seconds timeout
+      const response = await fetch(`${API_BASE_URL}/auth/send-otp`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          emailOrUsername,
-          password
+          phoneNumber,
+          purpose: 'login'
         }),
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
 
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error || "Invalid credentials");
+        setError(data.error || "Failed to send OTP");
         setIsLoading(false);
         return;
       }
 
-      await SecureStore.setItemAsync('token', data.token);
-      if (data.user && data.user.id) {
-        await SecureStore.setItemAsync('userId', data.user.id.toString());
-      }
-      router.replace('/(tabs)' as any);
+      // Navigate to OTP screen
+      router.push({ pathname: '/otp', params: { phone: phoneNumber, purpose: 'login' } });
 
     } catch (error) {
-      console.error("Login Error: ", error);
+      console.error("OTP Error: ", error);
       setError("Unable to connect to the server.");
     } finally {
       setIsLoading(false);
@@ -136,59 +136,45 @@ export default function LoginScreen() {
             {/* Input Container */}
             <View style={styles.inputContainer}>
               <View style={styles.inputWrapper}>
-                <Feather name="user" size={20} color="#9CA3AF" style={styles.inputIcon} />
+                <Feather name="phone" size={20} color="#9CA3AF" style={styles.inputIcon} />
                 <TextInput
                   style={styles.inputField}
-                  placeholder="Email or Username"
+                  placeholder="Enter phone number (e.g. +91...)"
                   placeholderTextColor="#A1A1AA"
-                  value={emailOrUsername}
-                  onChangeText={setEmailOrUsername}
+                  value={phoneNumber}
+                  onChangeText={setPhoneNumber}
+                  keyboardType="phone-pad"
                   autoCapitalize="none"
                 />
-              </View>
-
-              <View style={styles.passwordWrapper}>
-                <Feather name="lock" size={20} color="#9CA3AF" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.passwordInput}
-                  placeholder="Password"
-                  placeholderTextColor="#A1A1AA"
-                  secureTextEntry={!showPassword}
-                  value={password}
-                  onChangeText={setPassword}
-                  autoCapitalize="none"
-                />
-                <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-                  <Feather name={showPassword ? "eye" : "eye-off"} size={20} color="#9CA3AF" />
-                </TouchableOpacity>
               </View>
             </View>
-
-            <TouchableOpacity 
-              style={styles.forgotPassword}
-              onPress={() => router.push('/forgot-password')}
-            >
-              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-            </TouchableOpacity>
 
             {/* Button */}
             <TouchableOpacity 
               style={[
                 styles.button, 
-                (!emailOrUsername || password.length < 6) ? styles.buttonDisabled : styles.buttonActive
+                (!phoneNumber) ? styles.buttonDisabled : styles.buttonActive
               ]}
-              disabled={!emailOrUsername || password.length < 6 || isLoading}
-              onPress={handleLogin}
+              disabled={!phoneNumber || isLoading}
+              onPress={handleSendOTP}
             >
               {isLoading ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={[
-                  styles.buttonText,
-                  (!emailOrUsername || password.length < 6) ? styles.buttonTextDisabled : styles.buttonTextActive
-                ]}>
-                  Login
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                  <MaterialCommunityIcons 
+                    name="whatsapp" 
+                    size={22} 
+                    color={!phoneNumber ? "#9CA3AF" : "#FFFFFF"} 
+                    style={{ marginRight: 8 }} 
+                  />
+                  <Text style={[
+                    styles.buttonText,
+                    (!phoneNumber) ? styles.buttonTextDisabled : styles.buttonTextActive
+                  ]}>
+                    Send OTP
+                  </Text>
+                </View>
               )}
             </TouchableOpacity>
 
