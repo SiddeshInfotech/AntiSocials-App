@@ -1,6 +1,6 @@
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useIsFocused } from "@react-navigation/native";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import TasksJourneySection from "../../components/TasksJourneySection";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
@@ -26,7 +26,7 @@ import {
   TextInput,
   PanResponder,
 } from "react-native";
-import { API_BASE_URL } from "../../constants/Api";
+import { apiFetch, API_BASE_URL } from "../../constants/Api";
 import { resolveImageUrl } from "../../constants/ImageUtils";
 import {
   SafeAreaView,
@@ -653,6 +653,7 @@ const AnimatedBuddyContainer = ({
 };
 
 export default function HomeScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
   const { updatedPoints, updatedStreak } = useLocalSearchParams<{ updatedPoints?: string, updatedStreak?: string }>();
@@ -727,7 +728,7 @@ export default function HomeScreen() {
   const trackView = async (storyId: number) => {
     try {
       const token = await SecureStore.getItemAsync('token');
-      await fetch(`${API_BASE_URL}/api/stories/${storyId}/view`, {
+      await apiFetch(`/api/stories/${storyId}/view`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -740,7 +741,7 @@ export default function HomeScreen() {
     if (!storyId) return;
     try {
       const token = await SecureStore.getItemAsync('token');
-      const response = await fetch(`${API_BASE_URL}/api/stories/${storyId}/views`, {
+      const response = await apiFetch(`/api/stories/${storyId}/views`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -777,7 +778,7 @@ export default function HomeScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (!token) return;
-      const response = await fetch(`${API_BASE_URL}/api/user/summary`, {
+      const response = await apiFetch('/api/user/summary', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -802,7 +803,7 @@ export default function HomeScreen() {
       const token = await SecureStore.getItemAsync('token');
       console.log('📌 fetchHomeData: token exists:', !!token);
       if (!token) return;
-      const response = await fetch(`${API_BASE_URL}/api/home`, {
+      const response = await apiFetch('/api/home', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
@@ -825,6 +826,7 @@ export default function HomeScreen() {
   const completeTaskApi = async (taskName: string) => {
     try {
       const taskMap: Record<string, string> = {
+        'Gratitude': 'Gratitude for Body',
         'Reflect': 'Write 1 word about how you feel',
         'Smile': 'Smile intentionally',
         'Breathe': 'Breathe consciously for 3 minutes',
@@ -835,7 +837,7 @@ export default function HomeScreen() {
       const fullTaskName = taskMap[taskName] || taskName;
 
       const token = await SecureStore.getItemAsync('token');
-      const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+      const response = await apiFetch('/api/tasks/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ task_name: fullTaskName })
@@ -892,7 +894,7 @@ export default function HomeScreen() {
       const formData = new FormData();
       formData.append('image', { uri: previewStoryMedia, name: filename, type } as any);
 
-      const uploadRes = await fetch(`${API_BASE_URL}/upload`, {
+      const uploadRes = await apiFetch('/upload', {
         method: "POST",
         body: formData,
       });
@@ -901,7 +903,7 @@ export default function HomeScreen() {
       if (!uploadRes.ok) throw new Error(uploadData.error || "Upload failed");
 
       // 2. Save story metadata
-      const response = await fetch(`${API_BASE_URL}/api/stories`, {
+      const response = await apiFetch('/api/stories', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -937,7 +939,7 @@ export default function HomeScreen() {
   const deleteStory = async (storyId: number) => {
     try {
       const token = await SecureStore.getItemAsync('token');
-      const response = await fetch(`${API_BASE_URL}/api/stories/${storyId}`, {
+      const response = await apiFetch(`/api/stories/${storyId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -1121,7 +1123,11 @@ export default function HomeScreen() {
                 { label: "Stretch", emoji: "🧘" },
                 { label: "Silent", emoji: "🤫" },
                 { label: "Outside", emoji: "👀" },
+                { label: "Connect", emoji: "🤝" },
+                { label: "Gratitude", emoji: "🧘‍♀️" },
+                { label: "Walk", emoji: "👣" },
               ];
+
               const BUTTON_SIZE = 70;
               // Circle is always centered on the full container dimensions
               const cx = circleSize.w / 2;
@@ -1155,6 +1161,32 @@ export default function HomeScreen() {
                 Haptics.notificationAsync(
                   Haptics.NotificationFeedbackType.Success,
                 );
+                
+                // Handle complex tasks that have their own routes
+                if (task === "Connect") {
+                  router.push("/ask");
+                  setActiveTask(null);
+                  return;
+                }
+                
+                if (task === "Gratitude") {
+                  router.push("/gratitude" as any);
+                  setActiveTask(null);
+                  return;
+                }
+
+                if (task === "Walk") {
+                  router.push("/walk" as any);
+                  setActiveTask(null);
+                  return;
+                }
+
+                if (task === "Stretch") {
+                  router.push("/stretch" as any);
+                  setActiveTask(null);
+                  return;
+                }
+
                 completeTaskApi(task);
                 Alert.alert(
                   `Completed ${task}`,

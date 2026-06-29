@@ -6,11 +6,11 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch } from '../constants/Api';
 
 export default function OTPScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ phone?: string, purpose?: string, username?: string, email?: string, profession?: string, about?: string, imageUrl?: string }>();
+  const params = useLocalSearchParams<{ phone?: string, purpose?: string, username?: string, email?: string, profession?: string, about?: string, imageUrl?: string, devOtp?: string }>();
   const phone = params.phone || '';
   const purpose = params.purpose || 'login';
 
@@ -31,11 +31,18 @@ export default function OTPScreen() {
     return () => clearInterval(interval);
   }, [timer]);
 
+  useEffect(() => {
+    if (params.devOtp && params.devOtp.length === 6) {
+      const digits = params.devOtp.split('');
+      setOtp(digits);
+    }
+  }, [params.devOtp]);
+
   const handleResend = async () => {
     setTimer(26);
     setError('');
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/send-otp`, {
+      const response = await apiFetch('/auth/send-otp', {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phoneNumber: phone, purpose }),
@@ -82,7 +89,7 @@ export default function OTPScreen() {
     const otpCode = otp.join('');
     try {
       // 1. Verify OTP
-      const verifyRes = await fetch(`${API_BASE_URL}/auth/verify-otp`, {
+      const verifyRes = await apiFetch('/auth/verify-otp', {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phoneNumber: phone, otp: otpCode, purpose }),
@@ -96,7 +103,7 @@ export default function OTPScreen() {
 
       // 2. Perform Login or Register
       if (purpose === 'signup') {
-        const regRes = await fetch(`${API_BASE_URL}/auth/register`, {
+        const regRes = await apiFetch('/auth/register', {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -121,7 +128,7 @@ export default function OTPScreen() {
         router.replace('/onboarding' as any);
       } else {
         // purpose === 'login'
-        const loginRes = await fetch(`${API_BASE_URL}/auth/login`, {
+        const loginRes = await apiFetch('/auth/login', {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ phoneNumber: phone }),
@@ -181,6 +188,15 @@ export default function OTPScreen() {
             <Text style={styles.descriptionText}>
               This helps us confirm it's really you.
             </Text>
+
+            {/* Dev Mode OTP Banner */}
+            {params.devOtp ? (
+              <View style={styles.devBanner}>
+                <Text style={styles.devBannerText}>
+                  Development Code: <Text style={styles.devBannerCode}>{params.devOtp}</Text>
+                </Text>
+              </View>
+            ) : null}
 
             {/* OTP Inputs */}
             <View style={styles.otpContainer}>
@@ -359,6 +375,27 @@ const styles = StyleSheet.create({
   linkText: {
     color: '#9333EA',
     fontWeight: '500',
+  },
+  devBanner: {
+    backgroundColor: '#F3E8FF',
+    borderColor: '#C084FC',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    marginBottom: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  devBannerText: {
+    color: '#6B21A8',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  devBannerCode: {
+    fontWeight: '700',
+    fontSize: 16,
+    color: '#7E22CE',
   },
 });
 

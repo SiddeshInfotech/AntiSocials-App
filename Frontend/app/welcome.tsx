@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Animated, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Animated, Image, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as SecureStore from 'expo-secure-store';
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch } from '../constants/Api';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -60,10 +60,7 @@ export default function LoginScreen() {
 
     setIsLoading(true);
     try {
-      // Adding AbortController to prevent infinite loading on network failure
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 seconds timeout
-      const response = await fetch(`${API_BASE_URL}/auth/send-otp`, {
+      const response = await apiFetch('/auth/send-otp', {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -82,8 +79,18 @@ export default function LoginScreen() {
         return;
       }
 
-      // Navigate to OTP screen
-      router.push({ pathname: '/otp', params: { phone: phoneNumber, purpose: 'login' } });
+      // Show alert with OTP as a notification fallback
+      if (data.otp) {
+        Alert.alert(
+          "OTP Sent",
+          `Your verification code is: ${data.otp}\n(Sent via WhatsApp / local fallback)`,
+          [{ text: "OK", onPress: () => {
+            router.push({ pathname: '/otp', params: { phone: phoneNumber, purpose: 'login', devOtp: data.otp } });
+          }}]
+        );
+      } else {
+        router.push({ pathname: '/otp', params: { phone: phoneNumber, purpose: 'login' } });
+      }
 
     } catch (error) {
       console.error("OTP Error: ", error);

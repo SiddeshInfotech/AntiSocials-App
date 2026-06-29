@@ -47,8 +47,11 @@ export default function RootLayout() {
             <Stack.Screen name="volunteer-interest" options={{ headerShown: false }} />
             <Stack.Screen name="volunteer-task" options={{ headerShown: false }} />
             <Stack.Screen name="breath-task" options={{ headerShown: false }} />
+             <Stack.Screen name="observe-emotion" options={{ headerShown: false }} />
             <Stack.Screen name="cleanup-task" options={{ headerShown: false }} />
             <Stack.Screen name="group-trip" options={{ headerShown: false }} />
+            <Stack.Screen name="gratitude" options={{ headerShown: false }} />
+            <Stack.Screen name="ask" options={{ headerShown: false }} />
           </Stack>
           <StatusBar style="dark" />
         </ThemeProvider>

@@ -24,6 +24,14 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       route: "/breath-task",
     },
     {
+      emoji: "🐶",
+      difficulty: "easy",
+      title: "Observe One Emotion for 5 Minutes",
+      subtitle: "Calming 5m timer with cute puppy companion",
+      points: "+10 Coins",
+      route: "/observe-emotion",
+    },
+    {
       emoji: "💧",
       difficulty: "easy",
       title: "Drink a glass of water mindfully",
@@ -56,6 +64,14 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       route: "/outside-task",
     },
     {
+      emoji: "🧘‍♀️",
+      difficulty: "medium",
+      title: "Gratitude for Body",
+      subtitle: "Premium body appreciation journey",
+      points: "+500 points",
+      route: "/gratitude",
+    },
+    {
       emoji: "✍️",
       difficulty: "medium",
       title: "Write 1 word about how you feel",
@@ -63,6 +79,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       points: "+300 points",
       route: "/write-task",
     },
+
     {
       emoji: "😊",
       difficulty: "easy",
@@ -80,13 +97,38 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       route: "/call-friend",
     },
     {
-      emoji: "🤝",
-      difficulty: "medium",
-      title: "Spend 20 minutes offline with someone",
-      subtitle: "Be present with a real person",
+      emoji: "✨",
+      difficulty: "hard",
+      title: "Today's Connection",
+      subtitle: "A premium 6-step cinematic conversation journey",
       points: "+500 points",
-      route: "/offline-time",
+      route: "/ask",
     },
+    {
+      emoji: "👣",
+      difficulty: "medium",
+      title: "Walk Slowly",
+      subtitle: "Mindful 10m walking journey with calming video",
+      points: "+400 points",
+      route: "/walk",
+    },
+    {
+      emoji: "🧘",
+      difficulty: "beginner",
+      title: "Morning Stretch",
+      subtitle: "Wake your body gently with 5 mindful exercises",
+      points: "+500 points",
+      route: "/stretch",
+    },
+    {
+      emoji: "🧠",
+      difficulty: "medium",
+      title: "Replace One Negative Thought",
+      subtitle: "Transform a limiting belief into a powerful mindset",
+      points: "+600 points",
+      route: "/negativeThought",
+    },
+
     {
       emoji: "🌙",
       difficulty: "hard",
