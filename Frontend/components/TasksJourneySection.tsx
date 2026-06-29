@@ -128,6 +128,14 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       points: "+600 points",
       route: "/negativeThought",
     },
+    {
+      emoji: "👁️",
+      difficulty: "medium",
+      title: "Observe Thoughts",
+      subtitle: "Relax, observe your thoughts, and find mental calm",
+      points: "+500 points",
+      route: "/positiveThought",
+    },
 
     {
       emoji: "🌙",

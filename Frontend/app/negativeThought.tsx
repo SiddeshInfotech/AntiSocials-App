@@ -6,7 +6,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   FadeIn, FadeInDown, FadeInUp, useAnimatedStyle, useSharedValue,
-  withSpring, withTiming, withRepeat, withSequence, runOnJS,
+  withSpring, withTiming, withRepeat, withSequence, runOnJS, withDelay,
 } from 'react-native-reanimated';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -193,22 +193,7 @@ function IntroScreen({ onBegin }: { onBegin:()=>void }) {
 // ══════════════════════════════════════════════════════════════════════════
 // SCREEN 2 — Catch Your Thought
 // ══════════════════════════════════════════════════════════════════════════
-function CatchScreen({ thought, setThought, isRecording, setIsRecording, onContinue }: any) {
-  const micPulse = useSharedValue(1);
-  useEffect(() => {
-    if (isRecording) {
-      micPulse.value = withRepeat(withSequence(
-        withTiming(1.2, { duration: 600 }), withTiming(1, { duration: 600 })
-      ), -1, true);
-      const t = setTimeout(() => { setIsRecording(false); if (!thought) setThought('I feel overwhelmed sometimes...'); }, 3000);
-      return () => clearTimeout(t);
-    } else {
-      micPulse.value = withTiming(1);
-    }
-  }, [isRecording]);
-
-  const micStyle = useAnimatedStyle(() => ({ transform:[{ scale: micPulse.value }] }));
-
+function CatchScreen({ thought, setThought, onContinue }: any) {
   return (
     <View style={{ flex:1 }}>
       <StatusBar style="dark" />
@@ -218,11 +203,10 @@ function CatchScreen({ thought, setThought, isRecording, setIsRecording, onConti
         <ScrollView contentContainerStyle={{ padding:24, paddingBottom:130 }} showsVerticalScrollIndicator={false}>
           <Animated.View entering={FadeInDown.duration(600)}>
             <Text style={ss.catchTitle}>What's bothering{'\n'}you today?</Text>
-            <Text style={ss.catchSub}>Write or speak your negative thought.</Text>
           </Animated.View>
 
           <Animated.View entering={FadeInDown.delay(200).duration(600)} style={ss.catchInputCard}>
-            <TextInput style={ss.catchInput} placeholder="Type your thought here..."
+            <TextInput style={ss.catchInput} placeholder="Write your negative thought..."
               placeholderTextColor="#A78BFA" value={thought} onChangeText={setThought}
               multiline maxLength={200} />
             <Text style={ss.charCount}>{thought.length}/200</Text>
@@ -235,21 +219,6 @@ function CatchScreen({ thought, setThought, isRecording, setIsRecording, onConti
                 <Text style={ss.exPillText}>{ex}</Text>
               </TouchableOpacity>
             ))}
-          </Animated.View>
-
-          <Animated.View entering={FadeInDown.delay(600).duration(600)} style={ss.orRow}>
-            <View style={ss.orLine} /><Text style={ss.orText}>or</Text><View style={ss.orLine} />
-          </Animated.View>
-
-          <Animated.View entering={FadeInDown.delay(800).duration(600)} style={{ alignItems:'center' }}>
-            <Animated.View style={micStyle}>
-              <TouchableOpacity style={ss.micCircle} onPress={() => setIsRecording(!isRecording)} activeOpacity={0.8}>
-                <LinearGradient colors={isRecording ? ['#EF4444','#DC2626'] : [C.violet,C.indigo]} style={ss.micInner}>
-                  <Ionicons name={isRecording ? 'stop' : 'mic'} size={32} color={C.white} />
-                </LinearGradient>
-              </TouchableOpacity>
-            </Animated.View>
-            <Text style={ss.micLabel}>{isRecording ? '🔴  Recording...' : 'Tap to speak'}</Text>
           </Animated.View>
         </ScrollView>
 
@@ -547,26 +516,117 @@ function BelieveScreen({ affirmation, onComplete }: any) {
 // SCREEN 7 — Plant Your Thought
 // ══════════════════════════════════════════════════════════════════════════
 function PlantScreen({ affirmation, onContinue }: any) {
-  const plantScale  = useSharedValue(0);
-  const leaf1Scale  = useSharedValue(0);
-  const leaf2Scale  = useSharedValue(0);
-  const leafGlow    = useSharedValue(0.5);
-  const plantY      = useSharedValue(40);
+  const seedY = useSharedValue(-150);
+  const seedScale = useSharedValue(0);
+  const rippleScale = useSharedValue(0.5);
+  const rippleOpacity = useSharedValue(0);
+  
+  const sproutScale = useSharedValue(0);
+  const stemHeight = useSharedValue(0);
+  const leaf1Scale = useSharedValue(0);
+  const leaf2Scale = useSharedValue(0);
+  const leafGlow = useSharedValue(0.5);
+  const affirmOpacity = useSharedValue(0);
+  const [animationFinished, setAnimationFinished] = useState(false);
 
   useEffect(() => {
-    plantScale.value = withTiming(1, { duration:1200 });
-    plantY.value     = withTiming(0, { duration:1200 });
-    setTimeout(() => { leaf1Scale.value = withSpring(1,{ damping:10 }); }, 1000);
-    setTimeout(() => { leaf2Scale.value = withSpring(1,{ damping:10 }); }, 1500);
+    // 1. Seed scale: appear at 0ms, fall, bounce, fade out at 1300ms
+    seedScale.value = withSequence(
+      withTiming(1, { duration: 200 }), // appear
+      withDelay(800, withSequence( // drop duration is 800ms, then bounce:
+        withTiming(1.2, { duration: 100 }),
+        withTiming(0.8, { duration: 100 }),
+        withTiming(1, { duration: 100 }),
+        withTiming(0, { duration: 300 }) // fade out/shrink
+      ))
+    );
+
+    // 2. Seed Y: drop from -150 to 0
+    seedY.value = withSequence(
+      withTiming(-150, { duration: 200 }), // hold at start
+      withTiming(0, { duration: 800 })     // drop
+    );
+
+    // 3. Ripple
+    rippleScale.value = withDelay(1000, withTiming(2.5, { duration: 600 }));
+    rippleOpacity.value = withDelay(1000, withSequence(
+      withTiming(1, { duration: 100 }),
+      withTiming(0, { duration: 500 })
+    ));
+
+    // 4. Sprout scale
+    sproutScale.value = withDelay(1300, withTiming(1, { duration: 600 }));
+
+    // 5. Stem grow
+    stemHeight.value = withDelay(1900, withTiming(100, { duration: 1200 }));
+
+    // 6. Leaves
+    leaf1Scale.value = withDelay(2800, withSpring(1, { damping: 10 }));
+    leaf2Scale.value = withDelay(3200, withSpring(1, { damping: 10 }));
+
+    // 7 & 8. Affirmation & final glow
+    affirmOpacity.value = withDelay(3800, withTiming(1, { duration: 800 }, (finished) => {
+      if (finished) {
+        runOnJS(setAnimationFinished)(true);
+      }
+    }));
+
+    // Glow pulsing
     leafGlow.value = withRepeat(withSequence(
-      withTiming(1,{ duration:2000 }), withTiming(0.4,{ duration:2000 })
+      withTiming(1, { duration: 2000 }), withTiming(0.4, { duration: 2000 })
     ), -1, true);
   }, []);
 
-  const plantStyle = useAnimatedStyle(() => ({ transform:[{ scale:plantScale.value },{ translateY:plantY.value }] }));
-  const l1Style    = useAnimatedStyle(() => ({ transform:[{ scale:leaf1Scale.value }] }));
-  const l2Style    = useAnimatedStyle(() => ({ transform:[{ scale:leaf2Scale.value }] }));
-  const glowStyle  = useAnimatedStyle(() => ({ opacity: leafGlow.value }));
+  const seedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: seedY.value }, { scale: seedScale.value }],
+    opacity: seedScale.value > 0 ? 1 : 0
+  }));
+
+  const rippleStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: rippleScale.value }],
+    opacity: rippleOpacity.value
+  }));
+
+  const sproutStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: sproutScale.value }],
+    opacity: sproutScale.value
+  }));
+
+  const stemStyle = useAnimatedStyle(() => ({
+    height: stemHeight.value
+  }));
+
+  const l1Style = useAnimatedStyle(() => {
+    const currentHeight = stemHeight.value;
+    const opacity = currentHeight >= 45 ? leaf1Scale.value : 0;
+    return {
+      bottom: 24 + Math.min(currentHeight, 55),
+      transform: [{ scale: leaf1Scale.value }],
+      opacity,
+    };
+  });
+
+  const l2Style = useAnimatedStyle(() => {
+    const currentHeight = stemHeight.value;
+    const opacity = currentHeight >= 75 ? leaf2Scale.value : 0;
+    return {
+      bottom: 24 + Math.min(currentHeight, 80),
+      transform: [{ scale: leaf2Scale.value }],
+      opacity,
+    };
+  });
+
+  const affirmStyle = useAnimatedStyle(() => {
+    const currentHeight = stemHeight.value;
+    const opacity = currentHeight >= 95 ? affirmOpacity.value : 0;
+    return {
+      bottom: 24 + currentHeight,
+      transform: [{ scale: affirmOpacity.value }],
+      opacity,
+    };
+  });
+
+  const glowStyle = useAnimatedStyle(() => ({ opacity: leafGlow.value }));
 
   return (
     <View style={{ flex:1 }}>
@@ -581,29 +641,47 @@ function PlantScreen({ affirmation, onContinue }: any) {
             <Text style={ss.plantSub}>Let's grow this positive belief within you.</Text>
           </Animated.View>
 
-          {/* Plant illustration */}
-          <Animated.View style={[{ alignItems:'center' }, plantStyle]}>
-            {/* Stem */}
-            <View style={ss.stem} />
-            {/* Leaves */}
-            <Animated.View style={[ss.leaf1Wrap, l1Style]}>
+          {/* Plant illustration container */}
+          <View style={{ width: 300, height: 260, position: 'relative', alignItems: 'center', justifyContent: 'flex-end' }}>
+            
+            {/* 1. Soil / Ground */}
+            <View style={[ss.ground, { position: 'absolute', bottom: 10, width: 220, height: 14 }]} />
+
+            {/* 2. Water Ripple */}
+            <Animated.View style={[{ position: 'absolute', bottom: 12, width: 40, height: 10, borderRadius: 20, borderWidth: 2, borderColor: '#60A5FA', alignSelf: 'center' }, rippleStyle]} />
+
+            {/* 3. Seed */}
+            <Animated.View style={[{ position: 'absolute', bottom: 15, width: 14, height: 18, borderRadius: 7, backgroundColor: '#D97706', alignSelf: 'center' }, seedStyle]} />
+
+            {/* 4. Tiny Sprout */}
+            <Animated.View style={[{ position: 'absolute', bottom: 12, width: 14, height: 14, borderRadius: 7, backgroundColor: '#4ADE80', alignSelf: 'center' }, sproutStyle]} />
+
+            {/* 5. Stem (grows upwards) */}
+            <Animated.View style={[ss.stem, { position: 'absolute', bottom: 24, alignSelf: 'center' }, stemStyle]} />
+
+            {/* 6. Leaf 1 (branches to left) */}
+            <Animated.View style={[ss.leaf1Wrap, { position: 'absolute', right: 150, width: 70, height: 40 }, l1Style]}>
               <LinearGradient colors={['#4ADE80','#22C55E']} style={ss.leaf1} />
             </Animated.View>
-            <Animated.View style={[ss.leaf2Wrap, l2Style]}>
+
+            {/* 7. Leaf 2 (branches to right) */}
+            <Animated.View style={[ss.leaf2Wrap, { position: 'absolute', left: 150, width: 60, height: 35 }, l2Style]}>
               <LinearGradient colors={['#86EFAC','#4ADE80']} style={ss.leaf2} />
             </Animated.View>
-            {/* Glow + affirmation */}
-            <Animated.View style={[ss.affirmLeafGlow, glowStyle]} />
-            <View style={ss.affirmLeaf}>
-              <Text style={ss.affirmLeafText}>{affirmation}</Text>
-            </View>
-            {/* Ground */}
-            <View style={ss.ground} />
-          </Animated.View>
+
+            {/* 8. Glowing Affirmation Top Leaf */}
+            <Animated.View style={[{ position: 'absolute', left: 150 - 120, width: 240, alignItems: 'center' }, affirmStyle]}>
+              <Animated.View style={[ss.affirmLeafGlow, glowStyle]} />
+              <View style={ss.affirmLeaf}>
+                <Text style={ss.affirmLeafText}>{affirmation}</Text>
+              </View>
+            </Animated.View>
+
+          </View>
 
           <Text style={ss.plantNourish}>Nourish it with patience,{'\n'}consistency and self-belief.</Text>
 
-          <GradBtn label="Continue" onPress={onContinue} />
+          <GradBtn label="Continue" onPress={onContinue} disabled={!animationFinished} />
         </View>
       </SafeAreaView>
     </View>
@@ -736,7 +814,6 @@ export default function NegativeThoughtScreen() {
   const router = useRouter();
   const [screen, setScreen]       = useState<Screen>('intro');
   const [thought, setThought]     = useState('');
-  const [isRecording, setIsRec]   = useState(false);
   const [tapsLeft, setTapsLeft]   = useState(10);
   const [selectedAff, setSelAff]  = useState('');
   const [customAff, setCustomAff] = useState('');
@@ -761,7 +838,7 @@ export default function NegativeThoughtScreen() {
     : customAff || 'I am enough.';
 
   if (screen === 'intro')    return <IntroScreen onBegin={() => go('catch')} />;
-  if (screen === 'catch')    return <CatchScreen thought={thought} setThought={setThought} isRecording={isRecording} setIsRecording={setIsRec} onContinue={() => go('analyze')} />;
+  if (screen === 'catch')    return <CatchScreen thought={thought} setThought={setThought} onContinue={() => go('analyze')} />;
   if (screen === 'analyze')  return <AnalyzeScreen onContinue={() => go('break')} />;
   if (screen === 'break')    return <BreakScreen tapsLeft={tapsLeft} setTapsLeft={setTapsLeft} onComplete={() => { setTapsLeft(10); go('replace'); }} />;
   if (screen === 'replace')  return <ReplaceScreen selected={selectedAff} setSelected={setSelAff} custom={customAff} setCustom={setCustomAff} onContinue={() => go('believe')} />;

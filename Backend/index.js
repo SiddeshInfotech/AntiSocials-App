@@ -706,6 +706,8 @@ app.post('/api/tasks/complete', authenticateToken, async (req, res) => {
         points = 500;
     } else if (task_name === "Morning Stretch") {
         points = 500;
+    } else if (task_name === "Observe Thoughts") {
+        points = 500;
     } else if (task_name === "Replace One Negative Thought") {
         points = 600;
     } else {
