@@ -361,6 +361,56 @@ const initDB = async () => {
             );
         `);
 
+        // Seeding the Eat one bite consciously separately (ensures it is seeded even if database is already initialized)
+        await db.query(`
+            INSERT INTO tasks (title, description, category, points_reward, duration, difficulty, mascot, completion_message)
+            SELECT 'Eat one bite consciously', 
+                   'Before rushing through your meal, take one bite slowly and mindfully.\n\nNotice the taste, texture, smell, and how your food feels as you chew.\n\nAvoid looking at your phone while eating this bite.\n\nSmall moments of mindful eating help improve awareness and create healthier habits.', 
+                   'Mental', 
+                   10, 
+                   2, 
+                   'Easy', 
+                   '🍽️', 
+                   'You slowed down eating.'
+            WHERE NOT EXISTS (
+                SELECT 1 FROM tasks WHERE title = 'Eat one bite consciously'
+            );
+        `);
+
+        // Seeding the Notice heartbeat separately (ensures it is seeded even if database is already initialized)
+        await db.query(`
+            INSERT INTO tasks (title, description, category, points_reward, duration, difficulty, mascot, completion_message)
+            SELECT 'Notice heartbeat', 
+                   'Pause for a moment and gently notice your heartbeat.\n\nPlace your hand on your chest or wrist and simply observe your heartbeat without trying to change it.\n\nTake slow, natural breaths and bring your attention inward.\n\nThis simple practice builds self-awareness and helps calm the mind.', 
+                   'Mental', 
+                   10, 
+                   2, 
+                   'Easy', 
+                   '❤️', 
+                   'You tuned inward.'
+            WHERE NOT EXISTS (
+                SELECT 1 FROM tasks WHERE title = 'Notice heartbeat'
+            );
+        `);
+
+        // Seeding the Posture check separately (ensures it is seeded even if database is already initialized)
+        await db.query(`
+            INSERT INTO tasks (title, description, category, points_reward, duration, difficulty, mascot, completion_message)
+            SELECT 'Posture check', 
+                   'Take a moment to check your posture.\n\nRelax your shoulders, straighten your back, keep your neck aligned, and place both feet comfortably on the ground if you''re sitting.\n\nTake a few slow breaths and notice how a better posture makes you feel.\n\nSmall posture corrections throughout the day can improve focus, reduce fatigue, and support overall well-being.', 
+                   'Mental', 
+                   10, 
+                   2, 
+                   'Easy', 
+                   '🧍', 
+                   'You aligned yourself.'
+            WHERE NOT EXISTS (
+                SELECT 1 FROM tasks WHERE title = 'Posture check'
+            );
+        `);
+
+
+
         console.log("PostgreSQL tables initialized.");
     } catch (err) {
         console.error("Error creating tables:", err);
@@ -797,6 +847,12 @@ app.post('/api/tasks/complete', authenticateToken, async (req, res) => {
     } else if (task_name === "Observe urge to check phone") {
         points = 10;
     } else if (task_name === "Write one distraction") {
+        points = 10;
+    } else if (task_name === "Eat one bite consciously") {
+        points = 10;
+    } else if (task_name === "Notice heartbeat") {
+        points = 10;
+    } else if (task_name === "Posture check") {
         points = 10;
     } else {
         // Fallback: check if task exists in database

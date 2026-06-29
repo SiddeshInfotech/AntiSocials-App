@@ -834,7 +834,10 @@ export default function HomeScreen() {
         'Focus': 'Focus on one task (10 min)',
         'Notifications': 'Turn off notifications (30 min)',
         'Observe': 'Observe urge to check phone',
-        'Distraction': 'Write one distraction'
+        'Distraction': 'Write one distraction',
+        'Eat': 'Eat one bite consciously',
+        'Heartbeat': 'Notice heartbeat',
+        'Posture': 'Posture check'
       };
       const fullTaskName = taskMap[taskName] || taskName;
 
@@ -1128,7 +1131,7 @@ export default function HomeScreen() {
                 { label: "Focus", emoji: "🐕" },
                 { label: "Notifications", emoji: "🔕" },
                 { label: "Observe", emoji: "👀" },
-                { label: "Distraction", emoji: "📝" },
+                { label: "Eat", emoji: "🍽️" },
               ];
               const BUTTON_SIZE = 70;
               // Circle is always centered on the full container dimensions
