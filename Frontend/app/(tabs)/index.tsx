@@ -830,7 +830,11 @@ export default function HomeScreen() {
         'Breathe': 'Breathe consciously for 3 minutes',
         'Stretch': 'Stretch neck & shoulders',
         'Silent': 'Sit without phone for 2 minutes',
-        'Outside': 'Look outside for 2 minutes'
+        'Outside': 'Look outside for 2 minutes',
+        'Focus': 'Focus on one task (10 min)',
+        'Notifications': 'Turn off notifications (30 min)',
+        'Observe': 'Observe urge to check phone',
+        'Distraction': 'Write one distraction'
       };
       const fullTaskName = taskMap[taskName] || taskName;
 
@@ -1121,6 +1125,10 @@ export default function HomeScreen() {
                 { label: "Stretch", emoji: "🧘" },
                 { label: "Silent", emoji: "🤫" },
                 { label: "Outside", emoji: "👀" },
+                { label: "Focus", emoji: "🐕" },
+                { label: "Notifications", emoji: "🔕" },
+                { label: "Observe", emoji: "👀" },
+                { label: "Distraction", emoji: "📝" },
               ];
               const BUTTON_SIZE = 70;
               // Circle is always centered on the full container dimensions
@@ -1445,7 +1453,7 @@ export default function HomeScreen() {
 
           {/* FULL SCREEN TEXT EDITOR OVERLAY */}
           <Modal visible={activeEditorMode === 'text'} transparent animationType="fade">
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)' }}>
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)' }}>
               <SafeAreaView style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', padding: 15 }}>
                   <TouchableOpacity onPress={() => setTempTextBg(!tempTextBg)} style={{ padding: 10, backgroundColor: tempTextBg ? '#fff' : 'transparent', borderRadius: 10, borderWidth: 1, borderColor: '#fff' }}>
