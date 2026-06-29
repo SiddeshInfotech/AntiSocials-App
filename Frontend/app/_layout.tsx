@@ -52,6 +52,8 @@ export default function RootLayout() {
             <Stack.Screen name="group-trip" options={{ headerShown: false }} />
             <Stack.Screen name="gratitude" options={{ headerShown: false }} />
             <Stack.Screen name="ask" options={{ headerShown: false }} />
+            <Stack.Screen name="negativeThought" options={{ headerShown: false }} />
+            <Stack.Screen name="positiveThought" options={{ headerShown: false }} />
           </Stack>
           <StatusBar style="dark" />
         </ThemeProvider>
