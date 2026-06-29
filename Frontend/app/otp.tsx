@@ -10,7 +10,7 @@ import { apiFetch } from '../constants/Api';
 
 export default function OTPScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ phone?: string, purpose?: string, username?: string, email?: string, profession?: string, about?: string, imageUrl?: string, devOtp?: string }>();
+  const params = useLocalSearchParams<{ phone?: string, purpose?: string, username?: string, email?: string, profession?: string, about?: string, imageUrl?: string, devOtp?: string, pincode?: string, city?: string, state?: string }>();
   const phone = params.phone || '';
   const purpose = params.purpose || 'login';
 
@@ -112,7 +112,10 @@ export default function OTPScreen() {
             email: params.email,
             profession: params.profession,
             about: params.about,
-            imageUrl: params.imageUrl
+            imageUrl: params.imageUrl,
+            pincode: params.pincode,
+            city: params.city,
+            state: params.state
           }),
         });
         const regData = await regRes.json();
