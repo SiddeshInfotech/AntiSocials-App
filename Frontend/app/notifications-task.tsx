@@ -1,0 +1,802 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Easing, Dimensions, Pressable, Alert, Platform, AppState, Linking } from 'react-native';
+import { useRouter } from 'expo-router';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as SecureStore from 'expo-secure-store';
+import { API_BASE_URL } from '../constants/Api';
+import { Feather } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
+import DndModule from '../modules/dnd-module';
+
+const { width, height } = Dimensions.get('window');
+const TASK_DURATION = 1800; // 30 minutes (1800 seconds)
+
+export default function NotificationsTaskScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  
+  const [isActive, setIsActive] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(TASK_DURATION);
+  const [isCompleted, setIsCompleted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [dndActive, setDndActive] = useState(false);
+
+  const appState = useRef(AppState.currentState);
+  const isWaitingForPermission = useRef(false);
+  const endTimeRef = useRef<number>(0);
+
+  // Animations
+  const uiFadeAnim = useRef(new Animated.Value(1)).current;
+  const timerFadeAnim = useRef(new Animated.Value(0)).current;
+  const timerGlowAnim = useRef(new Animated.Value(0.6)).current;
+  const breathAnim = useRef(new Animated.Value(1)).current;
+  const bgShiftAnim = useRef(new Animated.Value(0)).current;
+  
+  // Mascot Floating & Gentle Breathing
+  const mascotFloatAnim = useRef(new Animated.Value(0)).current;
+  const mascotScaleAnim = useRef(new Animated.Value(0.95)).current;
+
+  // Initial animations
+  useEffect(() => {
+    // Background Breathing
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(breathAnim, { toValue: 1.04, duration: 5000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(breathAnim, { toValue: 1, duration: 5000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      ])
+    ).start();
+
+    // Background shift
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(bgShiftAnim, { toValue: 1, duration: 12000, easing: Easing.inOut(Easing.linear), useNativeDriver: true }),
+        Animated.timing(bgShiftAnim, { toValue: 0, duration: 12000, easing: Easing.inOut(Easing.linear), useNativeDriver: true }),
+      ])
+    ).start();
+
+    // Mascot animations (Gentle, calm stillness posture)
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(mascotFloatAnim, { toValue: -5, duration: 4000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(mascotFloatAnim, { toValue: 0, duration: 4000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
+    ).start();
+
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(mascotScaleAnim, { toValue: 1.02, duration: 4000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(mascotScaleAnim, { toValue: 0.96, duration: 4000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
+    ).start();
+
+    // Timer Glow Effect
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(timerGlowAnim, { toValue: 1, duration: 2500, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(timerGlowAnim, { toValue: 0.6, duration: 2500, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+
+  // AppState change listener to handle backgrounding/resuming and setting permission return
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
+        // App returned to foreground
+        if (isWaitingForPermission.current) {
+          isWaitingForPermission.current = false;
+          if (Platform.OS === 'android' && DndModule.isNative) {
+            if (DndModule.checkDndPermission()) {
+              startAndroidTask();
+            } else {
+              Alert.alert(
+                "Permission Denied",
+                "AntiSocial could not enable Do Not Disturb because permission was not granted."
+              );
+            }
+          }
+        }
+
+        // Adjust remaining time based on timestamp
+        if (isActive && !isPaused) {
+          const remaining = Math.max(0, Math.round((endTimeRef.current - Date.now()) / 1000));
+          setTimeLeft(remaining);
+          if (Platform.OS === 'android' && DndModule.isNative) {
+            setDndActive(DndModule.isDndEnabled());
+          }
+        }
+      }
+
+      appState.current = nextAppState;
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [isActive, isPaused]);
+
+  // Safe release of DND mode on screen unmount
+  useEffect(() => {
+    return () => {
+      if (Platform.OS === 'android' && DndModule.isNative) {
+        try {
+          DndModule.setDndMode(false);
+        } catch (e) {
+          // ignore
+        }
+      }
+    };
+  }, []);
+
+  // Timer Run Loop
+  useEffect(() => {
+    let timer: ReturnType<typeof setInterval>;
+    if (isActive && !isPaused && timeLeft > 0) {
+      endTimeRef.current = Date.now() + timeLeft * 1000;
+      
+      // Update DND state immediately when starting/resuming
+      if (Platform.OS === 'android' && DndModule.isNative) {
+        setDndActive(DndModule.isDndEnabled());
+      }
+
+      timer = setInterval(() => {
+        // Update DND state check every second
+        if (Platform.OS === 'android' && DndModule.isNative) {
+          setDndActive(DndModule.isDndEnabled());
+        }
+
+        setTimeLeft((prev) => {
+          if (prev <= 1) {
+            setIsCompleted(true);
+            setIsActive(false);
+            if (Platform.OS === 'android' && DndModule.isNative) {
+              try {
+                DndModule.setDndMode(false);
+                setDndActive(false);
+              } catch (e) {
+                console.error("Failed to disable DND mode:", e);
+              }
+            }
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [isActive, isPaused]);
+
+  const startAndroidTask = () => {
+    try {
+      DndModule.setDndMode(true);
+      setDndActive(true);
+    } catch (e) {
+      console.error("Failed to enable DND mode:", e);
+    }
+    startTimerFlow();
+  };
+
+  const startTimerFlow = () => {
+    setIsActive(true);
+    // Crossfade details page into timer page
+    Animated.parallel([
+      Animated.timing(uiFadeAnim, {
+        toValue: 0,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(timerFadeAnim, {
+        toValue: 1,
+        duration: 1200,
+        useNativeDriver: true,
+      })
+    ]).start();
+  };
+
+  const startTask = () => {
+    const isAutomationSupported = Platform.OS === 'android' && DndModule.isNative;
+
+    if (isAutomationSupported) {
+      const hasPermission = DndModule.checkDndPermission();
+      if (!hasPermission) {
+        Alert.alert(
+          "DND Permission Required",
+          "To complete this task, AntiSocial needs permission to enable Do Not Disturb mode automatically.",
+          [
+            { text: "Cancel", style: "cancel" },
+            { 
+              text: "Grant Permission", 
+              onPress: () => {
+                isWaitingForPermission.current = true;
+                DndModule.requestDndPermission();
+              } 
+            }
+          ]
+        );
+      } else {
+        startAndroidTask();
+      }
+    } else {
+      // Manual flow for iOS and Android without native DndModule (Expo Go)
+      Alert.alert(
+        "Enable Do Not Disturb",
+        "Please enable Focus / Do Not Disturb manually.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { 
+            text: "Open Settings", 
+            onPress: () => {
+              if (Platform.OS === 'ios') {
+                Linking.openURL('app-settings:');
+              } else {
+                Linking.openSettings();
+              }
+            } 
+          },
+          {
+            text: "Start Timer",
+            onPress: () => {
+              startTimerFlow();
+            }
+          }
+        ]
+      );
+    }
+  };
+
+  const completeTaskBackend = async () => {
+    if (isLoading) return;
+    setIsLoading(true);
+    let pointsData = { pointsAdded: '0', totalPoints: '0', streak: '0' };
+    try {
+      const token = await SecureStore.getItemAsync('token');
+      if (token) {
+        const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ task_name: 'Turn off notifications (30 min)' })
+        });
+        const data = await response.json();
+        if (response.ok || data.success) {
+          pointsData = { 
+            pointsAdded: data.pointsAdded?.toString() || "10", 
+            totalPoints: data.totalPoints?.toString() || "0",
+            streak: data.streak?.toString() || "0"
+          };
+        } else {
+          Alert.alert("Error", data.error || "Failed to submit task completion");
+        }
+      } else {
+        Alert.alert("Authorization Error", "No authorization token found. Please log in again.");
+      }
+    } catch(e) { 
+      console.error(e);
+      Alert.alert("Connection Error", "Network request failed. Please check your network connection.");
+    } finally {
+      setIsLoading(false);
+    }
+
+    router.replace({ 
+      pathname: '/task-success', 
+      params: { 
+        points: pointsData.pointsAdded, 
+        totalPoints: pointsData.totalPoints, 
+        streak: pointsData.streak 
+      } 
+    } as any);
+  };
+
+  const formatTime = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
+  // Developer testing helper (double click timer to skip to end)
+  const lastPress = useRef(0);
+  const handleDevSkip = () => {
+    if (__DEV__) {
+      const time = Date.now();
+      const delta = time - lastPress.current;
+      lastPress.current = time;
+      if (delta < 300) {
+        setTimeLeft(3); // Fast forward to 3 seconds remaining
+      }
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      <StatusBar style="dark" />
+
+      {/* Alive Breathing Warm/Calming Gradient Background */}
+      <Animated.View style={[StyleSheet.absoluteFillObject, { transform: [{ scale: breathAnim }] }]}>
+        <LinearGradient
+          colors={['#f2fdf5', '#edfbf2', '#f6fdf9']}
+          locations={[0, 0.5, 1]}
+          style={StyleSheet.absoluteFillObject}
+        />
+      </Animated.View>
+
+      <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: bgShiftAnim }]}>
+        <LinearGradient
+          colors={['#ebfaf0', '#e6f7eb', '#f2fcf6']}
+          locations={[0, 0.5, 1]}
+          style={StyleSheet.absoluteFillObject}
+        />
+      </Animated.View>
+
+      {/* Edge vignette effect */}
+      <View style={styles.vignetteOverlay} pointerEvents="none" />
+
+      {/* Main Content Safe Area */}
+      <SafeAreaView style={styles.foregroundLayer} edges={['top', 'bottom']}>
+        
+        {/* --- Timer View (Active Phase) --- */}
+        <Animated.View 
+          style={[StyleSheet.absoluteFillObject, styles.timerCenter, { opacity: timerFadeAnim }]} 
+          pointerEvents={isActive || isCompleted ? 'auto' : 'none'}
+        >
+          {!isCompleted && (
+            <View style={styles.timerContentWrapper}>
+              <Animated.View style={[styles.mascotPulseCircle, { transform: [{ translateY: mascotFloatAnim }, { scale: mascotScaleAnim }] }]}>
+                <Text style={styles.giantEmoji}>🔕</Text>
+              </Animated.View>
+
+              <Pressable onPress={handleDevSkip}>
+                <Animated.Text style={[styles.timerText, { opacity: timerGlowAnim }]}>
+                  {formatTime(timeLeft)}
+                </Animated.Text>
+              </Pressable>
+
+              <Text style={styles.focusSubtitle}>
+                {isPaused ? "Timer Paused" : "Enjoying the quiet..."}
+              </Text>
+
+              {Platform.OS === 'android' && DndModule.isNative ? (
+                <View style={styles.dndStatusContainer}>
+                  <Feather 
+                    name={dndActive ? "shield" : "shield-off"} 
+                    size={16} 
+                    color={dndActive ? "#10b981" : "#ef4444"} 
+                  />
+                  <Text style={[styles.dndStatusText, { color: dndActive ? "#065f46" : "#b91c1c" }]}>
+                    {dndActive ? "Do Not Disturb: Active" : "Do Not Disturb: Inactive"}
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.dndStatusContainer}>
+                  <Feather 
+                    name="info" 
+                    size={16} 
+                    color="#2563eb" 
+                  />
+                  <Text style={[styles.dndStatusText, { color: '#1e40af' }]}>
+                    Please ensure Focus/DND is enabled manually
+                  </Text>
+                </View>
+              )}
+
+              <View style={styles.timerControlsRow}>
+                <TouchableOpacity 
+                  style={[styles.controlButton, isPaused ? styles.resumeButton : styles.pauseButton]}
+                  onPress={() => setIsPaused(!isPaused)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.controlButtonText, isPaused && { color: '#ffffff' }]}>
+                    {isPaused ? "Resume" : "Pause"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity 
+                style={styles.abortButton}
+                onPress={() => {
+                  Alert.alert(
+                    "Abort Task?",
+                    "Are you sure you want to stop? Your progress will be lost.",
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      { 
+                        text: "Abort", 
+                        style: "destructive", 
+                        onPress: () => {
+                          if (Platform.OS === 'android') {
+                            try {
+                              DndModule.setDndMode(false);
+                            } catch (e) {
+                              console.error(e);
+                            }
+                          }
+                          router.back();
+                        } 
+                      }
+                    ]
+                  );
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.abortButtonText}>Abort Task</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {isCompleted && (
+            <View style={styles.successContainer}>
+              <Text style={styles.successEmoji}>🔕</Text>
+              <Text style={styles.successText}>You reduced noise.</Text>
+              <Text style={styles.successMessage}>Take a break from constant interruptions and enjoy a quieter environment.</Text>
+              <TouchableOpacity 
+                style={styles.finishButton} 
+                onPress={completeTaskBackend}
+                disabled={isLoading}
+              >
+                <Text style={styles.finishButtonText}>
+                  {isLoading ? "Awarding Points..." : "Claim +10 Points"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </Animated.View>
+
+        {/* --- Onboarding UI (Details Phase) --- */}
+        <Animated.View 
+          style={[styles.uiWrapper, { opacity: uiFadeAnim }]} 
+          pointerEvents={!isActive && !isCompleted ? 'auto' : 'none'}
+        >
+          <Animated.View style={[styles.detailsMascotContainer, { transform: [{ translateY: mascotFloatAnim }, { scale: mascotScaleAnim }] }]}>
+                <Text style={styles.heroEmoji}>🔕</Text>
+              </Animated.View>
+
+          <View style={styles.glassPanel}>
+            <Text style={styles.title}>Turn off notifications</Text>
+            
+            {/* Badges */}
+            <View style={styles.badgesRow}>
+              <View style={[styles.badge, styles.badgeDuration]}>
+                <Feather name="clock" size={14} color="#3b82f6" />
+                <Text style={[styles.badgeText, styles.textDuration]}>30 min</Text>
+              </View>
+              <View style={[styles.badge, styles.badgeDifficulty]}>
+                <Feather name="bar-chart-2" size={14} color="#16a34a" />
+                <Text style={[styles.badgeText, styles.textDifficulty]}>Easy</Text>
+              </View>
+              <View style={[styles.badge, styles.badgePoints]}>
+                <Feather name="award" size={14} color="#16a34a" />
+                <Text style={[styles.badgeText, styles.textPoints]}>+10 Pts</Text>
+              </View>
+            </View>
+
+            {/* Description Lines */}
+            <View style={styles.descriptionList}>
+              <Text style={styles.descLine}>• Turn off your phone notifications for the next 30 minutes.</Text>
+              <Text style={styles.descLine}>• Take a break from constant interruptions and enjoy a quieter environment.</Text>
+              <Text style={styles.descLine}>• Use this time to relax, work, read, or simply be present without distractions.</Text>
+              <Text style={styles.descLine}>• Small moments of silence help improve focus and reduce stress.</Text>
+            </View>
+
+            <TouchableOpacity style={styles.startButton} onPress={startTask} activeOpacity={0.85}>
+              <LinearGradient
+                colors={['#10b981', '#059669']}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                style={styles.gradientBtn}
+              >
+                <Text style={styles.startButtonText}>Start Task</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.backButton} onPress={() => router.back()} activeOpacity={0.7}>
+              <Text style={styles.backText}>Go Back</Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+
+      </SafeAreaView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f2fdf5',
+  },
+  vignetteOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    borderWidth: 30,
+    borderColor: 'rgba(0,0,0,0.015)',
+    borderRadius: 70,
+  },
+  foregroundLayer: {
+    flex: 1,
+    justifyContent: 'space-between',
+    zIndex: 2,
+  },
+  backButton: {
+    padding: 12,
+    marginTop: 14,
+  },
+  backText: {
+    color: '#6b7280',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  abortButton: {
+    padding: 12,
+    marginTop: 20,
+  },
+  abortButtonText: {
+    color: '#ef4444',
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  dndStatusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.05)',
+    marginBottom: 30,
+  },
+  dndStatusText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  uiWrapper: {
+    flex: 1,
+    width: '100%',
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 40,
+  },
+  detailsMascotContainer: {
+    marginBottom: 20,
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    borderRadius: 80,
+    width: 140,
+    height: 140,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#10b981',
+    shadowOpacity: 0.15,
+    shadowRadius: 25,
+    shadowOffset: { width: 0, height: 10 },
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.9)',
+  },
+  heroEmoji: {
+    fontSize: 75,
+  },
+  glassPanel: {
+    width: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.82)',
+    borderRadius: 30,
+    paddingHorizontal: 24,
+    paddingVertical: 30,
+    alignItems: 'center',
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.08,
+    shadowRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.9)',
+  },
+  title: {
+    fontSize: 25,
+    fontWeight: '800',
+    color: '#1f2937',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  badgesRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 24,
+  },
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 4,
+  },
+  badgeDuration: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#bfdbfe',
+  },
+  badgeDifficulty: {
+    backgroundColor: '#f0fdf4',
+    borderColor: '#bbf7d0',
+  },
+  badgePoints: {
+    backgroundColor: '#f0fdf4',
+    borderColor: '#bbf7d0',
+  },
+  badgeText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  textDuration: {
+    color: '#2563eb',
+  },
+  textDifficulty: {
+    color: '#16a34a',
+  },
+  textPoints: {
+    color: '#16a34a',
+  },
+  descriptionList: {
+    width: '100%',
+    marginBottom: 35,
+    gap: 12,
+  },
+  descLine: {
+    fontSize: 15,
+    color: '#4b5563',
+    lineHeight: 22,
+    fontWeight: '400',
+  },
+  startButton: {
+    width: '100%',
+    height: 56,
+    borderRadius: 28,
+    overflow: 'hidden',
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 15,
+    elevation: 4,
+  },
+  gradientBtn: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  startButtonText: {
+    color: '#ffffff',
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  
+  // Timer States
+  timerCenter: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timerContentWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  mascotPulseCircle: {
+    width: 170,
+    height: 170,
+    borderRadius: 85,
+    backgroundColor: 'rgba(255,255,255,0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 30,
+    shadowColor: '#10b981',
+    shadowOpacity: 0.15,
+    shadowRadius: 30,
+    shadowOffset: { width: 0, height: 10 },
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.9)',
+  },
+  giantEmoji: {
+    fontSize: 90,
+  },
+  timerText: {
+    fontSize: 82,
+    fontWeight: '200',
+    color: '#114a2f',
+    letterSpacing: 2,
+    marginBottom: 10,
+    fontVariant: ['tabular-nums'],
+    textShadowColor: 'rgba(16, 185, 129, 0.15)',
+    textShadowOffset: { width: 0, height: 4 },
+    textShadowRadius: 15,
+  },
+  focusSubtitle: {
+    fontSize: 18,
+    color: '#1b5a3e',
+    fontWeight: '500',
+    marginBottom: 40,
+  },
+  timerControlsRow: {
+    flexDirection: 'row',
+    gap: 16,
+    width: '80%',
+    justifyContent: 'center',
+  },
+  controlButton: {
+    paddingHorizontal: 40,
+    paddingVertical: 15,
+    borderRadius: 30,
+    width: 180,
+    alignItems: 'center',
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+  },
+  pauseButton: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.2)',
+  },
+  resumeButton: {
+    backgroundColor: '#10b981',
+  },
+  controlButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#10b981',
+  },
+  
+  // Success state
+  successContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 28,
+    paddingVertical: 35,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: 35,
+    width: width * 0.86,
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.12,
+    shadowRadius: 30,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+  },
+  successEmoji: {
+    fontSize: 70,
+    marginBottom: 20,
+  },
+  successText: {
+    fontSize: 23,
+    fontWeight: '800',
+    color: '#1f2937',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  successMessage: {
+    fontSize: 15,
+    color: '#4b5563',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 35,
+    paddingHorizontal: 10,
+  },
+  finishButton: {
+    backgroundColor: '#10b981',
+    paddingVertical: 18,
+    borderRadius: 30,
+    width: '100%',
+    alignItems: 'center',
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 15,
+    elevation: 4,
+  },
+  finishButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 17,
+  },
+});

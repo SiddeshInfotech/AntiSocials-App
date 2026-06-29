@@ -243,6 +243,22 @@ const initDB = async () => {
         try { await db.query('ALTER TABLE users ADD COLUMN last_streak_date DATE'); } catch (e) { }
         try { await db.query('ALTER TABLE users ADD COLUMN points INTEGER DEFAULT 0'); } catch (e) { }
         try { await db.query('ALTER TABLE otp_verifications ADD COLUMN attempts INTEGER DEFAULT 0'); } catch (e) { }
+        try { await db.query('ALTER TABLE users ADD COLUMN pincode VARCHAR(10)'); } catch (e) { }
+        try { await db.query('ALTER TABLE users ADD COLUMN city VARCHAR(100)'); } catch (e) { }
+        try { await db.query('ALTER TABLE users ADD COLUMN state VARCHAR(100)'); } catch (e) { }
+        try { await db.query('ALTER TABLE users ADD COLUMN latitude DECIMAL(10, 7)'); } catch (e) { }
+        try { await db.query('ALTER TABLE users ADD COLUMN longitude DECIMAL(10, 7)'); } catch (e) { }
+        try { await db.query('ALTER TABLE activities ADD COLUMN pincode VARCHAR(10)'); } catch (e) { }
+        try { await db.query('ALTER TABLE activities ADD COLUMN city VARCHAR(100)'); } catch (e) { }
+        try { await db.query('ALTER TABLE activities ADD COLUMN latitude DECIMAL(10, 7)'); } catch (e) { }
+        try { await db.query('ALTER TABLE activities ADD COLUMN longitude DECIMAL(10, 7)'); } catch (e) { }
+        try { await db.query('ALTER TABLE activities ADD COLUMN location_name VARCHAR(255)'); } catch (e) { }
+        try { await db.query('CREATE INDEX IF NOT EXISTS idx_activities_pincode ON activities(pincode)'); } catch (e) { }
+
+        // Migrations for tasks table
+        try { await db.query("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS difficulty VARCHAR(50) DEFAULT 'Easy'"); } catch (e) { }
+        try { await db.query("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS mascot VARCHAR(50) DEFAULT 'Cat'"); } catch (e) { }
+        try { await db.query("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS completion_message VARCHAR(255) DEFAULT 'Great job!'"); } catch (e) { }
 
         await db.query(`
             CREATE TABLE IF NOT EXISTS task_completions (
@@ -250,6 +266,16 @@ const initDB = async () => {
                 user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
                 task_name VARCHAR(255) NOT NULL,
                 points INTEGER DEFAULT 0,
+                completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS task_responses (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
+                response_text TEXT NOT NULL,
                 completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
@@ -272,6 +298,120 @@ const initDB = async () => {
             console.log("Seeded default tasks.");
         }
 
+        // Seeding the Focus on one task separately (ensures it is seeded even if database is already initialized)
+        await db.query(`
+            INSERT INTO tasks (title, description, category, points_reward, duration, difficulty, mascot, completion_message)
+            SELECT 'Focus on one task (10 min)', 
+                   'For the next 10 minutes, focus on only one task.\n\nAvoid switching between apps, notifications, or conversations.\n\nStay fully present until the timer finishes.\n\nSmall moments of deep focus build stronger attention over time.', 
+                   'Mental', 
+                   20, 
+                   10, 
+                   'Medium', 
+                   'Dog', 
+                   'You held your attention.'
+            WHERE NOT EXISTS (
+                SELECT 1 FROM tasks WHERE title = 'Focus on one task (10 min)'
+            );
+        `);
+
+        // Seeding the Turn off notifications separately (ensures it is seeded even if database is already initialized)
+        await db.query(`
+            INSERT INTO tasks (title, description, category, points_reward, duration, difficulty, mascot, completion_message)
+            SELECT 'Turn off notifications (30 min)', 
+                   'Turn off your phone notifications for the next 30 minutes.\n\nTake a break from constant interruptions and enjoy a quieter environment.\n\nUse this time to relax, work, read, or simply be present without distractions.\n\nSmall moments of silence help improve focus and reduce stress.', 
+                   'Mental', 
+                   10, 
+                   30, 
+                   'Easy', 
+                   'Dog', 
+                   'You reduced noise.'
+            WHERE NOT EXISTS (
+                SELECT 1 FROM tasks WHERE title = 'Turn off notifications (30 min)'
+            );
+        `);
+
+        // Seeding the Observe urge to check phone separately (ensures it is seeded even if database is already initialized)
+        await db.query(`
+            INSERT INTO tasks (title, description, category, points_reward, duration, difficulty, mascot, completion_message)
+            SELECT 'Observe urge to check phone', 
+                   'For the next 5 minutes, simply notice whenever you feel the urge to check your phone.\n\nDo not judge yourself or immediately act on the impulse.\n\nTake a deep breath, acknowledge the feeling, and gently return your attention to the present moment.\n\nBuilding awareness is the first step toward healthier digital habits.', 
+                   'Mental', 
+                   10, 
+                   5, 
+                   'Easy', 
+                   '👀', 
+                   'You noticed the impulse.'
+            WHERE NOT EXISTS (
+                SELECT 1 FROM tasks WHERE title = 'Observe urge to check phone'
+            );
+        `);
+
+        // Seeding the Write one distraction separately (ensures it is seeded even if database is already initialized)
+        await db.query(`
+            INSERT INTO tasks (title, description, category, points_reward, duration, difficulty, mascot, completion_message)
+            SELECT 'Write one distraction', 
+                   'Take a moment to write down the biggest distraction that pulled your attention away today.\n\nSimply acknowledging the distraction helps you become more mindful and makes it easier to manage similar situations in the future.\n\nThere is no right or wrong answer—just be honest with yourself.', 
+                   'Mental', 
+                   10, 
+                   2, 
+                   'Easy', 
+                   '📝', 
+                   'Awareness increased.'
+            WHERE NOT EXISTS (
+                SELECT 1 FROM tasks WHERE title = 'Write one distraction'
+            );
+        `);
+
+        // Seeding the Eat one bite consciously separately (ensures it is seeded even if database is already initialized)
+        await db.query(`
+            INSERT INTO tasks (title, description, category, points_reward, duration, difficulty, mascot, completion_message)
+            SELECT 'Eat one bite consciously', 
+                   'Before rushing through your meal, take one bite slowly and mindfully.\n\nNotice the taste, texture, smell, and how your food feels as you chew.\n\nAvoid looking at your phone while eating this bite.\n\nSmall moments of mindful eating help improve awareness and create healthier habits.', 
+                   'Mental', 
+                   10, 
+                   2, 
+                   'Easy', 
+                   '🍽️', 
+                   'You slowed down eating.'
+            WHERE NOT EXISTS (
+                SELECT 1 FROM tasks WHERE title = 'Eat one bite consciously'
+            );
+        `);
+
+        // Seeding the Notice heartbeat separately (ensures it is seeded even if database is already initialized)
+        await db.query(`
+            INSERT INTO tasks (title, description, category, points_reward, duration, difficulty, mascot, completion_message)
+            SELECT 'Notice heartbeat', 
+                   'Pause for a moment and gently notice your heartbeat.\n\nPlace your hand on your chest or wrist and simply observe your heartbeat without trying to change it.\n\nTake slow, natural breaths and bring your attention inward.\n\nThis simple practice builds self-awareness and helps calm the mind.', 
+                   'Mental', 
+                   10, 
+                   2, 
+                   'Easy', 
+                   '❤️', 
+                   'You tuned inward.'
+            WHERE NOT EXISTS (
+                SELECT 1 FROM tasks WHERE title = 'Notice heartbeat'
+            );
+        `);
+
+        // Seeding the Posture check separately (ensures it is seeded even if database is already initialized)
+        await db.query(`
+            INSERT INTO tasks (title, description, category, points_reward, duration, difficulty, mascot, completion_message)
+            SELECT 'Posture check', 
+                   'Take a moment to check your posture.\n\nRelax your shoulders, straighten your back, keep your neck aligned, and place both feet comfortably on the ground if you''re sitting.\n\nTake a few slow breaths and notice how a better posture makes you feel.\n\nSmall posture corrections throughout the day can improve focus, reduce fatigue, and support overall well-being.', 
+                   'Mental', 
+                   10, 
+                   2, 
+                   'Easy', 
+                   '🧍', 
+                   'You aligned yourself.'
+            WHERE NOT EXISTS (
+                SELECT 1 FROM tasks WHERE title = 'Posture check'
+            );
+        `);
+
+
+
         console.log("PostgreSQL tables initialized.");
     } catch (err) {
         console.error("Error creating tables:", err);
@@ -283,7 +423,7 @@ const initDB = async () => {
 // Login Endpoint
 app.get('/api/me', authenticateToken, async (req, res) => {
     try {
-        const result = await db.query('SELECT id, username, email, phone_number, profession, about, image_url FROM users WHERE id = $1', [req.user.id]);
+        const result = await db.query('SELECT id, username, email, phone_number, profession, about, image_url, pincode, city, state, latitude, longitude FROM users WHERE id = $1', [req.user.id]);
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'User not found' });
         }
@@ -489,10 +629,14 @@ app.post('/auth/verify-otp', async (req, res) => {
 });
 
 app.post('/auth/register', async (req, res) => {
-    const { phoneNumber, username, email, profession, about, imageUrl } = req.body;
+    const { phoneNumber, username, email, profession, about, imageUrl, pincode, city, state, latitude, longitude } = req.body;
 
     if (!phoneNumber || !username) {
         return res.status(400).json({ error: "Phone number and username are required" });
+    }
+
+    if (pincode && !/^\d{6}$/.test(pincode)) {
+        return res.status(400).json({ error: "Please enter a valid Indian pincode." });
     }
 
     try {
@@ -512,9 +656,9 @@ app.post('/auth/register', async (req, res) => {
         }
 
         const newUserInfo = await db.query(
-            `INSERT INTO users (phone_number, username, email, profession, about, image_url, is_phone_verified) 
-             VALUES ($1, $2, $3, $4, $5, $6, true) RETURNING id, username, phone_number, email, profession, about, image_url, created_at`,
-            [phoneNumber, username, email || null, profession || null, about || null, imageUrl || null]
+            `INSERT INTO users (phone_number, username, email, profession, about, image_url, is_phone_verified, pincode, city, state, latitude, longitude) 
+             VALUES ($1, $2, $3, $4, $5, $6, true, $7, $8, $9, $10, $11) RETURNING id, username, phone_number, email, profession, about, image_url, pincode, city, state, latitude, longitude, created_at`,
+            [phoneNumber, username, email || null, profession || null, about || null, imageUrl || null, pincode || null, city || null, state || null, latitude || null, longitude || null]
         );
 
         // Clear verification to prevent reuse
@@ -615,7 +759,11 @@ app.post('/save-interests', async (req, res) => {
 
 app.patch('/user/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
-    const { username, profession, about, image_url } = req.body;
+    const { username, profession, about, image_url, pincode, city, state, latitude, longitude } = req.body;
+
+    if (pincode && !/^\d{6}$/.test(pincode)) {
+        return res.status(400).json({ error: "Please enter a valid Indian pincode." });
+    }
 
     // Security: Only allow user to update their own profile
     if (req.user.id.toString() !== id) {
@@ -628,9 +776,14 @@ app.patch('/user/:id', authenticateToken, async (req, res) => {
              SET username = COALESCE($1, username), 
                  profession = COALESCE($2, profession), 
                  about = COALESCE($3, about), 
-                 image_url = COALESCE($4, image_url)
-             WHERE id = $5 RETURNING *`,
-            [username, profession, about, image_url, id]
+                 image_url = COALESCE($4, image_url),
+                 pincode = COALESCE($5, pincode),
+                 city = COALESCE($6, city),
+                 state = COALESCE($7, state),
+                 latitude = COALESCE($8, latitude),
+                 longitude = COALESCE($9, longitude)
+             WHERE id = $10 RETURNING *`,
+            [username, profession, about, image_url, pincode, city, state, latitude, longitude, id]
         );
 
         if (result.rows.length === 0) {
@@ -688,9 +841,32 @@ app.post('/api/tasks/complete', authenticateToken, async (req, res) => {
         points = 400;
     } else if (task_name === "Spend 20 minutes offline with someone") {
         points = 500;
+    } else if (task_name === "Focus on one task (10 min)") {
+        points = 20;
+    } else if (task_name === "Turn off notifications (30 min)") {
+        points = 10;
+    } else if (task_name === "Observe urge to check phone") {
+        points = 10;
+    } else if (task_name === "Write one distraction") {
+        points = 10;
+    } else if (task_name === "Eat one bite consciously") {
+        points = 10;
+    } else if (task_name === "Notice heartbeat") {
+        points = 10;
+    } else if (task_name === "Posture check") {
+        points = 10;
     } else {
-        // Not a task we are integrating right now or 0 points
-        return res.status(400).json({ error: "Unknown task" });
+        // Fallback: check if task exists in database
+        try {
+            const taskDbRes = await db.query('SELECT points_reward FROM tasks WHERE title = $1', [task_name]);
+            if (taskDbRes.rows.length > 0) {
+                points = taskDbRes.rows[0].points_reward;
+            } else {
+                return res.status(400).json({ error: "Unknown task" });
+            }
+        } catch (e) {
+            return res.status(400).json({ error: "Unknown task" });
+        }
     }
 
     try {
@@ -729,6 +905,17 @@ app.post('/api/tasks/complete', authenticateToken, async (req, res) => {
             INSERT INTO task_completions (user_id, task_name, points)
             VALUES ($1, $2, $3)
         `, [userId, task_name, points]);
+
+        // Save distraction text if provided
+        const { distraction_text } = req.body;
+        if (distraction_text) {
+            const taskDb = await db.query('SELECT id FROM tasks WHERE title = $1', [task_name]);
+            const taskId = taskDb.rows[0] ? taskDb.rows[0].id : null;
+            await db.query(`
+                INSERT INTO task_responses (user_id, task_id, response_text)
+                VALUES ($1, $2, $3)
+            `, [userId, taskId, distraction_text]);
+        }
 
         // Add points to user total
         totalPoints += points;
