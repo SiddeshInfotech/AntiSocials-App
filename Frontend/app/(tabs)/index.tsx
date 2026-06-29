@@ -1,6 +1,6 @@
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useIsFocused } from "@react-navigation/native";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import TasksJourneySection from "../../components/TasksJourneySection";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
@@ -261,6 +261,8 @@ const AnimatedBuddy = ({ activeTask }: { activeTask: string | null }) => {
     const blink = () => {
       if (activeTask === "Silent") return; // Keep eyes closed
       if (activeTask === "Smile") return; // Keep squint
+      if (activeTask === "Eye Rest") return; // Keep eyes relaxed
+      if (activeTask === "Confirm") return; // Keep calm blinking
 
       Animated.sequence([
         Animated.timing(blinkAnim, {
@@ -393,6 +395,22 @@ const AnimatedBuddy = ({ activeTask }: { activeTask: string | null }) => {
         ]),
       );
       lookLoop.current.start();
+    } else if (activeTask === "Eye Rest") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
+      // Eye squint with subtle relaxed expression
+      Animated.spring(eyeSquintAnim, {
+        toValue: 0.4,
+        friction: 5,
+        useNativeDriver: true,
+      }).start();
+    } else if (activeTask === "Confirm") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
+      // Calm blinking for presence confirmation
+      Animated.spring(eyeSquintAnim, {
+        toValue: 0.3,
+        friction: 6,
+        useNativeDriver: true,
+      }).start();
     } else if (activeTask === "Breathe") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
       breathLoop.current = Animated.loop(
@@ -654,6 +672,8 @@ const AnimatedBuddyContainer = ({
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const [myStories, setMyStories] = useState<string[]>([]);
   const isFocused = useIsFocused();
   const { updatedPoints, updatedStreak } = useLocalSearchParams<{ updatedPoints?: string, updatedStreak?: string }>();
   const [activeTask, setActiveTask] = useState<string | null>(null);
@@ -1118,7 +1138,9 @@ export default function HomeScreen() {
                 { label: "Reflect", emoji: "✍️" },
                 { label: "Smile", emoji: "😊" },
                 { label: "Breathe", emoji: "🫁" },
-                { label: "Stretch", emoji: "🧘" },
+                { label: "Eye Rest", emoji: "👁️" },
+                { label: "Confirm", emoji: "🧘" },
+                { label: "Stretch", emoji: "🧘‍♀️" },
                 { label: "Silent", emoji: "🤫" },
                 { label: "Outside", emoji: "👀" },
               ];
@@ -1161,6 +1183,13 @@ export default function HomeScreen() {
                   `You have successfully completed this task. Points added!`,
                 );
                 setActiveTask(null);
+                
+                // Navigate to task screen based on task name
+                if (task === "Eye Rest") {
+                  router.push("/eye-rest-task" as any);
+                } else if (task === "Confirm") {
+                  router.push("/confirm-presence-task" as any);
+                }
               }}
             />
           </View>

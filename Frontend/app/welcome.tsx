@@ -72,7 +72,10 @@ export default function LoginScreen() {
           phoneNumber,
           purpose: 'login'
         }),
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
 
       const data = await response.json();
 

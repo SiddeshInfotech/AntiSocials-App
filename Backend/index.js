@@ -15,6 +15,7 @@ const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const HOST = process.env.HOST || '0.0.0.0';
 
 // Trust reverse proxy (e.g., Render, Railway) for correct req.protocol (https)
 app.set('trust proxy', 1);
@@ -791,7 +792,7 @@ app.use('/api/profile', profileRoutes);
 app.use('/api/activities', activityRoutes);
 
 // Start Server
-app.listen(PORT, () => {
-    console.log(`Backend server running on http://localhost:${PORT}`);
+app.listen(PORT, HOST, () => {
+    console.log(`Backend server running on http://${HOST}:${PORT}`);
     initDB(); // create the table right after starting the server
 });
