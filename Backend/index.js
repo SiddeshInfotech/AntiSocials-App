@@ -410,6 +410,38 @@ const initDB = async () => {
             );
         `);
 
+        // Seeding the Silent Sitting task separately (ensures it is seeded even if database is already initialized)
+        await db.query(`
+            INSERT INTO tasks (title, description, category, points_reward, duration, difficulty, mascot, completion_message)
+            SELECT 'Silent Sitting', 
+                   'Find a quiet place and sit comfortably for the next five minutes.\n\nThere is nothing to achieve—simply sit in silence.\n\nObserve your thoughts without following them and gently return your attention to your breathing whenever your mind wanders.\n\nAllow yourself to experience a few moments of stillness without distractions.', 
+                   'Mental', 
+                   20, 
+                   5, 
+                   'Medium', 
+                   '🧘', 
+                   'Stillness deepened.'
+            WHERE NOT EXISTS (
+                SELECT 1 FROM tasks WHERE title = 'Silent Sitting'
+            );
+        `);
+
+        // Seeding the No Media task separately (ensures it is seeded even if database is already initialized)
+        await db.query(`
+            INSERT INTO tasks (title, description, category, points_reward, duration, difficulty, mascot, completion_message)
+            SELECT 'No Media', 
+                   'Take a one-hour break from all forms of digital media.\n\nAvoid:\n\n* Social media\n* YouTube\n* OTT platforms\n* News apps\n* Short videos\n* Entertainment content\n\nUse this time to reconnect with yourself, your surroundings, or an offline activity like reading, walking, journaling, or simply relaxing.\n\nGiving your mind a break from constant media consumption helps improve focus and mental clarity.', 
+                   'Mental', 
+                   20, 
+                   60, 
+                   'Medium', 
+                   '📵', 
+                   'You disconnected.'
+            WHERE NOT EXISTS (
+                SELECT 1 FROM tasks WHERE title = 'No Media'
+            );
+        `);
+
 
 
         console.log("PostgreSQL tables initialized.");
@@ -855,6 +887,10 @@ app.post('/api/tasks/complete', authenticateToken, async (req, res) => {
         points = 10;
     } else if (task_name === "Posture check") {
         points = 10;
+    } else if (task_name === "Silent Sitting") {
+        points = 20;
+    } else if (task_name === "No Media") {
+        points = 20;
     } else {
         // Fallback: check if task exists in database
         try {

@@ -1146,13 +1146,9 @@ export default function HomeScreen() {
                 { label: "Smile", emoji: "😊" },
                 { label: "Breathe", emoji: "🫁" },
                 { label: "Eye Rest", emoji: "👁️" },
-                { label: "Confirm", emoji: "🧘" },
                 { label: "Stretch", emoji: "🧘‍♀️" },
                 { label: "Silent", emoji: "🤫" },
-                { label: "Outside", emoji: "👀" },
                 { label: "Focus", emoji: "🐕" },
-                { label: "Notifications", emoji: "🔕" },
-                { label: "Observe", emoji: "👀" },
                 { label: "Eat", emoji: "🍽️" },
               ];
               const BUTTON_SIZE = 70;

@@ -176,6 +176,22 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       route: "/confirm-presence-task",
     },
     {
+      emoji: "🧘",
+      difficulty: "medium",
+      title: "Silent Sitting",
+      subtitle: "Find a quiet place and sit comfortably.",
+      points: "+20 points",
+      route: "/silent-sitting-task",
+    },
+    {
+      emoji: "📵",
+      difficulty: "medium",
+      title: "No Media",
+      subtitle: "Take a one-hour break from all forms of digital media.",
+      points: "+20 points",
+      route: "/no-media-task",
+    },
+    {
       emoji: "😊",
       difficulty: "easy",
       title: "Smile intentionally",
@@ -742,6 +758,11 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "bold",
     color: "#111827",
+  },
+  tasksHeaderSubtext: {
+    fontSize: 12,
+    color: "#6b7280",
+    marginTop: 2,
   },
   pickTasksPill: {
     backgroundColor: "#f3e8ff",
