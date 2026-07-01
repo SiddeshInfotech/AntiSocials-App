@@ -136,6 +136,38 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       points: "+500 points",
       route: "/positiveThought",
     },
+    {
+      emoji: "🍂",
+      difficulty: "medium",
+      title: "Silence Mind",
+      subtitle: "Watch every thought drift away like a leaf in the wind",
+      points: "+500 points",
+      route: "/silent",
+    },
+    {
+      emoji: "📝",
+      difficulty: "medium",
+      title: "Write Recurring Thought",
+      subtitle: "Pen down persistent thoughts to uncover supportive AI insights",
+      points: "+500 points",
+      route: "/recurringThought",
+    },
+    {
+      emoji: "🏷️",
+      difficulty: "medium",
+      title: "Label a Thought",
+      subtitle: "Name and categorise your thoughts to establish mindful spacing",
+      points: "+500 points",
+      route: "/label",
+    },
+    {
+      emoji: "📷",
+      difficulty: "medium",
+      title: "Brain vs Camera",
+      subtitle: "Separate objective observation facts from narrative brain stories",
+      points: "+500 points",
+      route: "/imagnimation",
+    },
 
     {
       emoji: "🌙",

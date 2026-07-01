@@ -54,6 +54,11 @@ export default function RootLayout() {
             <Stack.Screen name="ask" options={{ headerShown: false }} />
             <Stack.Screen name="negativeThought" options={{ headerShown: false }} />
             <Stack.Screen name="positiveThought" options={{ headerShown: false }} />
+            <Stack.Screen name="silent" options={{ headerShown: false }} />
+            <Stack.Screen name="recurringThought" options={{ headerShown: false }} />
+            <Stack.Screen name="note" options={{ headerShown: false }} />
+            <Stack.Screen name="label" options={{ headerShown: false }} />
+            <Stack.Screen name="imagnimation" options={{ headerShown: false }} />
           </Stack>
           <StatusBar style="dark" />
         </ThemeProvider>

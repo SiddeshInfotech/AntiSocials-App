@@ -5,8 +5,9 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
-  FadeIn, FadeInDown, FadeInUp, useAnimatedStyle, useSharedValue,
-  withSpring, withTiming, withRepeat, withSequence, runOnJS
+  FadeIn, FadeInDown, FadeInUp, FadeOutDown, useAnimatedStyle, useSharedValue,
+  withSpring, withTiming, withRepeat, withSequence, runOnJS,
+  interpolate, interpolateColor
 } from 'react-native-reanimated';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -43,42 +44,42 @@ const TOTAL_DURATION_SECONDS = 900;   // 15 minutes
 
 const SLIDES = [
   {
-    image: require('../assets/images/download.png'),
+    image: require('../assets/images/All_green_plants_photos_202607011041 (1).jpeg'),
     audio: require('../assets/videos/mixkit-forest-treasure-138.mp3'),
     quote: "Thoughts are like clouds. Let them pass."
   },
   {
-    image: require('../assets/images/download (1).png'),
+    image: require('../assets/images/All_green_plants_photos_202607011041.jpeg'),
     audio: require('../assets/videos/mixkit-rest-now-584.mp3'),
     quote: "You are the observer, not the thought."
   },
   {
-    image: require('../assets/images/download (2).png'),
+    image: require('../assets/images/Flower_girl_smelling_flower_202607011041.jpeg'),
     audio: require('../assets/videos/mixkit-relaxation-05-749.mp3'),
     quote: "Breathe deeply. Everything is okay."
   },
   {
-    image: require('../assets/images/download (3).png'),
+    image: require('../assets/images/sun_rise_from_moutain_phot_202607011041 (1).jpeg'),
     audio: require('../assets/videos/mixkit-relax-beat-292.mp3'),
     quote: "Peace begins within."
   },
   {
-    image: require('../assets/images/download (4).png'),
+    image: require('../assets/images/sun_rise_from_moutain_phot_202607011041.jpeg'),
     audio: require('../assets/videos/mixkit-spirit-in-the-woods-139.mp3'),
     quote: "Notice your thoughts without judgment."
   },
   {
-    image: require('../assets/images/download (5).png'),
+    image: require('../assets/images/beauful_nature_phtoo_202607011043.jpeg'),
     audio: require('../assets/videos/mixkit-classical-vibes-2-682.mp3'),
     quote: "Every breath brings a new beginning."
   },
   {
-    image: require('../assets/images/download (6).png'),
+    image: require('../assets/images/People_doing_yoga_in_garden_202607011044.jpeg'),
     audio: require('../assets/videos/mixkit-meditation-441.mp3'),
     quote: "Calmness is your natural state."
   },
   {
-    image: require('../assets/images/download (7).png'),
+    image: require('../assets/images/everyone_smile_family_photo_202607011044.jpeg'),
     audio: require('../assets/videos/mixkit-thinking-about-you-234.mp3'),
     quote: "This moment is enough."
   }
@@ -157,6 +158,7 @@ export default function ObserveThoughtsScreen() {
   const [isPlaying, setIsPlaying] = useState(true);
   const [volume, setVolume] = useState(0.5);
   const [isAudioLoading, setIsAudioLoading] = useState(false);
+  const [isVolumeActive, setIsVolumeActive] = useState(false);
 
   const soundRef = useRef<Audio.Sound | null>(null);
   const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -168,6 +170,56 @@ export default function ObserveThoughtsScreen() {
   // Breathing animation guide values
   const breathScale = useSharedValue(1);
   const breathGlow = useSharedValue(0.5);
+
+  // Volume active animations & styles
+  const volumeActiveAnim = useSharedValue(0);
+
+  useEffect(() => {
+    volumeActiveAnim.value = withTiming(isVolumeActive ? 1 : 0, { duration: 250 });
+  }, [isVolumeActive]);
+
+  const updateVolume = async (val: number) => {
+    setVolume(val);
+    if (soundRef.current) {
+      await soundRef.current.setVolumeAsync(val);
+    }
+  };
+
+  const animatedSpeakerButtonStyle = useAnimatedStyle(() => {
+    const scale = interpolate(volumeActiveAnim.value, [0, 1], [1, 1.15]);
+    const borderColor = interpolateColor(
+      volumeActiveAnim.value,
+      [0, 1],
+      ['rgba(255,255,255,0.15)', C.violet]
+    );
+    const backgroundColor = interpolateColor(
+      volumeActiveAnim.value,
+      [0, 1],
+      ['rgba(0, 0, 0, 0.45)', 'rgba(139, 92, 246, 0.25)']
+    );
+    
+    return {
+      transform: [{ scale }],
+      borderColor,
+      backgroundColor,
+      borderWidth: 1,
+      shadowColor: '#8B5CF6',
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: interpolate(volumeActiveAnim.value, [0, 1], [0, 0.8]),
+      shadowRadius: interpolate(volumeActiveAnim.value, [0, 1], [0, 10]),
+      elevation: interpolate(volumeActiveAnim.value, [0, 1], [0, 6]),
+    };
+  });
+
+  const handleSliderTouch = (event: any) => {
+    const { locationX } = event.nativeEvent;
+    const trackWidth = 160;
+    let newVolume = locationX / trackWidth;
+    if (newVolume < 0) newVolume = 0;
+    if (newVolume > 1) newVolume = 1;
+    newVolume = Math.round(newVolume * 100) / 100;
+    updateVolume(newVolume);
+  };
 
   // 1. Audio setup & playback controller
   const loadAndPlayTrack = async (index: number, playImmediate: boolean = true) => {
@@ -381,12 +433,8 @@ export default function ObserveThoughtsScreen() {
     setElapsedTime(Math.round(index * SLIDE_DURATION_SECONDS));
   };
 
-  const handleVolumeChange = async () => {
-    const nextVolume = volume >= 0.9 ? 0.1 : volume + 0.2;
-    setVolume(nextVolume);
-    if (soundRef.current) {
-      await soundRef.current.setVolumeAsync(nextVolume);
-    }
+  const handleVolumeChange = () => {
+    setIsVolumeActive(!isVolumeActive);
   };
 
   const handleReturnHome = () => {
@@ -519,18 +567,26 @@ export default function ObserveThoughtsScreen() {
         <StatusBar style="light" />
 
         {/* Slow cinematic Ken Burns background */}
-        <View style={StyleSheet.absoluteFill}>
+        <View style={styles.backgroundContainer}>
           <Animated.Image
             source={SLIDES[currentSlide].image}
-            style={[StyleSheet.absoluteFill, zoomStyle]}
+            style={[styles.backgroundImage, zoomStyle, fadeStyle]}
             resizeMode="cover"
           />
-          {/* Subtle color grading overlay */}
+          {/* Subtle dark gradient overlay (20-30%) */}
           <LinearGradient
-            colors={['rgba(11,7,30,0.4)', 'rgba(0,0,0,0.15)', 'rgba(11,7,30,0.65)']}
+            colors={['rgba(0, 0, 0, 0.2)', 'rgba(0, 0, 0, 0.3)']}
             style={StyleSheet.absoluteFillObject}
           />
         </View>
+
+        {/* Outer transparent Pressable to close volume slider when tapping outside */}
+        {isVolumeActive && (
+          <Pressable 
+            style={[StyleSheet.absoluteFill, { zIndex: 90 }]} 
+            onPress={() => setIsVolumeActive(false)} 
+          />
+        )}
 
         {/* Particle layers overlaying the slide */}
         {[
@@ -540,7 +596,7 @@ export default function ObserveThoughtsScreen() {
           { x: width - 110, y: 150, size: 5, color: '#FCD34D', delay: 300 },
         ].map((p, i) => <Particle key={i} {...p} />)}
 
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={styles.safeArea} pointerEvents="box-none">
           {/* Top Panel — Progress & Exit */}
           <View style={styles.sessionHeader}>
             <TouchableOpacity
@@ -577,6 +633,34 @@ export default function ObserveThoughtsScreen() {
 
           {/* Floating Glassmorphic Audio Controls */}
           <View style={styles.glassControlsRow}>
+            {/* Premium Volume Slider Overlay */}
+            {isVolumeActive && (
+              <Animated.View 
+                entering={FadeInDown.duration(250)}
+                exiting={FadeOutDown.duration(200)}
+                style={styles.volumeSliderContainer}
+              >
+                <TouchableOpacity onPress={() => updateVolume(volume > 0 ? 0 : 0.5)} style={{ padding: 4 }}>
+                  <Ionicons name="volume-mute" size={18} color="rgba(255,255,255,0.75)" />
+                </TouchableOpacity>
+                <View 
+                  style={styles.sliderTrackWrapper}
+                  onStartShouldSetResponder={() => true}
+                  onMoveShouldSetResponder={() => true}
+                  onResponderGrant={handleSliderTouch}
+                  onResponderMove={handleSliderTouch}
+                >
+                  <View style={styles.sliderTrack}>
+                    <View style={[styles.sliderFill, { width: `${volume * 100}%` }]} />
+                    <View style={[styles.sliderKnob, { left: `${volume * 100}%` }]} />
+                  </View>
+                </View>
+                <TouchableOpacity onPress={() => updateVolume(1.0)} style={{ padding: 4 }}>
+                  <Ionicons name="volume-high" size={18} color="rgba(255,255,255,0.75)" />
+                </TouchableOpacity>
+              </Animated.View>
+            )}
+
             <View style={styles.glassControlsContainer}>
               <TouchableOpacity onPress={handlePrev} disabled={currentSlide === 0} style={styles.controlBtn}>
                 <Ionicons name="play-back" size={24} color={currentSlide === 0 ? "rgba(255,255,255,0.25)" : "#FFF"} />
@@ -590,13 +674,23 @@ export default function ObserveThoughtsScreen() {
                 <Ionicons name="play-forward" size={24} color={currentSlide === SLIDES.length - 1 ? "rgba(255,255,255,0.25)" : "#FFF"} />
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={handleVolumeChange} style={styles.controlBtn}>
-                {isAudioLoading ? (
-                  <ActivityIndicator size="small" color="#FFF" />
-                ) : (
-                  <Ionicons name={volume === 0.1 ? "volume-mute" : volume < 0.5 ? "volume-low" : "volume-high"} size={22} color="#FFF" />
-                )}
-              </TouchableOpacity>
+              <Animated.View style={[styles.controlBtn, animatedSpeakerButtonStyle]}>
+                <TouchableOpacity 
+                  onPress={handleVolumeChange} 
+                  style={{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}
+                  activeOpacity={0.7}
+                >
+                  {isAudioLoading ? (
+                    <ActivityIndicator size="small" color="#FFF" />
+                  ) : (
+                    <Ionicons 
+                      name={volume < 0.05 ? "volume-mute" : volume < 0.5 ? "volume-low" : "volume-high"} 
+                      size={22} 
+                      color={isVolumeActive ? C.violet : "#FFF"} 
+                    />
+                  )}
+                </TouchableOpacity>
+              </Animated.View>
             </View>
           </View>
         </SafeAreaView>
@@ -934,7 +1028,9 @@ const styles = StyleSheet.create({
   glassControlsRow: {
     paddingHorizontal: 24,
     paddingBottom: 40,
-    alignItems: 'center'
+    alignItems: 'center',
+    zIndex: 100,
+    width: '100%',
   },
   glassControlsContainer: {
     flexDirection: 'row',
@@ -963,6 +1059,76 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 28,
     backgroundColor: 'rgba(255, 255, 255, 0.15)'
+  },
+  backgroundContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+    zIndex: -1,
+  },
+  backgroundImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+  },
+  volumeSliderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    width: 260,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+    marginBottom: 16,
+    alignSelf: 'center',
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 101,
+  },
+  sliderTrackWrapper: {
+    width: 160,
+    height: 30,
+    justifyContent: 'center',
+    marginHorizontal: 8,
+  },
+  sliderTrack: {
+    height: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 3,
+    position: 'relative',
+  },
+  sliderFill: {
+    height: '100%',
+    backgroundColor: '#8B5CF6',
+    borderRadius: 3,
+  },
+  sliderKnob: {
+    position: 'absolute',
+    top: -5,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#FFF',
+    marginLeft: -8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 3,
+    elevation: 4,
   },
 
   // Completion Screen
