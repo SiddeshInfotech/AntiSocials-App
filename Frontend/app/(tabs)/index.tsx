@@ -261,6 +261,8 @@ const AnimatedBuddy = ({ activeTask }: { activeTask: string | null }) => {
     const blink = () => {
       if (activeTask === "Silent") return; // Keep eyes closed
       if (activeTask === "Smile") return; // Keep squint
+      if (activeTask === "Eye Rest") return; // Keep eyes relaxed
+      if (activeTask === "Confirm") return; // Keep calm blinking
 
       Animated.sequence([
         Animated.timing(blinkAnim, {
@@ -393,6 +395,22 @@ const AnimatedBuddy = ({ activeTask }: { activeTask: string | null }) => {
         ]),
       );
       lookLoop.current.start();
+    } else if (activeTask === "Eye Rest") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
+      // Eye squint with subtle relaxed expression
+      Animated.spring(eyeSquintAnim, {
+        toValue: 0.4,
+        friction: 5,
+        useNativeDriver: true,
+      }).start();
+    } else if (activeTask === "Confirm") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
+      // Calm blinking for presence confirmation
+      Animated.spring(eyeSquintAnim, {
+        toValue: 0.3,
+        friction: 6,
+        useNativeDriver: true,
+      }).start();
     } else if (activeTask === "Breathe") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
       breathLoop.current = Animated.loop(
@@ -655,6 +673,8 @@ const AnimatedBuddyContainer = ({
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const [myStories, setMyStories] = useState<string[]>([]);
   const isFocused = useIsFocused();
   const { updatedPoints, updatedStreak } = useLocalSearchParams<{ updatedPoints?: string, updatedStreak?: string }>();
   const [activeTask, setActiveTask] = useState<string | null>(null);
@@ -832,7 +852,14 @@ export default function HomeScreen() {
         'Breathe': 'Breathe consciously for 3 minutes',
         'Stretch': 'Stretch neck & shoulders',
         'Silent': 'Sit without phone for 2 minutes',
-        'Outside': 'Look outside for 2 minutes'
+        'Outside': 'Look outside for 2 minutes',
+        'Focus': 'Focus on one task (10 min)',
+        'Notifications': 'Turn off notifications (30 min)',
+        'Observe': 'Observe urge to check phone',
+        'Distraction': 'Write one distraction',
+        'Eat': 'Eat one bite consciously',
+        'Heartbeat': 'Notice heartbeat',
+        'Posture': 'Posture check'
       };
       const fullTaskName = taskMap[taskName] || taskName;
 
@@ -1120,12 +1147,15 @@ export default function HomeScreen() {
                 { label: "Reflect", emoji: "✍️" },
                 { label: "Smile", emoji: "😊" },
                 { label: "Breathe", emoji: "🫁" },
-                { label: "Stretch", emoji: "🧘" },
+                { label: "Eye Rest", emoji: "👁️" },
+                { label: "Stretch", emoji: "🧘‍♀️" },
                 { label: "Silent", emoji: "🤫" },
                 { label: "Outside", emoji: "👀" },
                 { label: "Connect", emoji: "🤝" },
                 { label: "Gratitude", emoji: "🧘‍♀️" },
                 { label: "Walk", emoji: "👣" },
+                { label: "Focus", emoji: "🐕" },
+                { label: "Eat", emoji: "🍽️" },
               ];
 
               const BUTTON_SIZE = 70;
@@ -1193,6 +1223,13 @@ export default function HomeScreen() {
                   `You have successfully completed this task. Points added!`,
                 );
                 setActiveTask(null);
+                
+                // Navigate to task screen based on task name
+                if (task === "Eye Rest") {
+                  router.push("/eye-rest-task" as any);
+                } else if (task === "Confirm") {
+                  router.push("/confirm-presence-task" as any);
+                }
               }}
             />
           </View>
@@ -1477,7 +1514,7 @@ export default function HomeScreen() {
 
           {/* FULL SCREEN TEXT EDITOR OVERLAY */}
           <Modal visible={activeEditorMode === 'text'} transparent animationType="fade">
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)' }}>
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'padding'} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)' }}>
               <SafeAreaView style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', padding: 15 }}>
                   <TouchableOpacity onPress={() => setTempTextBg(!tempTextBg)} style={{ padding: 10, backgroundColor: tempTextBg ? '#fff' : 'transparent', borderRadius: 10, borderWidth: 1, borderColor: '#fff' }}>

@@ -15,6 +15,9 @@
         "backgroundColor": "#5b6df0",
         "foregroundImage": "./assets/images/logo.png"
       },
+      "permissions": [
+        "WAKE_LOCK"
+      ],
       "predictiveBackGestureEnabled": false
     },
     "web": {

@@ -12,7 +12,47 @@ import { useRouter } from "expo-router";
 export default function TasksJourneySection({ completedTasks = [] }: { completedTasks?: string[] }) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("100-Day Journey");
-  const [activePrototype, setActivePrototype] = useState("Day 1");
+  const [activePrototype, setActivePrototype] = useState(1);
+
+  const prototypeDays = Array.from({ length: 100 }, (_, index) => index + 1);
+
+  const stageLabels = [
+    { title: "Habits", icon: "calendar", color: "#16a34a" },
+    { title: "Social", icon: "heart", color: "#2563eb" },
+    { title: "Community", icon: "users", color: "#9333ea" },
+    { title: "Leadership", icon: "sun", color: "#ea580c" },
+  ] as const;
+
+  const getStageForDay = (day: number) => {
+    const stageIndex = Math.min(Math.floor((day - 1) / 7), stageLabels.length - 1);
+    const startDay = stageIndex * 7 + 1;
+    const endDay = Math.min(startDay + 6, 100);
+    const stage = stageLabels[stageIndex];
+
+    return {
+      title: `Stage ${stageIndex + 1}: ${stage.title}`,
+      label: stage.title,
+      icon: stage.icon,
+      color: stage.color,
+      range: `Day ${startDay}-${endDay}`,
+    };
+  };
+
+  const activeStage = getStageForDay(activePrototype);
+  const stageTabs = Array.from({ length: Math.ceil(100 / 7) }, (_, index) => {
+    const startDay = index * 7 + 1;
+    const endDay = Math.min(startDay + 6, 100);
+    const stageIndex = Math.min(index, stageLabels.length - 1);
+
+    return {
+      key: `${startDay}-${endDay}`,
+      startDay,
+      endDay,
+      label: stageLabels[stageIndex].title,
+      icon: stageLabels[stageIndex].icon,
+      color: stageLabels[stageIndex].color,
+    };
+  });
 
   const tasksData = [
     {
@@ -40,12 +80,76 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       route: "/drink-task",
     },
     {
+      emoji: "👁️",
+      difficulty: "easy",
+      title: "Eye Rest (2 min)",
+      subtitle: "Look at something far away",
+      points: "+150 points",
+      route: "/eye-rest-task",
+    },
+    {
       emoji: "🤫",
       difficulty: "medium",
       title: "Sit without phone for 2 minutes",
       subtitle: "Lock-screen mode",
       points: "+200 points",
       route: "/start-task",
+    },
+    {
+      emoji: "🐕",
+      difficulty: "medium",
+      title: "Focus on one task (10 min)",
+      subtitle: "For the next 10 minutes, focus on only one task.",
+      points: "+20 points",
+      route: "/focus-task",
+    },
+    {
+      emoji: "🔕",
+      difficulty: "easy",
+      title: "Turn off notifications (30 min)",
+      subtitle: "Turn off your phone notifications for the next 30 minutes.",
+      points: "+10 points",
+      route: "/notifications-task",
+    },
+    {
+      emoji: "👀",
+      difficulty: "easy",
+      title: "Observe urge to check phone",
+      subtitle: "Simply notice whenever you feel the urge to check your phone.",
+      points: "+10 points",
+      route: "/observe-task",
+    },
+    {
+      emoji: "📝",
+      difficulty: "easy",
+      title: "Write one distraction",
+      subtitle: "Write down the biggest distraction that pulled you away today.",
+      points: "+10 points",
+      route: "/distraction-task",
+    },
+    {
+      emoji: "🍽️",
+      difficulty: "easy",
+      title: "Eat one bite consciously",
+      subtitle: "Before rushing through your meal, take one bite slowly and mindfully.",
+      points: "+10 points",
+      route: "/eat-task",
+    },
+    {
+      emoji: "❤️",
+      difficulty: "easy",
+      title: "Notice heartbeat",
+      subtitle: "Pause for a moment and gently notice your heartbeat.",
+      points: "+10 points",
+      route: "/heartbeat-task",
+    },
+    {
+      emoji: "🧍",
+      difficulty: "easy",
+      title: "Posture check",
+      subtitle: "Take a moment to check your posture and align your body.",
+      points: "+10 points",
+      route: "/posture-task",
     },
     {
       emoji: "🧘‍♀️",
@@ -80,6 +184,30 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       route: "/write-task",
     },
 
+    {
+      emoji: "🧘",
+      difficulty: "easy",
+      title: "Confirm Presence",
+      subtitle: "Pause and be present",
+      points: "+10 points",
+      route: "/confirm-presence-task",
+    },
+    {
+      emoji: "🧘",
+      difficulty: "medium",
+      title: "Silent Sitting",
+      subtitle: "Find a quiet place and sit comfortably.",
+      points: "+20 points",
+      route: "/silent-sitting-task",
+    },
+    {
+      emoji: "📵",
+      difficulty: "medium",
+      title: "No Media",
+      subtitle: "Take a one-hour break from all forms of digital media.",
+      points: "+20 points",
+      route: "/no-media-task",
+    },
     {
       emoji: "😊",
       difficulty: "easy",
@@ -179,6 +307,13 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
     },
   ];
 
+  const activeTaskBucketIndex = Math.floor((activePrototype - 1) / 7);
+  const activeTaskStart = activeTaskBucketIndex * 7;
+  const activeTaskEnd = activeTaskStart + 7;
+  const visibleTasks = tasksData.slice(activeTaskStart, activeTaskEnd);
+  const visibleTaskStartDay = activeTaskBucketIndex * 7 + 1;
+  const visibleTaskEndDay = Math.min(visibleTaskStartDay + 6, 100);
+
   return (
     <View style={styles.container}>
       {/* TOP TAB BAR */}
@@ -268,104 +403,120 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
         <Text style={styles.prototypeLabel}>
           Prototype: Test Different Days
         </Text>
-        <View style={styles.prototypeTabsRow}>
-          {[
-            { name: "Day 1", colorbg: "#dcfce7", colortxt: "#16a34a" },
-            { name: "Day 25", colorbg: "#dbeafe", colortxt: "#2563eb" },
-            { name: "Day 45", colorbg: "#f3e8ff", colortxt: "#9333ea" },
-            { name: "Day 75", colorbg: "#ffedd5", colortxt: "#ea580c" },
-          ].map((pt) => (
-            <TouchableOpacity
-              key={pt.name}
-              onPress={() => setActivePrototype(pt.name)}
-              style={[
-                styles.ptTab,
-                {
-                  backgroundColor:
-                    activePrototype === pt.name ? pt.colorbg : "transparent",
-                  borderColor:
-                    activePrototype === pt.name ? "transparent" : "#e5e7eb",
-                },
-              ]}
-            >
-              <Text
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.prototypeTabsRow}
+        >
+          {prototypeDays.map((day) => {
+            const isActive = activePrototype === day;
+            return (
+              <TouchableOpacity
+                key={day}
+                onPress={() => setActivePrototype(day)}
                 style={[
-                  styles.ptTabText,
+                  styles.ptTab,
                   {
-                    color:
-                      activePrototype === pt.name ? pt.colortxt : "#9ca3af",
+                    backgroundColor: isActive ? "#dcfce7" : "transparent",
+                    borderColor: isActive ? "transparent" : "#e5e7eb",
                   },
                 ]}
               >
-                {pt.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+                <Text
+                  style={[
+                    styles.ptTabText,
+                    {
+                      color: isActive ? "#16a34a" : "#9ca3af",
+                    },
+                  ]}
+                >
+                  Day {day}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
 
       {/* DAY 1 OF 100 CARD */}
       <View style={styles.dayBigCard}>
         <View style={styles.dayBigRow}>
           <View style={styles.dayBigCircle}>
-            <Text style={styles.dayBigCircleText}>1</Text>
+            <Text style={styles.dayBigCircleText}>{activePrototype}</Text>
           </View>
           <View style={{ flex: 1, marginLeft: 16 }}>
-            <Text style={styles.dayBigTitle}>Day 1 of 100</Text>
-            <Text style={styles.dayBigSubtitle}>Stage 1: Habit Foundation</Text>
+            <Text style={styles.dayBigTitle}>Day {activePrototype} of 100</Text>
+            <Text style={styles.dayBigSubtitle}>{activeStage.title}</Text>
             <View style={styles.dayBigProgressBg}>
-              <View style={[styles.dayBigProgressFill, { width: "2%" }]} />
+              <View
+                style={[
+                  styles.dayBigProgressFill,
+                  { width: `${Math.max((activePrototype / 100) * 100, 2)}%` },
+                ]}
+              />
             </View>
           </View>
         </View>
 
-        <View style={styles.stageTabsRow}>
-          <View style={styles.stageTabActive}>
-            <Feather
-              name="calendar"
-              size={16}
-              color="#16a34a"
-              style={{ marginBottom: 4 }}
-            />
-            <Text style={styles.stageTabActiveTitle}>Day 1-21</Text>
-            <Text style={styles.stageTabActiveDesc}>Habits</Text>
-          </View>
-          <View style={styles.stageTabInactive}>
-            <Feather
-              name="heart"
-              size={16}
-              color="#d1d5db"
-              style={{ marginBottom: 4 }}
-            />
-            <Text style={styles.stageTabInactiveTitle}>Day 22-40</Text>
-            <Text style={styles.stageTabInactiveDesc}>Social</Text>
-          </View>
-          <View style={styles.stageTabInactive}>
-            <Feather
-              name="users"
-              size={16}
-              color="#d1d5db"
-              style={{ marginBottom: 4 }}
-            />
-            <Text style={styles.stageTabInactiveTitle}>Day 41-70</Text>
-            <Text style={styles.stageTabInactiveDesc}>Community</Text>
-          </View>
-          <View style={styles.stageTabInactive}>
-            <Feather
-              name="sun"
-              size={16}
-              color="#d1d5db"
-              style={{ marginBottom: 4 }}
-            />
-            <Text style={styles.stageTabInactiveTitle}>Day 71-100</Text>
-            <Text style={styles.stageTabInactiveDesc}>Leadership</Text>
-          </View>
-        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.stageTabsRow}
+        >
+          {stageTabs.map((stageTab) => {
+            const isActive =
+              activePrototype >= stageTab.startDay &&
+              activePrototype <= stageTab.endDay;
+
+            return (
+              <TouchableOpacity
+                key={stageTab.key}
+                activeOpacity={0.75}
+                onPress={() => setActivePrototype(stageTab.startDay)}
+                style={[
+                  styles.stageTabInactive,
+                  isActive && styles.stageTabActive,
+                  { minWidth: 92 },
+                ]}
+              >
+                <Feather
+                  name={stageTab.icon as keyof typeof Feather.glyphMap}
+                  size={16}
+                  color={isActive ? stageTab.color : "#d1d5db"}
+                  style={{ marginBottom: 4 }}
+                />
+                <Text
+                  style={
+                    isActive
+                      ? styles.stageTabActiveTitle
+                      : styles.stageTabInactiveTitle
+                  }
+                >
+                  Day {stageTab.startDay}-{stageTab.endDay}
+                </Text>
+                <Text
+                  style={
+                    isActive
+                      ? styles.stageTabActiveDesc
+                      : styles.stageTabInactiveDesc
+                  }
+                >
+                  {stageTab.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
 
       {/* TODAY'S TASKS HEADER */}
       <View style={styles.tasksHeaderRow}>
-        <Text style={styles.tasksHeaderTitle}>Today's Tasks</Text>
+        <View>
+          <Text style={styles.tasksHeaderTitle}>Today's Tasks</Text>
+          <Text style={styles.tasksHeaderSubtext}>
+            Day {visibleTaskStartDay}-{visibleTaskEndDay}
+          </Text>
+        </View>
         <View style={styles.pickTasksPill}>
           <Text style={styles.pickTasksPillText}>Pick 1-3 tasks</Text>
         </View>
@@ -373,16 +524,14 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
 
       {/* STAGE INFO BOX */}
       <View style={styles.stageInfoBox}>
-        <Text style={styles.stageInfoTitle}>Stage 1: Habit Foundation</Text>
+        <Text style={styles.stageInfoTitle}>{activeStage.title}</Text>
         <Text style={styles.stageInfoDesc}>
-          Build self-awareness and discipline through simple daily actions. No
-          photos, no social pressure—just you showing up for yourself.
+          Build momentum one 7-day block at a time. Each bucket keeps the same
+          focus for a week, then moves forward to the next range.
         </Text>
       </View>
-
-      {/* TASKS LIST */}
       <View style={styles.tasksListContainer}>
-        {tasksData.map((task, idx) => {
+        {visibleTasks.map((task, idx) => {
           const isCompleted = completedTasks.includes(task.title);
           return (
           <TouchableOpacity
@@ -651,6 +800,11 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "bold",
     color: "#111827",
+  },
+  tasksHeaderSubtext: {
+    fontSize: 12,
+    color: "#6b7280",
+    marginTop: 2,
   },
   pickTasksPill: {
     backgroundColor: "#f3e8ff",
