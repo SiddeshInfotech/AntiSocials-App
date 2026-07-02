@@ -673,7 +673,6 @@ const AnimatedBuddyContainer = ({
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const router = useRouter();
   const [myStories, setMyStories] = useState<string[]>([]);
   const isFocused = useIsFocused();
   const { updatedPoints, updatedStreak } = useLocalSearchParams<{ updatedPoints?: string, updatedStreak?: string }>();

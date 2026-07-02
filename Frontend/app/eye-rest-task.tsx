@@ -135,7 +135,7 @@ export default function EyeRestTaskScreen() {
 
   // Timer countdown
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: any;
 
     if (isActive && !isCompleted && timeLeft > 0) {
       interval = setInterval(() => {

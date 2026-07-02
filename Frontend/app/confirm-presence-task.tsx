@@ -492,7 +492,7 @@ export default function ConfirmPresenceTaskScreen() {
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-      <StatusBar barStyle="dark-content" />
+      <StatusBar style="dark" />
 
       <SafeAreaView style={styles.safeArea}>
         {/* ===== SCREEN 0: TASK DETAILS ===== */}
