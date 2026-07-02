@@ -710,6 +710,32 @@ app.post('/api/tasks/complete', authenticateToken, async (req, res) => {
         points = 500;
     } else if (task_name === "Replace One Negative Thought") {
         points = 600;
+    } else if (task_name === "Brain vs Camera") {
+        points = 500;
+    } else if (task_name === "Look outside for 2 minutes") {
+        points = 150;
+    } else if (task_name === "Write 1 word about how you feel") {
+        points = 300;
+    } else if (task_name === "Walk Slowly") {
+        points = 400;
+    } else if (task_name === "Silence Mind") {
+        points = 500;
+    } else if (task_name === "Write Recurring Thought") {
+        points = 500;
+    } else if (task_name === "Label a Thought") {
+        points = 500;
+    } else if (task_name === "Volunteer for 1 hour") {
+        points = 200;
+    } else if (task_name === "Help someone offline") {
+        points = 200;
+    } else if (task_name === "Take an hour tech-free break") {
+        points = 600;
+    } else if (task_name === "Meet one friend in real life") {
+        points = 700;
+    } else if (task_name === "Organise a cleanup drive") {
+        points = 1000;
+    } else if (task_name === "Plan one day group trip") {
+        points = 1200;
     } else {
         // Not a task we are integrating right now or 0 points
         return res.status(400).json({ error: "Unknown task" });

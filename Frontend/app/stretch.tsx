@@ -187,7 +187,6 @@ const CircularTimer = ({ timeLeft, isFinished }: { timeLeft: number, isFinished:
 // --- Main Application ---
 
 type ScreenState = 'intro' | 'exercise' | 'completion';
-
 export default function MorningStretchScreen() {
   const router = useRouter();
   const [screen, setScreen] = useState<ScreenState>('intro');
@@ -195,6 +194,7 @@ export default function MorningStretchScreen() {
   const [timeLeft, setTimeLeft] = useState(120); // 120 for 2 mins
   const [timerActive, setTimerActive] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [completeData, setCompleteData] = useState<{ totalPoints: number; streak: number; pointsAdded: number } | null>(null);
 
   // Timer logic
   useEffect(() => {
@@ -203,10 +203,9 @@ export default function MorningStretchScreen() {
       interval = setInterval(() => {
         setTimeLeft(prev => prev - 1);
       }, 1000);
-    } else if (timeLeft === 0 && timerActive) {
-      clearInterval(interval);
+    } else if (timeLeft === 0) {
       setTimerActive(false);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setIsCompleted(true);
     }
     return () => clearInterval(interval);
   }, [timerActive, timeLeft]);
@@ -234,17 +233,24 @@ export default function MorningStretchScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (!token) return;
-      await fetch(`${API_BASE_URL}/api/activities/complete`, {
+      const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          taskName: "Morning Stretch",
-          points: 500,
+          task_name: "Morning Stretch",
         }),
       });
+      const data = await response.json();
+      if (response.ok || data.success) {
+        setCompleteData({
+          totalPoints: data.totalPoints,
+          streak: data.streak,
+          pointsAdded: data.pointsAdded
+        });
+      }
     } catch (e) {
       console.error("Complete task error:", e);
     }
@@ -318,7 +324,22 @@ export default function MorningStretchScreen() {
 
               <Text style={styles.quoteText}>"Small morning habits create powerful days."</Text>
 
-              <TouchableOpacity style={styles.homeBtn} onPress={() => router.replace('/(tabs)' as any)}>
+              <TouchableOpacity 
+                style={styles.homeBtn} 
+                onPress={() => {
+                  if (completeData) {
+                    router.replace({
+                      pathname: '/(tabs)',
+                      params: {
+                        updatedPoints: String(completeData.totalPoints),
+                        updatedStreak: String(completeData.streak)
+                      }
+                    } as any);
+                  } else {
+                    router.replace('/(tabs)' as any);
+                  }
+                }}
+              >
                  <LinearGradient colors={[COLORS.primary, COLORS.secondary]} style={styles.primaryBtn}>
                     <Text style={styles.primaryBtnText}>Return Home</Text>
                  </LinearGradient>

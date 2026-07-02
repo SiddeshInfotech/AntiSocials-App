@@ -144,6 +144,7 @@ export default function WalkSlowlyScreen() {
   const [timeLeft, setTimeLeft] = useState(600); // 10 minutes
   const [isActive, setIsActive] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [completeData, setCompleteData] = useState<{ totalPoints: number; streak: number; pointsAdded: number } | null>(null);
   
   const videoPlayer = useVideoPlayer(VIDEO_PATH, (player) => {
     player.loop = true;
@@ -155,17 +156,24 @@ export default function WalkSlowlyScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (!token) return;
-      await fetch(`${API_BASE_URL}/api/activities/complete`, {
+      const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          taskName: "Walk Slowly",
-          points: 400,
+          task_name: "Walk Slowly",
         }),
       });
+      const data = await response.json();
+      if (response.ok || data.success) {
+        setCompleteData({
+          totalPoints: data.totalPoints,
+          streak: data.streak,
+          pointsAdded: data.pointsAdded
+        });
+      }
     } catch (e) {
       console.error("Complete task error:", e);
     }
@@ -295,7 +303,22 @@ export default function WalkSlowlyScreen() {
                     Every step helped you reconnect with the present moment.
                   </Text>
                   
-                  <TouchableOpacity style={styles.modalButton} onPress={() => router.back()}>
+                  <TouchableOpacity 
+                    style={styles.modalButton} 
+                    onPress={() => {
+                      if (completeData) {
+                        router.replace({
+                          pathname: '/(tabs)',
+                          params: {
+                            updatedPoints: String(completeData.totalPoints),
+                            updatedStreak: String(completeData.streak)
+                          }
+                        } as any);
+                      } else {
+                        router.replace('/(tabs)' as any);
+                      }
+                    }}
+                  >
                      <LinearGradient
                         colors={[COLORS.primary, COLORS.secondary]}
                         style={styles.modalButtonGradient}

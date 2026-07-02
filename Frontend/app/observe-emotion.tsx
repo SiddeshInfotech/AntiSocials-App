@@ -1,4 +1,4 @@
-﻿import React, { useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,8 @@ import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import * as SecureStore from 'expo-secure-store';
+import { API_BASE_URL } from '../constants/Api';
 import { getRandomReflection, type EmotionId, type Reflection } from './reflection-library';
 
 const { width, height } = Dimensions.get('window');
@@ -237,7 +239,27 @@ export default function ObserveEmotionScreen() {
                 <Text style={styles.analyzeBtnText}>Reflect Again</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.doneBtn} onPress={() => router.back()}>
+              <TouchableOpacity 
+                style={styles.doneBtn} 
+                onPress={async () => {
+                  try {
+                    const token = await SecureStore.getItemAsync('token');
+                    if (token) {
+                      await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ task_name: 'Observe One Emotion for 5 Minutes' })
+                      });
+                    }
+                  } catch (e) {
+                    console.error("Observe emotion complete error:", e);
+                  }
+                  router.back();
+                }}
+              >
                 <Text style={styles.doneBtnText}>Done</Text>
               </TouchableOpacity>
             </Animated.ScrollView>

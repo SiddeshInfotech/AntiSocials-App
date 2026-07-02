@@ -6,6 +6,8 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import * as SecureStore from 'expo-secure-store';
+import { API_BASE_URL } from '../constants/Api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -113,12 +115,37 @@ export default function ShareThoughtsScreen() {
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!text.trim()) return;
     
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     Keyboard.dismiss();
     setIsSubmitted(true);
+
+    let pointsData = { pointsAdded: '300', totalPoints: '0', streak: '0' };
+    try {
+      const token = await SecureStore.getItemAsync('token');
+      if (token) {
+        const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ task_name: 'Write 1 word about how you feel' })
+        });
+        const data = await response.json();
+        if (response.ok || data.success) {
+          pointsData = { 
+            pointsAdded: data.pointsAdded?.toString() || "300", 
+            totalPoints: data.totalPoints?.toString() || "0",
+            streak: data.streak?.toString() || "0"
+          };
+        }
+      }
+    } catch (e) {
+      console.error("Write 1 word complete error:", e);
+    }
 
     // Submission flow: everything else fades out, word floats up
     Animated.parallel([
@@ -126,7 +153,10 @@ export default function ShareThoughtsScreen() {
       Animated.timing(emotionOpacity, { toValue: 0, duration: 1000, useNativeDriver: true }),
       Animated.timing(wordFloatAnim, { toValue: -height * 0.25, duration: 2500, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
     ]).start(() => {
-      router.replace({ pathname: '/task-success', params: { points: '300' } } as any);
+      router.replace({ 
+        pathname: '/task-success', 
+        params: { points: pointsData.pointsAdded, totalPoints: pointsData.totalPoints, streak: pointsData.streak } 
+      } as any);
     });
   };
 

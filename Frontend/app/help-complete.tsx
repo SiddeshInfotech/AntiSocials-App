@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'expo-router';
+import * as SecureStore from 'expo-secure-store';
+import { API_BASE_URL } from '../constants/Api';
 
 /**
  * Redirects to the unified task-success screen.
@@ -9,9 +11,43 @@ export default function HelpCompleteScreen() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace({ pathname: '/task-success', params: { points: '200' } } as any);
+    const completeTask = async () => {
+      let pointsData = { pointsAdded: '200', totalPoints: '0', streak: '0' };
+      try {
+        const token = await SecureStore.getItemAsync('token');
+        if (token) {
+          const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ task_name: 'Help someone offline' })
+          });
+          const data = await response.json();
+          if (response.ok || data.success) {
+            pointsData = { 
+              pointsAdded: data.pointsAdded?.toString() || "200", 
+              totalPoints: data.totalPoints?.toString() || "0",
+              streak: data.streak?.toString() || "0"
+            };
+          }
+        }
+      } catch (e) {
+        console.error("Help task complete error:", e);
+      }
+
+      router.replace({
+        pathname: '/task-success',
+        params: {
+          points: pointsData.pointsAdded,
+          totalPoints: pointsData.totalPoints,
+          streak: pointsData.streak
+        }
+      } as any);
+    };
+    completeTask();
   }, [router]);
 
   return null;
 }
-

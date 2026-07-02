@@ -6,6 +6,8 @@ import { Feather, FontAwesome5 } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
+import * as SecureStore from 'expo-secure-store';
+import { API_BASE_URL } from '../constants/Api';
 
 // ─── Category Data ───────────────────────────────────────────────────────────
 const CAUSE_DATA: Record<string, any> = {
@@ -119,10 +121,29 @@ export default function VolunteerTaskScreen() {
     }
   }, [phase, isPaused]);
 
-  // Success entrance
+  // Success entrance & backend complete task call
   useEffect(() => {
     if (phase === 'success') {
       Animated.spring(successScale, { toValue: 1, friction: 5, tension: 50, useNativeDriver: true }).start();
+      
+      const completeTask = async () => {
+        try {
+          const token = await SecureStore.getItemAsync('token');
+          if (token) {
+            await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({ task_name: 'Volunteer for 1 hour' })
+            });
+          }
+        } catch(e) {
+          console.error("Volunteer task complete API error:", e);
+        }
+      };
+      completeTask();
     }
   }, [phase]);
 
