@@ -1299,10 +1299,11 @@ export default function CourageScreen() {
 
       if (response.ok || data.success) {
         router.replace({
-          pathname: '/(tabs)',
+          pathname: '/task-success',
           params: {
-            updatedPoints: data.totalPoints?.toString(),
-            updatedStreak: data.streak?.toString(),
+            points: data.pointsAdded?.toString() || '300',
+            totalPoints: data.totalPoints?.toString() || '0',
+            streak: data.streak?.toString() || '0',
           },
         } as any);
       } else {

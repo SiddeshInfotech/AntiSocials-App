@@ -824,8 +824,8 @@ export default function NegativeThoughtScreen() {
   const completeTask = async () => {
     try {
       const token = await SecureStore.getItemAsync('token');
-      if (!token) return;
-      await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+      if (!token) return null;
+      const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
         method: 'POST',
         headers: { 'Content-Type':'application/json', Authorization:`Bearer ${token}` },
         body: JSON.stringify({ 
@@ -836,7 +836,15 @@ export default function NegativeThoughtScreen() {
           final_mood: selectedMood
         }),
       });
-    } catch (e) { console.error('completeTask error:', e); }
+      const data = await response.json();
+      if (response.ok || data.success) {
+        return { pointsAdded: data.pointsAdded, totalPoints: data.totalPoints, streak: data.streak };
+      }
+      return null;
+    } catch (e) {
+      console.error('completeTask error:', e);
+      return null;
+    }
   };
 
   const finalAff = selectedAff
@@ -850,7 +858,21 @@ export default function NegativeThoughtScreen() {
   if (screen === 'replace')  return <ReplaceScreen selected={selectedAff} setSelected={setSelAff} custom={customAff} setCustom={setCustomAff} onContinue={() => go('believe')} />;
   if (screen === 'believe')  return <BelieveScreen affirmation={finalAff} onComplete={() => go('plant')} />;
   if (screen === 'plant')    return <PlantScreen affirmation={finalAff} onContinue={() => go('reflect')} />;
-  if (screen === 'reflect')  return <ReflectScreen selected={selectedMood} setSelected={setSelMood} onContinue={() => { completeTask(); go('complete'); }} />;
+  if (screen === 'reflect')  return <ReflectScreen selected={selectedMood} setSelected={setSelMood} onContinue={async () => {
+    const result = await completeTask();
+    if (result) {
+      router.replace({
+        pathname: '/task-success',
+        params: {
+          points: result.pointsAdded?.toString() || '600',
+          totalPoints: result.totalPoints?.toString() || '0',
+          streak: result.streak?.toString() || '0',
+        }
+      } as any);
+    } else {
+      go('complete');
+    }
+  }} />;
   return <CompleteScreen affirmation={finalAff} onHome={() => router.replace('/(tabs)' as any)} />;
 }
 

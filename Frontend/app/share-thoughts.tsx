@@ -132,7 +132,7 @@ export default function ShareThoughtsScreen() {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify({ task_name: 'Write 1 word about how you feel' })
+          body: JSON.stringify({ task_name: 'Write 1 word about how you feel', thought: text })
         });
         const data = await response.json();
         if (response.ok || data.success) {

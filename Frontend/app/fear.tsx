@@ -232,6 +232,7 @@ export default function NoticeFearScreen() {
   // DB Complete State response
   const [pointsAwarded, setPointsAwarded] = useState(300);
   const [totalPoints, setTotalPoints] = useState(0);
+  const [streakCount, setStreakCount] = useState(0);
 
   // Background animations values
   const bgTranslateY = useSharedValue(0);
@@ -417,8 +418,9 @@ export default function NoticeFearScreen() {
 
       const data = await response.json();
       if (response.ok || data.success) {
-        setPointsAwarded(data.pointsEarned || 300);
+        setPointsAwarded(data.pointsAdded || 300);
         setTotalPoints(data.totalPoints || 0);
+        setStreakCount(data.streak || 0);
         triggerHaptic('success');
         setStep(12);
       } else {
@@ -433,9 +435,11 @@ export default function NoticeFearScreen() {
   const handleFinish = () => {
     triggerHaptic('success');
     router.replace({
-      pathname: '/(tabs)',
+      pathname: '/task-success',
       params: {
-        updatedPoints: totalPoints ? totalPoints.toString() : '',
+        points: pointsAwarded?.toString() || '300',
+        totalPoints: totalPoints?.toString() || '0',
+        streak: streakCount?.toString() || '0',
       }
     } as any);
   };

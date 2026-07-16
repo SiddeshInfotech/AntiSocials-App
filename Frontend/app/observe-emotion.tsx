@@ -242,22 +242,43 @@ export default function ObserveEmotionScreen() {
               <TouchableOpacity 
                 style={styles.doneBtn} 
                 onPress={async () => {
+                  let pointsData = { pointsAdded: '500', totalPoints: '0', streak: '0' };
                   try {
                     const token = await SecureStore.getItemAsync('token');
                     if (token) {
-                      await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+                      const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
                         method: 'POST',
                         headers: {
                           'Content-Type': 'application/json',
                           'Authorization': `Bearer ${token}`
                         },
-                        body: JSON.stringify({ task_name: 'Observe One Emotion for 5 Minutes' })
+                        body: JSON.stringify({
+                          task_name: 'Observe One Emotion for 5 Minutes',
+                          emotion: selectedEmotion,
+                          situation: situation,
+                          reflection: reflection
+                        })
                       });
+                      const data = await response.json();
+                      if (response.ok || data.success) {
+                        pointsData = {
+                          pointsAdded: data.pointsAdded?.toString() || "500",
+                          totalPoints: data.totalPoints?.toString() || "0",
+                          streak: data.streak?.toString() || "0"
+                        };
+                      }
                     }
                   } catch (e) {
                     console.error("Observe emotion complete error:", e);
                   }
-                  router.back();
+                  router.replace({
+                    pathname: '/task-success',
+                    params: {
+                      points: pointsData.pointsAdded,
+                      totalPoints: pointsData.totalPoints,
+                      streak: pointsData.streak
+                    }
+                  } as any);
                 }}
               >
                 <Text style={styles.doneBtnText}>Done</Text>

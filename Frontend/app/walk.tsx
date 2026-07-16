@@ -308,10 +308,11 @@ export default function WalkSlowlyScreen() {
                     onPress={() => {
                       if (completeData) {
                         router.replace({
-                          pathname: '/(tabs)',
+                          pathname: '/task-success',
                           params: {
-                            updatedPoints: String(completeData.totalPoints),
-                            updatedStreak: String(completeData.streak)
+                            points: String(completeData.pointsAdded || 0),
+                            totalPoints: String(completeData.totalPoints),
+                            streak: String(completeData.streak)
                           }
                         } as any);
                       } else {

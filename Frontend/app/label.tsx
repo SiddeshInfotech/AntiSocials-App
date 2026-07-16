@@ -221,8 +221,8 @@ export default function LabelThoughtScreen() {
   const completeTask = async () => {
     try {
       const token = await SecureStore.getItemAsync('token');
-      if (!token) return;
-      await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+      if (!token) return null;
+      const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ 
@@ -232,8 +232,14 @@ export default function LabelThoughtScreen() {
           label: selectedLabel
         }),
       });
+      const data = await response.json();
+      if (response.ok || data.success) {
+        return { pointsAdded: data.pointsAdded, totalPoints: data.totalPoints, streak: data.streak };
+      }
+      return null;
     } catch (e) {
       console.error('completeTask error:', e);
+      return null;
     }
   };
 
@@ -243,9 +249,20 @@ export default function LabelThoughtScreen() {
     setScreen('complete');
   };
 
-  const handleReturnHome = () => {
-    completeTask();
-    router.replace('/(tabs)' as any);
+  const handleReturnHome = async () => {
+    const result = await completeTask();
+    if (result) {
+      router.replace({
+        pathname: '/task-success',
+        params: {
+          points: result.pointsAdded?.toString() || '500',
+          totalPoints: result.totalPoints?.toString() || '0',
+          streak: result.streak?.toString() || '0',
+        }
+      } as any);
+    } else {
+      router.replace('/(tabs)' as any);
+    }
   };
 
   // Breathe Dot styles (static hooks)

@@ -219,7 +219,7 @@ export default function ObserveGroupEnergyScreen() {
   const [customReminder, setCustomReminder] = useState<string[]>([]);
   const [showAddReminder, setShowAddReminder] = useState(false);
   const [newReminderInput, setNewReminderInput] = useState('');
-  const [completionSavedData, setCompletionSavedData] = useState<{ totalPoints: number; streak: number } | null>(null);
+  const [completionSavedData, setCompletionSavedData] = useState<{ pointsAdded: number; totalPoints: number; streak: number } | null>(null);
 
   // Background cloud drifting shared values
   const cloudTranslateX = useSharedValue(0);
@@ -311,6 +311,7 @@ export default function ObserveGroupEnergyScreen() {
       const data = await response.json();
       if (response.ok || data.success) {
         setCompletionSavedData({
+          pointsAdded: data.pointsAdded,
           totalPoints: data.totalPoints,
           streak: data.streak
         });
@@ -322,13 +323,18 @@ export default function ObserveGroupEnergyScreen() {
 
   const handleFinishTask = () => {
     triggerHaptic('success');
-    router.replace({
-      pathname: '/(tabs)',
-      params: {
-        updatedPoints: completionSavedData?.totalPoints?.toString() || '',
-        updatedStreak: completionSavedData?.streak?.toString() || '',
-      },
-    } as any);
+    if (completionSavedData) {
+      router.replace({
+        pathname: '/task-success',
+        params: {
+          points: completionSavedData.pointsAdded?.toString() || '250',
+          totalPoints: completionSavedData.totalPoints?.toString() || '0',
+          streak: completionSavedData.streak?.toString() || '0',
+        },
+      } as any);
+    } else {
+      router.replace('/(tabs)' as any);
+    }
   };
 
   // Format date helper

@@ -83,6 +83,7 @@ export default function VolunteerTaskScreen() {
   const [timeLeft, setTimeLeft] = useState(3600);            // 60 minutes in seconds
   const [isPaused, setIsPaused] = useState(false);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [completionResult, setCompletionResult] = useState<{ pointsAdded: number; totalPoints: number; streak: number } | null>(null);
 
   // ── Animations ─────────────────────────────────────────────────────────────
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -130,7 +131,7 @@ export default function VolunteerTaskScreen() {
         try {
           const token = await SecureStore.getItemAsync('token');
           if (token) {
-            await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+            const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -138,6 +139,14 @@ export default function VolunteerTaskScreen() {
               },
               body: JSON.stringify({ task_name: 'Volunteer for 1 hour' })
             });
+            const data = await response.json();
+            if (response.ok || data.success) {
+              setCompletionResult({
+                pointsAdded: data.pointsAdded || 0,
+                totalPoints: data.totalPoints || 0,
+                streak: data.streak || 0
+              });
+            }
           }
         } catch(e) {
           console.error("Volunteer task complete API error:", e);
@@ -309,7 +318,20 @@ export default function VolunteerTaskScreen() {
       <TouchableOpacity
         style={[styles.bigBtn, { backgroundColor: '#ffffff' }]}
         activeOpacity={0.85}
-        onPress={() => router.replace('/(tabs)')}
+        onPress={() => {
+          if (completionResult) {
+            router.replace({
+              pathname: '/task-success',
+              params: {
+                points: completionResult.pointsAdded.toString(),
+                totalPoints: completionResult.totalPoints.toString(),
+                streak: completionResult.streak.toString(),
+              }
+            } as any);
+          } else {
+            router.replace('/(tabs)' as any);
+          }
+        }}
       >
         <Text style={[styles.bigBtnText, { color: '#000' }]}>Back to Tasks</Text>
         <Feather name="home" size={20} color="#000" style={{ marginLeft: 10 }} />

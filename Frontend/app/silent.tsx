@@ -280,6 +280,8 @@ export default function SilenceMindScreen() {
   const [bgIndex, setBgIndex] = useState(0);
   const [nextBgIndex, setNextBgIndex] = useState(0);
   const bgFade = useSharedValue(0);
+  const [completionResult, setCompletionResult] = useState<{ pointsAdded: number; totalPoints: number; streak: number } | null>(null);
+
 
   const soundRef = useRef<Audio.Sound | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -324,14 +326,20 @@ export default function SilenceMindScreen() {
   const completeTask = async () => {
     try {
       const token = await SecureStore.getItemAsync('token');
-      if (!token) return;
-      await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+      if (!token) return null;
+      const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ task_name: 'Silence Mind', points: 500 }),
       });
+      const data = await response.json();
+      if (response.ok || data.success) {
+        return { pointsAdded: data.pointsAdded, totalPoints: data.totalPoints, streak: data.streak };
+      }
+      return null;
     } catch (e) {
       console.error('completeTask error:', e);
+      return null;
     }
   };
 
@@ -428,11 +436,23 @@ export default function SilenceMindScreen() {
   const handleMeditationEnd = async () => {
     await stopAmbientTrack();
     setScreen('complete');
-    completeTask();
+    const result = await completeTask();
+    setCompletionResult(result);
   };
 
   const handleReturnHome = () => {
-    router.replace('/(tabs)' as any);
+    if (completionResult) {
+      router.replace({
+        pathname: '/task-success',
+        params: {
+          points: completionResult.pointsAdded?.toString() || '500',
+          totalPoints: completionResult.totalPoints?.toString() || '0',
+          streak: completionResult.streak?.toString() || '0',
+        }
+      } as any);
+    } else {
+      router.replace('/(tabs)' as any);
+    }
   };
 
   const formatTime = (totalSecs: number) => {

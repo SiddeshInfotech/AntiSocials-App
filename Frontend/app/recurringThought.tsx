@@ -197,16 +197,16 @@ export default function WriteRecurringThoughtScreen() {
   const [thoughtText, setThoughtText] = useState('');
   const [aiResult, setAiResult] = useState<AIResult | null>(null);
   
-  // Loading screen active texts state
   const [loadingTextIndex, setLoadingTextIndex] = useState(0);
+  const [completionResult, setCompletionResult] = useState<{ pointsAdded: number; totalPoints: number; streak: number } | null>(null);
 
   const zoomScale = useSharedValue(1);
 
   const completeTask = async () => {
     try {
       const token = await SecureStore.getItemAsync('token');
-      if (!token) return;
-      await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+      if (!token) return null;
+      const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ 
@@ -215,8 +215,14 @@ export default function WriteRecurringThoughtScreen() {
           thought: thoughtText
         }),
       });
+      const data = await response.json();
+      if (response.ok || data.success) {
+        return { pointsAdded: data.pointsAdded, totalPoints: data.totalPoints, streak: data.streak };
+      }
+      return null;
     } catch (e) {
       console.error('completeTask error:', e);
+      return null;
     }
   };
 
@@ -265,9 +271,20 @@ export default function WriteRecurringThoughtScreen() {
     setLoadingTextIndex(0);
   };
 
-  const handleReturnHome = () => {
-    completeTask();
-    router.replace('/(tabs)' as any);
+  const handleReturnHome = async () => {
+    const result = await completeTask();
+    if (result) {
+      router.replace({
+        pathname: '/task-success',
+        params: {
+          points: result.pointsAdded?.toString() || '500',
+          totalPoints: result.totalPoints?.toString() || '0',
+          streak: result.streak?.toString() || '0',
+        }
+      } as any);
+    } else {
+      router.replace('/(tabs)' as any);
+    }
   };
 
   const zoomStyle = useAnimatedStyle(() => ({

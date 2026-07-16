@@ -187,12 +187,12 @@ export default function BrainVsCameraScreen() {
   const [storyInput, setStoryInput] = useState('');
 
   // Completion states & functions
-  const [completeData, setCompleteData] = useState<{ totalPoints: number; streak: number } | null>(null);
+  const [completeData, setCompleteData] = useState<{ pointsAdded: number; totalPoints: number; streak: number } | null>(null);
   const [isAwarding, setIsAwarding] = useState(false);
   const [hasCalledComplete, setHasCalledComplete] = useState(false);
   const [pointsDisplay, setPointsDisplay] = useState(0);
 
-  const completeTask = async (): Promise<{ totalPoints: number; streak: number } | null> => {
+  const completeTask = async (): Promise<{ pointsAdded: number; totalPoints: number; streak: number } | null> => {
     if (hasCalledComplete) return completeData;
     try {
       setHasCalledComplete(true);
@@ -210,8 +210,8 @@ export default function BrainVsCameraScreen() {
         }),
       });
       const data = await res.json();
-      if (res.ok && data.success) {
-        const result = { totalPoints: data.totalPoints, streak: data.streak };
+      if (res.ok || data.success) {
+        const result = { pointsAdded: data.pointsAdded, totalPoints: data.totalPoints, streak: data.streak };
         setCompleteData(result);
         return result;
       }
@@ -225,24 +225,23 @@ export default function BrainVsCameraScreen() {
   const handleReturnHome = async () => {
     triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
     
-    let finalPoints = completeData?.totalPoints;
-    let finalStreak = completeData?.streak;
-    
-    if (!finalPoints) {
-      const data = await completeTask();
-      if (data) {
-        finalPoints = data.totalPoints;
-        finalStreak = data.streak;
-      }
+    let result = completeData;
+    if (!result) {
+      result = await completeTask();
     }
 
-    router.replace({
-      pathname: '/(tabs)',
-      params: { 
-        updatedPoints: finalPoints ? String(finalPoints) : undefined, 
-        updatedStreak: finalStreak !== undefined ? String(finalStreak) : undefined 
-      }
-    } as any);
+    if (result) {
+      router.replace({
+        pathname: '/task-success',
+        params: { 
+          points: result.pointsAdded ? String(result.pointsAdded) : '500',
+          totalPoints: String(result.totalPoints || 0),
+          streak: String(result.streak || 0)
+        }
+      } as any);
+    } else {
+      router.replace('/(tabs)' as any);
+    }
   };
 
   // Reanimated Animation Values
