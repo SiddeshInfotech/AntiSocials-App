@@ -828,7 +828,13 @@ export default function NegativeThoughtScreen() {
       await fetch(`${API_BASE_URL}/api/tasks/complete`, {
         method: 'POST',
         headers: { 'Content-Type':'application/json', Authorization:`Bearer ${token}` },
-        body: JSON.stringify({ task_name:'Replace One Negative Thought', points:600 }),
+        body: JSON.stringify({ 
+          task_name:'Replace One Negative Thought', 
+          points:600,
+          original_thought: thought,
+          replacement_affirmation: finalAff,
+          final_mood: selectedMood
+        }),
       });
     } catch (e) { console.error('completeTask error:', e); }
   };

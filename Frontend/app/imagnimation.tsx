@@ -201,7 +201,13 @@ export default function BrainVsCameraScreen() {
       const res = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ task_name: 'Brain vs Camera', points: 500 }),
+        body: JSON.stringify({ 
+          task_name: 'Brain vs Camera', 
+          points: 500,
+          original_thought: thought,
+          facts: facts,
+          stories: stories
+        }),
       });
       const data = await res.json();
       if (res.ok && data.success) {

@@ -209,7 +209,11 @@ export default function WriteRecurringThoughtScreen() {
       await fetch(`${API_BASE_URL}/api/tasks/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ task_name: 'Write Recurring Thought', points: 500 }),
+        body: JSON.stringify({ 
+          task_name: 'Write Recurring Thought', 
+          points: 500,
+          thought: thoughtText
+        }),
       });
     } catch (e) {
       console.error('completeTask error:', e);

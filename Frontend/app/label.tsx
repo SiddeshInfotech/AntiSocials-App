@@ -225,7 +225,12 @@ export default function LabelThoughtScreen() {
       await fetch(`${API_BASE_URL}/api/tasks/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ task_name: 'Label a Thought', points: 500 }),
+        body: JSON.stringify({ 
+          task_name: 'Label a Thought', 
+          points: 500,
+          thought: thoughtText,
+          label: selectedLabel
+        }),
       });
     } catch (e) {
       console.error('completeTask error:', e);

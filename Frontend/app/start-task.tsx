@@ -80,7 +80,7 @@ export default function StartTaskScreen() {
 
             <View style={styles.timerBadge}>
               <MaterialCommunityIcons name="clock-outline" size={18} color="#06B6D4" />
-              <Text style={styles.timerBadgeText}>1 HOUR TARGET</Text>
+              <Text style={styles.timerBadgeText}>2 MINUTE TARGET</Text>
             </View>
           </View>
 
