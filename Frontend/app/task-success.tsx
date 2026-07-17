@@ -62,7 +62,13 @@ const Particle = ({ x, color, size, delay, duration }: typeof PARTICLES[0]) => {
 export default function TaskSuccessScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { points, totalPoints, streak } = useLocalSearchParams<{ points: string, totalPoints: string, streak: string }>();
+  const { points, totalPoints, streak, message, difficulty } = useLocalSearchParams<{ 
+    points: string; 
+    totalPoints: string; 
+    streak: string; 
+    message?: string;
+    difficulty?: string;
+  }>();
   const displayPoints = points ?? '0';
   const displayTotal = totalPoints ?? '0';
   const displayStreak = streak ?? '0';
@@ -157,7 +163,7 @@ export default function TaskSuccessScreen() {
     height: 110,
     borderRadius: 55,
     borderWidth: 2,
-    borderColor: '#a855f7',
+    borderColor: difficulty === 'hard' ? '#f97316' : '#a855f7',
     transform: [{ scale: anim.interpolate({ inputRange: [0, 1], outputRange: [1, 2.8] }) }],
     opacity: anim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.7, 0.3, 0] }),
   });
@@ -166,7 +172,7 @@ export default function TaskSuccessScreen() {
     <View style={styles.root}>
       <StatusBar style="light" />
       <LinearGradient
-        colors={['#1a1035', '#0d1b4b', '#0f172a']}
+        colors={difficulty === 'hard' ? ['#210c08', '#3c1b05', '#0f172a'] : ['#1a1035', '#0d1b4b', '#0f172a']}
         style={StyleSheet.absoluteFill}
       />
 
@@ -174,7 +180,11 @@ export default function TaskSuccessScreen() {
       {showParticles && PARTICLES.map(p => <Particle key={p.id} {...p} />)}
 
       {/* Decorative glowing blob */}
-      <Animated.View style={[styles.glowBlob, { transform: [{ scale: bgScale }] }]} />
+      <Animated.View style={[
+        styles.glowBlob, 
+        difficulty === 'hard' && { backgroundColor: 'rgba(249, 115, 22, 0.16)' },
+        { transform: [{ scale: bgScale }] }
+      ]} />
 
       <ScrollView contentContainerStyle={[styles.content, { paddingTop: Math.max(insets.top + 20, 60), paddingBottom: Math.max(insets.bottom + 20, 40) }]} showsVerticalScrollIndicator={false}>
         
@@ -187,23 +197,30 @@ export default function TaskSuccessScreen() {
           <Animated.View style={[styles.iconCircle, {
             transform: [{ scale: iconScale }, { translateY: iconBounce }]
           }]}>
-            <LinearGradient colors={['#a855f7', '#6366f1']} style={styles.iconGradient}>
-              <Text style={styles.iconEmoji}>🏆</Text>
+            <LinearGradient colors={difficulty === 'hard' ? ['#f59e0b', '#ef4444'] : ['#a855f7', '#6366f1']} style={styles.iconGradient}>
+              <Text style={styles.iconEmoji}>{difficulty === 'hard' ? '🦁' : '🏆'}</Text>
             </LinearGradient>
           </Animated.View>
         </View>
 
         {/* Title area */}
         <Animated.View style={[styles.titleBlock, { opacity: cardOpacity, transform: [{ translateY: cardSlide }] }]}>
-          <Text style={styles.title}>Well Done! 🎉</Text>
-          <Text style={styles.subtitle}>You showed up and made it happen.</Text>
+          <Text style={styles.title}>{difficulty === 'hard' ? 'Courage Unlocked! 🦁' : 'Well Done! 🎉'}</Text>
+          <Text style={styles.subtitle}>{difficulty === 'hard' ? 'You stood tall in the face of discomfort.' : 'You showed up and made it happen.'}</Text>
         </Animated.View>
 
         {/* Points card */}
-        <Animated.View style={[styles.pointsCard, { opacity: cardOpacity, transform: [{ translateY: cardSlide }] }]}>
-          <LinearGradient colors={['rgba(168,85,247,0.2)', 'rgba(99,102,241,0.1)']} style={styles.pointsCardInner}>
+        <Animated.View style={[
+          styles.pointsCard, 
+          difficulty === 'hard' && { borderColor: 'rgba(249, 115, 22, 0.3)' },
+          { opacity: cardOpacity, transform: [{ translateY: cardSlide }] }
+        ]}>
+          <LinearGradient 
+            colors={difficulty === 'hard' ? ['rgba(249, 115, 22, 0.2)', 'rgba(239, 68, 68, 0.1)'] : ['rgba(168,85,247,0.2)', 'rgba(99,102,241,0.1)']} 
+            style={styles.pointsCardInner}
+          >
             <Text style={styles.pointsLabel}>Points Earned</Text>
-            <Text style={styles.pointsValue}>+{displayCount}</Text>
+            <Text style={[styles.pointsValue, difficulty === 'hard' && { color: '#f97316' }]}>+{displayCount}</Text>
             <View style={styles.divider} />
             <View style={styles.statRow}>
               <View style={styles.statItem}>
@@ -219,7 +236,7 @@ export default function TaskSuccessScreen() {
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statItem}>
-                <Ionicons name="trophy" size={20} color="#a855f7" />
+                <Ionicons name="trophy" size={20} color={difficulty === 'hard' ? '#f97316' : '#a855f7'} />
                 <Text style={styles.statNum}>{displayTotal}</Text>
                 <Text style={styles.statLbl}>Total Pts</Text>
               </View>
@@ -228,10 +245,14 @@ export default function TaskSuccessScreen() {
         </Animated.View>
 
         {/* Message card */}
-        <Animated.View style={[styles.msgCard, { opacity: cardOpacity, transform: [{ translateY: cardSlide }] }]}>
-          <Feather name="zap" size={18} color="#f59e0b" style={{ marginRight: 10 }} />
-          <Text style={styles.msgText}>
-            Every small action builds who you become. Keep going — Day 2 awaits!
+        <Animated.View style={[
+          styles.msgCard, 
+          difficulty === 'hard' && { backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.25)' },
+          { opacity: cardOpacity, transform: [{ translateY: cardSlide }] }
+        ]}>
+          <Feather name={difficulty === 'hard' ? "shield" : "zap"} size={18} color={difficulty === 'hard' ? "#ef4444" : "#f59e0b"} style={{ marginRight: 10 }} />
+          <Text style={[styles.msgText, difficulty === 'hard' && { color: '#fca5a5' }]}>
+            {message || "Every small action builds who you become. Keep going — Day 2 awaits!"}
           </Text>
         </Animated.View>
 
@@ -239,7 +260,7 @@ export default function TaskSuccessScreen() {
         <Animated.View style={[styles.btnArea, { opacity: btnOpacity, transform: [{ translateY: btnSlide }] }]}>
           <TouchableOpacity activeOpacity={0.85} onPress={() => router.replace({ pathname: '/(tabs)', params: { updatedPoints: displayTotal, updatedStreak: displayStreak } } as any)}>
             <LinearGradient
-              colors={['#a855f7', '#6366f1']}
+              colors={difficulty === 'hard' ? ['#f97316', '#ef4444'] : ['#a855f7', '#6366f1']}
               start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
               style={styles.primaryBtn}
             >

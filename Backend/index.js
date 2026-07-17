@@ -314,6 +314,38 @@ const initDB = async () => {
             );
         `);
 
+        // Seeding the Calm Breath task separately (ensures it is seeded even if database is already initialized)
+        await db.query(`
+            INSERT INTO tasks (title, description, category, points_reward, duration, difficulty, mascot, completion_message)
+            SELECT 'Calm Breath', 
+                   'Take a short pause and calm your mind through slow, mindful breathing.\n\nFollow the guided breathing rhythm, allowing your body to relax and your thoughts to slow down.\n\nA few intentional breaths can reduce stress, improve focus, and help you feel more grounded.', 
+                   'Health', 
+                   20, 
+                   2, 
+                   'Medium', 
+                   '🌬️', 
+                   'You stabilized.'
+            WHERE NOT EXISTS (
+                SELECT 1 FROM tasks WHERE title = 'Calm Breath'
+            );
+        `);
+
+        // Seeding the Courage Unlock task separately (ensures it is seeded even if database is already initialized)
+        await db.query(`
+            INSERT INTO tasks (title, description, category, points_reward, duration, difficulty, mascot, completion_message)
+            SELECT 'Courage Unlock', 
+                   'Courage isn''t something you find—it''s something you unlock within yourself.\n\nTake a moment to recognize a fear, challenge, or limiting belief that has been holding you back.\n\nThen make a small promise to yourself about the courageous action you''ll take next.\n\nEvery brave decision unlocks a stronger version of you.', 
+                   'Mental', 
+                   300, 
+                   5, 
+                   'Hard', 
+                   '🗝️', 
+                   'You expanded.'
+            WHERE NOT EXISTS (
+                SELECT 1 FROM tasks WHERE title = 'Courage Unlock'
+            );
+        `);
+
         // Seeding the Turn off notifications separately (ensures it is seeded even if database is already initialized)
         await db.query(`
             INSERT INTO tasks (title, description, category, points_reward, duration, difficulty, mascot, completion_message)
@@ -441,6 +473,119 @@ const initDB = async () => {
                 SELECT 1 FROM tasks WHERE title = 'No Media'
             );
         `);
+
+        // Seeding the Eye Rest task separately (ensures it is seeded even if database is already initialized)
+        await db.query(`
+            INSERT INTO tasks (title, description, category, points_reward, duration, difficulty, mascot, completion_message)
+            SELECT 'Eye Rest', 
+                   'Give your eyes a short break from screens.\n\nLook away from your phone or computer and focus on a distant object for a few moments.\n\nBlink naturally, relax your eye muscles, and take a few slow breaths.\n\nA short eye break helps reduce digital eye strain and refreshes your concentration.', 
+                   'Mental', 
+                   10, 
+                   2, 
+                   'Easy', 
+                   '👀', 
+                   'You reset your focus.'
+            WHERE NOT EXISTS (
+                SELECT 1 FROM tasks WHERE title = 'Eye Rest'
+            );
+        `);
+
+        // Seeding the Confirm Presence task separately (ensures it is seeded even if database is already initialized)
+        await db.query(`
+            INSERT INTO tasks (title, description, category, points_reward, duration, difficulty, mascot, completion_message)
+            SELECT 'Confirm Presence', 
+                   'Pause for a moment and simply notice where you are.\n\nTake a slow breath and observe:\n\n* What you can see\n* What you can hear\n* What you can feel\n* How your body feels right now\n\nThere''s nothing to fix or change—just acknowledge the present moment.\n\nThis small practice helps you reconnect with yourself and become more mindful throughout the day.', 
+                   'Mental', 
+                   10, 
+                   2, 
+                   'Easy', 
+                   '🌿', 
+                   'You checked in.'
+            WHERE NOT EXISTS (
+                SELECT 1 FROM tasks WHERE title = 'Confirm Presence'
+            );
+        `);
+
+        // Seeding the Do One Uncomfortable Thing task separately (ensures it is seeded even if database is already initialized)
+        await db.query(`
+            INSERT INTO tasks (title, description, category, points_reward, duration, difficulty, mascot, completion_message)
+            SELECT 'Do One Uncomfortable Thing', 
+                   'Growth happens outside your comfort zone.\n\nToday, challenge yourself by doing one thing you''ve been avoiding.\n\nExamples:\n\n* Start a difficult conversation.\n* Speak up in a meeting.\n* Make an important phone call.\n* Introduce yourself to someone new.\n* Begin a task you''ve been postponing.\n* Try something you''ve been afraid to do.\n\nThe goal isn''t perfection—it''s courage.\n\nEvery uncomfortable action strengthens your confidence.', 
+                   'Mental', 
+                   30, 
+                   10, 
+                   'Hard', 
+                   '🦁', 
+                   'You faced fear.'
+            WHERE NOT EXISTS (
+                SELECT 1 FROM tasks WHERE title = 'Do One Uncomfortable Thing'
+            );
+        `);
+
+        // Seeding the Sit with Discomfort task separately (ensures it is seeded even if database is already initialized)
+        await db.query(`
+            INSERT INTO tasks (title, description, category, points_reward, duration, difficulty, mascot, completion_message)
+            SELECT 'Sit with Discomfort', 
+                   'Instead of reaching for your phone or distracting yourself, simply sit with whatever you''re feeling.\n\nFor five minutes:\n\n* Stay seated.\n* Don''t scroll.\n* Don''t multitask.\n* Don''t seek distractions.\n* Simply observe your thoughts and emotions without judging them.\n\nDiscomfort is temporary, but learning to stay with it builds resilience, patience, and emotional strength.', 
+                   'Mental', 
+                   300, 
+                   5, 
+                   'Hard', 
+                   '🪨', 
+                   'You didn''t escape.'
+            WHERE NOT EXISTS (
+                SELECT 1 FROM tasks WHERE title = 'Sit with Discomfort'
+            );
+        `);
+
+        // Seeding the Observe Fear Response task separately (ensures it is seeded even if database is already initialized)
+        await db.query(`
+            INSERT INTO tasks (title, description, category, points_reward, duration, difficulty, mascot, completion_message)
+            SELECT 'Observe Fear Response', 
+                   'Fear is a natural emotion. Instead of reacting immediately, learn to observe it.\n\nFor the next five minutes:\n\n* Think about something that makes you nervous or uncomfortable.\n* Notice how your body responds.\n* Observe your breathing.\n* Notice your heartbeat.\n* Watch your thoughts without trying to change them.\n* Don''t judge or suppress your emotions.\n\nThe goal isn''t to remove fear—it''s to understand it.\n\nAwareness reduces the power fear has over your decisions.', 
+                   'Mental', 
+                   300, 
+                   5, 
+                   'Hard', 
+                   '👁️', 
+                   'You understood fear.'
+            WHERE NOT EXISTS (
+                SELECT 1 FROM tasks WHERE title = 'Observe Fear Response'
+            );
+        `);
+
+        // Seeding the Encourage Self-Talk task separately (ensures it is seeded even if database is already initialized)
+        await db.query(`
+            INSERT INTO tasks (title, description, category, points_reward, duration, difficulty, mascot, completion_message)
+            SELECT 'Encourage Self-Talk', 
+                   'Sometimes we speak kindly to everyone except ourselves.\n\nTake a few minutes to encourage yourself just as you would encourage a close friend.\n\nChoose positive words.\n\nBe supportive.\n\nBe patient.\n\nReplace self-criticism with self-compassion.\n\nSmall words of encouragement can change your mindset.', 
+                   'Mental', 
+                   200, 
+                   5, 
+                   'Medium', 
+                   '🪞', 
+                   'You supported yourself.'
+            WHERE NOT EXISTS (
+                SELECT 1 FROM tasks WHERE title = 'Encourage Self-Talk'
+            );
+        `);
+
+        // Seeding the Write Courage Moment task separately (ensures it is seeded even if database is already initialized)
+        await db.query(`
+            INSERT INTO tasks (title, description, category, points_reward, duration, difficulty, mascot, completion_message)
+            SELECT 'Write Courage Moment', 
+                   'Think about a moment in your life when you showed courage.\n\nIt doesn''t have to be something extraordinary.\n\nMaybe you:\n\n* Spoke up for yourself.\n* Faced a fear.\n* Tried something new.\n* Apologized sincerely.\n* Took a difficult decision.\n* Didn''t give up during a hard time.\n\nWrite about that moment.\n\nReflect on how it made you feel and what you learned from it.', 
+                   'Mental', 
+                   200, 
+                   5, 
+                   'Medium', 
+                   '🪶', 
+                   'You grew stronger.'
+            WHERE NOT EXISTS (
+                SELECT 1 FROM tasks WHERE title = 'Write Courage Moment'
+            );
+        `);
+
 
 
 
@@ -875,6 +1020,10 @@ app.post('/api/tasks/complete', authenticateToken, async (req, res) => {
         points = 500;
     } else if (task_name === "Focus on one task (10 min)") {
         points = 20;
+    } else if (task_name === "Calm Breath") {
+        points = 20;
+    } else if (task_name === "Courage Unlock") {
+        points = 300;
     } else if (task_name === "Turn off notifications (30 min)") {
         points = 10;
     } else if (task_name === "Observe urge to check phone") {
@@ -891,6 +1040,20 @@ app.post('/api/tasks/complete', authenticateToken, async (req, res) => {
         points = 20;
     } else if (task_name === "No Media") {
         points = 20;
+    } else if (task_name === "Eye Rest") {
+        points = 10;
+    } else if (task_name === "Confirm Presence") {
+        points = 10;
+    } else if (task_name === "Do One Uncomfortable Thing") {
+        points = 30;
+    } else if (task_name === "Sit with Discomfort") {
+        points = 300;
+    } else if (task_name === "Observe Fear Response") {
+        points = 300;
+    } else if (task_name === "Encourage Self-Talk") {
+        points = 200;
+    } else if (task_name === "Write Courage Moment") {
+        points = 200;
     } else {
         // Fallback: check if task exists in database
         try {
@@ -943,7 +1106,24 @@ app.post('/api/tasks/complete', authenticateToken, async (req, res) => {
         `, [userId, task_name, points]);
 
         // Save distraction text if provided
-        const { distraction_text } = req.body;
+        const { distraction_text, selected_affirmation, encouragement_text, journal_entry, calm_breath_summary, fear, commitment, unlock_completed } = req.body;
+        if (fear || commitment) {
+            const taskDb = await db.query('SELECT id FROM tasks WHERE title = $1', [task_name]);
+            const taskId = taskDb.rows[0] ? taskDb.rows[0].id : null;
+            const combinedText = `Fear: ${fear || 'None'} | Commitment: ${commitment || 'None'} | Unlock Completed: ${unlock_completed || 'No'}`;
+            await db.query(`
+                INSERT INTO task_responses (user_id, task_id, response_text)
+                VALUES ($1, $2, $3)
+            `, [userId, taskId, combinedText]);
+        }
+        if (calm_breath_summary) {
+            const taskDb = await db.query('SELECT id FROM tasks WHERE title = $1', [task_name]);
+            const taskId = taskDb.rows[0] ? taskDb.rows[0].id : null;
+            await db.query(`
+                INSERT INTO task_responses (user_id, task_id, response_text)
+                VALUES ($1, $2, $3)
+            `, [userId, taskId, calm_breath_summary]);
+        }
         if (distraction_text) {
             const taskDb = await db.query('SELECT id FROM tasks WHERE title = $1', [task_name]);
             const taskId = taskDb.rows[0] ? taskDb.rows[0].id : null;
@@ -951,6 +1131,23 @@ app.post('/api/tasks/complete', authenticateToken, async (req, res) => {
                 INSERT INTO task_responses (user_id, task_id, response_text)
                 VALUES ($1, $2, $3)
             `, [userId, taskId, distraction_text]);
+        }
+        if (selected_affirmation || encouragement_text) {
+            const taskDb = await db.query('SELECT id FROM tasks WHERE title = $1', [task_name]);
+            const taskId = taskDb.rows[0] ? taskDb.rows[0].id : null;
+            const combinedText = `Affirmation: ${selected_affirmation || 'None'} | Encouragement: ${encouragement_text || 'None'}`;
+            await db.query(`
+                INSERT INTO task_responses (user_id, task_id, response_text)
+                VALUES ($1, $2, $3)
+            `, [userId, taskId, combinedText]);
+        }
+        if (journal_entry) {
+            const taskDb = await db.query('SELECT id FROM tasks WHERE title = $1', [task_name]);
+            const taskId = taskDb.rows[0] ? taskDb.rows[0].id : null;
+            await db.query(`
+                INSERT INTO task_responses (user_id, task_id, response_text)
+                VALUES ($1, $2, $3)
+            `, [userId, taskId, journal_entry]);
         }
 
         // Add points to user total

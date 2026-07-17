@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
 
 export default function TasksJourneySection({ completedTasks = [] }: { completedTasks?: string[] }) {
   const router = useRouter();
@@ -72,11 +73,11 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       route: "/drink-task",
     },
     {
-      emoji: "👁️",
+      emoji: "👀",
       difficulty: "easy",
-      title: "Eye Rest (2 min)",
-      subtitle: "Look at something far away",
-      points: "+150 points",
+      title: "Eye Rest",
+      subtitle: "Give your eyes a short break from screens.",
+      points: "+10 points",
       route: "/eye-rest-task",
     },
     {
@@ -152,6 +153,22 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       route: "/start-exercise",
     },
     {
+      emoji: "🌬️",
+      difficulty: "medium",
+      title: "Calm Breath",
+      subtitle: "Slow your mind with a guided breathing rhythm.",
+      points: "+20 points",
+      route: "/calm-breath-task",
+    },
+    {
+      emoji: "🗝️",
+      difficulty: "hard",
+      title: "Courage Unlock",
+      subtitle: "Face a fear and unlock a stronger version of yourself.",
+      points: "+300 points",
+      route: "/courage-unlock-task",
+    },
+    {
       emoji: "👀",
       difficulty: "easy",
       title: "Look outside for 2 minutes",
@@ -168,10 +185,10 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       route: "/write-task",
     },
     {
-      emoji: "🧘",
+      emoji: "🌿",
       difficulty: "easy",
       title: "Confirm Presence",
-      subtitle: "Pause and be present",
+      subtitle: "Pause for a moment and notice where you are.",
       points: "+10 points",
       route: "/confirm-presence-task",
     },
@@ -216,6 +233,22 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       route: "/offline-time",
     },
     {
+      emoji: "🪞",
+      difficulty: "medium",
+      title: "Encourage Self-Talk",
+      subtitle: "Choose positive words and encourage yourself.",
+      points: "+200 points",
+      route: "/self-talk-task",
+    },
+    {
+      emoji: "🪶",
+      difficulty: "medium",
+      title: "Write Courage Moment",
+      subtitle: "Write about a moment you showed courage and reflect.",
+      points: "+200 points",
+      route: "/courage-task",
+    },
+    {
       emoji: "🌙",
       difficulty: "hard",
       title: "Take an hour tech-free break",
@@ -246,6 +279,30 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       subtitle: "Dedicate",
       points: "+200 points",
       route: "/volunteer-interest",
+    },
+    {
+      emoji: "🦁",
+      difficulty: "hard",
+      title: "Do One Uncomfortable Thing",
+      subtitle: "Growth happens outside your comfort zone.",
+      points: "+30 points",
+      route: "/uncomfortable-task",
+    },
+    {
+      emoji: "🪨",
+      difficulty: "hard",
+      title: "Sit with Discomfort",
+      subtitle: "Instead of reaching for your phone, sit with whatever you're feeling.",
+      points: "+300 points",
+      route: "/discomfort-task",
+    },
+    {
+      emoji: "👁️",
+      difficulty: "hard",
+      title: "Observe Fear Response",
+      subtitle: "Fear is a natural emotion. Instead of reacting immediately, learn to observe it.",
+      points: "+300 points",
+      route: "/fear-task",
     },
     {
       emoji: "🌍",
@@ -491,68 +548,103 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       <View style={styles.tasksListContainer}>
         {visibleTasks.map((task, idx) => {
           const isCompleted = completedTasks.includes(task.title);
+          const isHard = task.difficulty === "hard";
           return (
-          <TouchableOpacity
-            key={idx}
-            style={[styles.taskCard, isCompleted && { opacity: 0.6, backgroundColor: '#f9fafb' }]}
-            activeOpacity={0.7}
-            disabled={isCompleted}
-            onPress={() => {
-              if (task.route) {
-                router.push(task.route as any);
-              } else if (task.title.includes("Volunteer")) {
-                router.push("/volunteer-interest" as any);
-              } else if (task.title.includes("Help someone")) {
-                router.push("/help-intro" as any);
-              }
-            }}
-          >
-            <Text style={styles.taskEmoji}>{task.emoji}</Text>
-            <View style={styles.taskCardContent}>
-              <View
-                style={[
-                  styles.difficultyPill,
-                  {
-                    backgroundColor:
-                      task.difficulty === "easy"
-                        ? "#dcfce7"
-                        : task.difficulty === "hard"
-                          ? "#fee2e2"
-                          : "#fef08a",
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.difficultyText,
-                    {
-                      color:
-                        task.difficulty === "easy"
-                          ? "#16a34a"
-                          : task.difficulty === "hard"
-                            ? "#dc2626"
-                            : "#ca8a04",
-                    },
-                  ]}
+            <TouchableOpacity
+              key={idx}
+              activeOpacity={0.7}
+              disabled={isCompleted}
+              style={styles.cardTouch}
+              onPress={() => {
+                if (task.route) {
+                  router.push(task.route as any);
+                } else if (task.title.includes("Volunteer")) {
+                  router.push("/volunteer-interest" as any);
+                } else if (task.title.includes("Help someone")) {
+                  router.push("/help-intro" as any);
+                }
+              }}
+            >
+              {isHard && !isCompleted ? (
+                <LinearGradient
+                  colors={['#fffbf0', '#fff3eb', '#fff0f0']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[styles.taskCard, styles.hardTaskCard]}
                 >
-                  {task.difficulty}
-                </Text>
-              </View>
-              <Text style={[styles.taskTitle, isCompleted && { textDecorationLine: 'line-through', color: '#9ca3af' }]}>{task.title}</Text>
-              <Text style={styles.taskSubtitle}>{task.subtitle}</Text>
-              <View style={styles.taskBottomRow}>
-                <Text style={[styles.taskPoints, isCompleted && { color: '#16a34a', fontWeight: 'bold' }]}>
-                  {isCompleted ? "✓ Completed" : task.points}
-                </Text>
-                {!task.route && !isCompleted && (
-                  <View style={styles.comingSoonBadge}>
-                    <Text style={styles.comingSoonText}>🔒 Coming Soon</Text>
+                  <Text style={styles.taskEmoji}>{task.emoji}</Text>
+                  <View style={styles.taskCardContent}>
+                    <View style={styles.cardHeaderRow}>
+                      <View style={[styles.difficultyPill, styles.hardDifficultyPill]}>
+                        <Text style={[styles.difficultyText, styles.hardDifficultyText]}>
+                          🔥 {task.difficulty.toUpperCase()}
+                        </Text>
+                      </View>
+                      <View style={styles.hardBadgeRight}>
+                        <Feather name="award" size={11} color="#ea580c" />
+                        <Text style={styles.hardPointsText}>{task.points}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.taskTitle}>{task.title}</Text>
+                    <Text style={styles.taskSubtitle}>{task.subtitle}</Text>
+                    <View style={styles.taskBottomRow}>
+                      <Text style={styles.hardDurationText}>
+                        🕒 {task.title.includes("10 min") || task.title === "Do One Uncomfortable Thing" ? "10 min" : task.subtitle.includes("hour") || task.title.includes("hour") ? "1 hour" : "Flexible"}
+                      </Text>
+                    </View>
                   </View>
-                )}
-              </View>
-            </View>
-          </TouchableOpacity>
-        )})}
+                </LinearGradient>
+              ) : (
+                <View style={[styles.taskCard, isCompleted && { opacity: 0.6, backgroundColor: '#f9fafb' }]}>
+                  <Text style={styles.taskEmoji}>{task.emoji}</Text>
+                  <View style={styles.taskCardContent}>
+                    <View
+                      style={[
+                        styles.difficultyPill,
+                        {
+                          backgroundColor:
+                            task.difficulty === "easy"
+                              ? "#dcfce7"
+                              : task.difficulty === "hard"
+                                ? "#fee2e2"
+                                : "#fef08a",
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.difficultyText,
+                          {
+                            color:
+                              task.difficulty === "easy"
+                                ? "#16a34a"
+                                : task.difficulty === "hard"
+                                  ? "#dc2626"
+                                  : "#ca8a04",
+                          },
+                        ]}
+                      >
+                        {task.difficulty}
+                      </Text>
+                    </View>
+                    <Text style={[styles.taskTitle, isCompleted && { textDecorationLine: 'line-through', color: '#9ca3af' }]}>{task.title}</Text>
+                    <Text style={styles.taskSubtitle}>{task.subtitle}</Text>
+                    <View style={styles.taskBottomRow}>
+                      <Text style={[styles.taskPoints, isCompleted && { color: '#16a34a', fontWeight: 'bold' }]}>
+                        {isCompleted ? "✓ Completed" : task.points}
+                      </Text>
+                      {!task.route && !isCompleted && (
+                        <View style={styles.comingSoonBadge}>
+                          <Text style={styles.comingSoonText}>🔒 Coming Soon</Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                </View>
+              )}
+            </TouchableOpacity>
+          );
+        })}
       </View>
     </View>
   );
@@ -871,5 +963,62 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: "#64748b",
     fontWeight: "600",
+  },
+  cardTouch: {
+    width: "100%",
+  },
+  hardTaskCard: {
+    borderWidth: 1.5,
+    borderColor: "#ffe4e6",
+    shadowColor: "#f97316",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.14,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  hardDifficultyPill: {
+    backgroundColor: "#ffe4e6",
+    borderColor: "#fca5a5",
+    borderWidth: 1,
+    shadowColor: '#ef4444',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 1,
+    marginBottom: 0,
+  },
+  hardDifficultyText: {
+    color: "#dc2626",
+    fontWeight: "800",
+    fontSize: 9,
+    letterSpacing: 0.5,
+  },
+  hardBadgeRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff7ed',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#ffedd5',
+    gap: 4,
+  },
+  hardPointsText: {
+    color: '#ea580c',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  hardDurationText: {
+    color: '#ea580c',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 4,
   },
 });

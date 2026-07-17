@@ -49,6 +49,12 @@ export default function RootLayout() {
             <Stack.Screen name="breath-task" options={{ headerShown: false }} />
             <Stack.Screen name="cleanup-task" options={{ headerShown: false }} />
             <Stack.Screen name="group-trip" options={{ headerShown: false }} />
+            <Stack.Screen name="eye-rest-task" options={{ headerShown: false }} />
+            <Stack.Screen name="uncomfortable-task" options={{ headerShown: false }} />
+            <Stack.Screen name="discomfort-task" options={{ headerShown: false }} />
+            <Stack.Screen name="fear-task" options={{ headerShown: false }} />
+            <Stack.Screen name="self-talk-task" options={{ headerShown: false }} />
+            <Stack.Screen name="courage-task" options={{ headerShown: false }} />
           </Stack>
           <StatusBar style="dark" />
         </ThemeProvider>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Easing, Dimensions, Pressable, Alert, AppState } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Easing, Dimensions, Pressable, Alert, AppState, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -199,18 +199,29 @@ export default function EatTaskScreen() {
     <View style={styles.container}>
       <StatusBar style="dark" />
 
-      {/* Alive Breathing Warm/Calming Gradient Background */}
-      <Animated.View style={[StyleSheet.absoluteFillObject, { transform: [{ scale: breathAnim }] }]}>
+      {/* Detail Page Background (Mindful Eating) */}
+      <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: uiFadeAnim, transform: [{ scale: breathAnim }] }]}>
+        <Image 
+          source={require('../assets/images/eat-detail-bg.png')}
+          style={StyleSheet.absoluteFillObject}
+          resizeMode="cover"
+        />
         <LinearGradient
-          colors={['#fdfcf7', '#fdfaf2', '#fefdfb']}
+          colors={['rgba(253, 252, 247, 0.55)', 'rgba(253, 250, 242, 0.65)', 'rgba(254, 253, 251, 0.75)']}
           locations={[0, 0.5, 1]}
           style={StyleSheet.absoluteFillObject}
         />
       </Animated.View>
 
-      <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: bgShiftAnim }]}>
+      {/* Timer Page Background (Subtle blurred/faded dining wooden table) */}
+      <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: timerFadeAnim, transform: [{ scale: breathAnim }] }]}>
+        <Image 
+          source={require('../assets/images/eat-timer-bg.png')}
+          style={StyleSheet.absoluteFillObject}
+          resizeMode="cover"
+        />
         <LinearGradient
-          colors={['#faf8f0', '#f7f4e8', '#fdfcf7']}
+          colors={['rgba(253, 252, 247, 0.85)', 'rgba(253, 250, 242, 0.9)', 'rgba(254, 253, 251, 0.95)']}
           locations={[0, 0.5, 1]}
           style={StyleSheet.absoluteFillObject}
         />

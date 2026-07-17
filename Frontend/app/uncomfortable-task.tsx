@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Easing, Dimensions, Pressable, Alert, AppState, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Easing, Dimensions, Pressable, Alert, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as SecureStore from 'expo-secure-store';
 import { API_BASE_URL } from '../constants/Api';
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 
-const { width } = Dimensions.get('window');
-const TASK_DURATION = 120; // 2 minutes (120 seconds)
+const { width, height } = Dimensions.get('window');
+const TASK_DURATION = 600; // 10 minutes (600 seconds)
 
-export default function ConfirmPresenceTaskScreen() {
+export default function UncomfortableTaskScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   
@@ -28,71 +28,48 @@ export default function ConfirmPresenceTaskScreen() {
   const breathAnim = useRef(new Animated.Value(1)).current;
   const bgShiftAnim = useRef(new Animated.Value(0)).current;
   
-  // Mascot Floating animation
+  // Mascot Floating & Gentle Breathing
   const mascotFloatAnim = useRef(new Animated.Value(0)).current;
   const mascotScaleAnim = useRef(new Animated.Value(0.95)).current;
-
-  // AppState recovery tracking
-  const appState = useRef(AppState.currentState);
-  const endTimeRef = useRef<number>(0);
-
-  // AppState change listener to handle backgrounding/resuming
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', (nextAppState) => {
-      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
-        // Adjust remaining time based on timestamp
-        if (isActive && !isPaused) {
-          const remaining = Math.max(0, Math.round((endTimeRef.current - Date.now()) / 1000));
-          setTimeLeft(remaining);
-        }
-      }
-      appState.current = nextAppState;
-    });
-
-    return () => {
-      subscription.remove();
-    };
-  }, [isActive, isPaused]);
 
   // Initial animations
   useEffect(() => {
     // Background Breathing
     Animated.loop(
       Animated.sequence([
-        Animated.timing(breathAnim, { toValue: 1.04, duration: 6000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        Animated.timing(breathAnim, { toValue: 1, duration: 6000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(breathAnim, { toValue: 1.03, duration: 8000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(breathAnim, { toValue: 1, duration: 8000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
       ])
     ).start();
 
-    // Background shift (overlay opacity pulse)
+    // Background shift
     Animated.loop(
       Animated.sequence([
-        Animated.timing(bgShiftAnim, { toValue: 1, duration: 12000, easing: Easing.inOut(Easing.linear), useNativeDriver: true }),
-        Animated.timing(bgShiftAnim, { toValue: 0, duration: 12000, easing: Easing.inOut(Easing.linear), useNativeDriver: true }),
+        Animated.timing(bgShiftAnim, { toValue: 1, duration: 15000, easing: Easing.inOut(Easing.linear), useNativeDriver: true }),
+        Animated.timing(bgShiftAnim, { toValue: 0, duration: 15000, easing: Easing.inOut(Easing.linear), useNativeDriver: true }),
       ])
     ).start();
 
-    // Mascot gentle floating
+    // Mascot animations
     Animated.loop(
       Animated.sequence([
-        Animated.timing(mascotFloatAnim, { toValue: -5, duration: 4000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-        Animated.timing(mascotFloatAnim, { toValue: 0, duration: 4000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(mascotFloatAnim, { toValue: -6, duration: 2500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(mascotFloatAnim, { toValue: 0, duration: 2500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
       ])
     ).start();
 
-    // Gentle scale pulse
     Animated.loop(
       Animated.sequence([
-        Animated.timing(mascotScaleAnim, { toValue: 1.05, duration: 3000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        Animated.timing(mascotScaleAnim, { toValue: 0.95, duration: 3000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(mascotScaleAnim, { toValue: 1.05, duration: 2500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(mascotScaleAnim, { toValue: 0.95, duration: 2500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
       ])
     ).start();
 
     // Timer Glow Effect
     Animated.loop(
       Animated.sequence([
-        Animated.timing(timerGlowAnim, { toValue: 1, duration: 2500, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        Animated.timing(timerGlowAnim, { toValue: 0.6, duration: 2500, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(timerGlowAnim, { toValue: 1, duration: 1500, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(timerGlowAnim, { toValue: 0.6, duration: 1500, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
       ])
     ).start();
   }, []);
@@ -101,22 +78,17 @@ export default function ConfirmPresenceTaskScreen() {
   useEffect(() => {
     let timer: ReturnType<typeof setInterval>;
     if (isActive && !isPaused && timeLeft > 0) {
-      endTimeRef.current = Date.now() + timeLeft * 1000;
       timer = setInterval(() => {
-        setTimeLeft((prev) => {
-          if (prev <= 1) {
-            setIsCompleted(true);
-            setIsActive(false);
-            return 0;
-          }
-          return prev - 1;
-        });
+        setTimeLeft((prev) => prev - 1);
       }, 1000);
+    } else if (isActive && timeLeft === 0) {
+      setIsCompleted(true);
+      setIsActive(false);
     }
     return () => {
       if (timer) clearInterval(timer);
     };
-  }, [isActive, isPaused]);
+  }, [isActive, isPaused, timeLeft]);
 
   const startTask = () => {
     setIsActive(true);
@@ -124,12 +96,12 @@ export default function ConfirmPresenceTaskScreen() {
     Animated.parallel([
       Animated.timing(uiFadeAnim, {
         toValue: 0,
-        duration: 800,
+        duration: 600,
         useNativeDriver: true,
       }),
       Animated.timing(timerFadeAnim, {
         toValue: 1,
-        duration: 1200,
+        duration: 900,
         useNativeDriver: true,
       })
     ]).start();
@@ -145,12 +117,12 @@ export default function ConfirmPresenceTaskScreen() {
         const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({ task_name: 'Confirm Presence' })
+          body: JSON.stringify({ task_name: 'Do One Uncomfortable Thing' })
         });
         const data = await response.json();
         if (response.ok || data.success) {
           pointsData = { 
-            pointsAdded: data.pointsAdded?.toString() || "10", 
+            pointsAdded: data.points_rewarded?.toString() || data.pointsAdded?.toString() || "30", 
             totalPoints: data.totalPoints?.toString() || "0",
             streak: data.streak?.toString() || "0"
           };
@@ -172,7 +144,9 @@ export default function ConfirmPresenceTaskScreen() {
       params: { 
         points: pointsData.pointsAdded, 
         totalPoints: pointsData.totalPoints, 
-        streak: pointsData.streak 
+        streak: pointsData.streak,
+        message: "You faced fear.",
+        difficulty: "hard"
       } 
     } as any);
   };
@@ -198,32 +172,63 @@ export default function ConfirmPresenceTaskScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
 
-      {/* Calming presence background image with subtle breathing animation */}
+      {/* Background Image with scale animation */}
       <Animated.View style={[StyleSheet.absoluteFillObject, { transform: [{ scale: breathAnim }] }]}>
         <Image 
-          source={require('../assets/images/presence-bg.png')}
+          source={require('../assets/images/uncomfortable-bg.png')}
           style={StyleSheet.absoluteFillObject}
           resizeMode="cover"
         />
       </Animated.View>
 
-      {/* Gentle overlay to soften the background and ensure text is highly readable */}
-      <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: bgShiftAnim }]}>
-        <LinearGradient
-          colors={['rgba(240, 253, 244, 0.45)', 'rgba(220, 252, 231, 0.55)', 'rgba(255, 255, 255, 0.65)']}
-          locations={[0, 0.5, 1]}
+      {/* Blurred image overlay when timer starts */}
+      <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: timerFadeAnim }]}>
+        <Image 
+          source={require('../assets/images/uncomfortable-bg.png')}
           style={StyleSheet.absoluteFillObject}
+          resizeMode="cover"
+          blurRadius={20}
         />
       </Animated.View>
 
-      {/* Edge vignette effect */}
+      {/* Cinematic dark overlay to make sure text is highly legible */}
       <View style={styles.vignetteOverlay} pointerEvents="none" />
+      <LinearGradient
+        colors={['rgba(15, 7, 5, 0.45)', 'rgba(30, 10, 5, 0.7)', 'rgba(10, 5, 5, 0.9)']}
+        style={StyleSheet.absoluteFillObject}
+      />
 
       {/* Main Content Safe Area */}
       <SafeAreaView style={styles.foregroundLayer} edges={['top', 'bottom']}>
-        
+
+        {/* Header navigation (abort button) */}
+        <View style={styles.header}>
+          <TouchableOpacity 
+            onPress={() => {
+              if (isActive && !isCompleted) {
+                Alert.alert(
+                  "Abort Task?",
+                  "Are you sure you want to stop? Your progress will be lost.",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    { text: "Abort", style: "destructive", onPress: () => router.back() }
+                  ]
+                );
+              } else {
+                router.back();
+              }
+            }} 
+            style={styles.backBtn} 
+            activeOpacity={0.6}
+          >
+            <Feather name="chevron-left" size={24} color="#ffffff" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>{isActive ? 'CHALLENGE ACTIVE' : 'CHALLENGE DETAILS'}</Text>
+          <View style={{ width: 40 }} />
+        </View>
+
         {/* --- Timer View (Active Phase) --- */}
         <Animated.View 
           style={[StyleSheet.absoluteFillObject, styles.timerCenter, { opacity: timerFadeAnim }]} 
@@ -232,7 +237,7 @@ export default function ConfirmPresenceTaskScreen() {
           {!isCompleted && (
             <View style={styles.timerContentWrapper}>
               <Animated.View style={[styles.mascotPulseCircle, { transform: [{ translateY: mascotFloatAnim }, { scale: mascotScaleAnim }] }]}>
-                <Text style={styles.giantEmoji}>🌿</Text>
+                <Text style={styles.giantEmoji}>🦁</Text>
               </Animated.View>
 
               <Pressable onPress={handleDevSkip}>
@@ -242,7 +247,7 @@ export default function ConfirmPresenceTaskScreen() {
               </Pressable>
 
               <Text style={styles.focusSubtitle}>
-                {isPaused ? "Timer Paused" : "Noticing the present moment..."}
+                {isPaused ? "Timer Paused" : "Embrace the discomfort..."}
               </Text>
 
               <View style={styles.timerControlsRow}>
@@ -262,38 +267,32 @@ export default function ConfirmPresenceTaskScreen() {
                 onPress={() => {
                   Alert.alert(
                     "Abort Task?",
-                    "Are you sure you want to stop? Your progress will be lost.",
+                    "Are you sure you want to stop focusing? Your progress will be lost.",
                     [
                       { text: "Cancel", style: "cancel" },
-                      { 
-                        text: "Abort", 
-                        style: "destructive", 
-                        onPress: () => {
-                          router.back();
-                        } 
-                      }
+                      { text: "Abort", style: "destructive", onPress: () => router.back() }
                     ]
                   );
                 }}
                 activeOpacity={0.7}
               >
-                <Text style={styles.abortButtonText}>Abort Task</Text>
+                <Text style={styles.abortButtonText}>Abort Challenge</Text>
               </TouchableOpacity>
             </View>
           )}
 
           {isCompleted && (
             <View style={styles.successContainer}>
-              <Text style={styles.successEmoji}>🌿</Text>
-              <Text style={styles.successText}>You checked in.</Text>
-              <Text style={styles.successMessage}>This small practice helps you reconnect with yourself and become more mindful throughout the day.</Text>
+              <Text style={styles.successEmoji}>🦁</Text>
+              <Text style={styles.successText}>You faced fear.</Text>
+              <Text style={styles.successMessage}>Every uncomfortable action strengthens your confidence.</Text>
               <TouchableOpacity 
                 style={styles.finishButton} 
                 onPress={completeTaskBackend}
                 disabled={isLoading}
               >
                 <Text style={styles.finishButtonText}>
-                  {isLoading ? "Awarding Points..." : "Claim +10 Points"}
+                  {isLoading ? "Awarding Points..." : "Claim +30 Points"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -306,48 +305,51 @@ export default function ConfirmPresenceTaskScreen() {
           pointerEvents={!isActive && !isCompleted ? 'auto' : 'none'}
         >
           <Animated.View style={[styles.detailsMascotContainer, { transform: [{ translateY: mascotFloatAnim }, { scale: mascotScaleAnim }] }]}>
-            <Text style={styles.heroEmoji}>🌿</Text>
+            <Text style={styles.heroEmoji}>🦁</Text>
           </Animated.View>
 
           <View style={styles.glassPanel}>
-            <Text style={styles.title}>Confirm Presence</Text>
+            <Text style={styles.title}>Do One Uncomfortable Thing</Text>
             
             {/* Badges */}
             <View style={styles.badgesRow}>
               <View style={[styles.badge, styles.badgeDuration]}>
-                <Feather name="clock" size={14} color="#3b82f6" />
-                <Text style={[styles.badgeText, styles.textDuration]}>2 min</Text>
+                <Feather name="clock" size={14} color="#f97316" />
+                <Text style={[styles.badgeText, styles.textDuration]}>10 min</Text>
               </View>
               <View style={[styles.badge, styles.badgeDifficulty]}>
-                <Feather name="bar-chart-2" size={14} color="#16a34a" />
-                <Text style={[styles.badgeText, styles.textDifficulty]}>Easy</Text>
+                <Feather name="zap" size={14} color="#ef4444" />
+                <Text style={[styles.badgeText, styles.textDifficulty]}>🔥 Hard</Text>
               </View>
               <View style={[styles.badge, styles.badgePoints]}>
-                <Feather name="award" size={14} color="#16a34a" />
-                <Text style={[styles.badgeText, styles.textPoints]}>+10 Pts</Text>
+                <Feather name="award" size={14} color="#ea580c" />
+                <Text style={[styles.badgeText, styles.textPoints]}>+30 Pts</Text>
               </View>
             </View>
 
-            {/* Description Lines */}
+            {/* Description list */}
             <View style={styles.descriptionList}>
-              <Text style={styles.descLine}>• Pause for a moment and simply notice where you are.</Text>
-              <Text style={styles.descLine}>• Take a slow breath and observe what you can see, hear, feel, and how your body feels.</Text>
-              <Text style={styles.descLine}>• There's nothing to fix or change—just acknowledge the present moment.</Text>
-              <Text style={styles.descLine}>• Reconnect with yourself and build mindful awareness.</Text>
+              <Text style={styles.introText}>Growth happens outside your comfort zone. Challenge yourself by doing one thing you've been avoiding:</Text>
+              
+              <View style={styles.bulletContainer}>
+                <Text style={styles.descLine}>• Start a difficult conversation</Text>
+                <Text style={styles.descLine}>• Speak up in a meeting</Text>
+                <Text style={styles.descLine}>• Make an important phone call</Text>
+                <Text style={styles.descLine}>• Introduce yourself to someone new</Text>
+                <Text style={styles.descLine}>• Begin a task you've been postponing</Text>
+              </View>
+
+              <Text style={styles.courageText}>"Courage grows every time you choose discomfort."</Text>
             </View>
 
             <TouchableOpacity style={styles.startButton} onPress={startTask} activeOpacity={0.85}>
               <LinearGradient
-                colors={['#10b981', '#059669']}
+                colors={['#f97316', '#dc2626']}
                 start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
                 style={styles.gradientBtn}
               >
                 <Text style={styles.startButtonText}>Start Task</Text>
               </LinearGradient>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.backButton} onPress={() => router.back()} activeOpacity={0.7}>
-              <Text style={styles.backText}>Go Back</Text>
             </TouchableOpacity>
           </View>
         </Animated.View>
@@ -360,37 +362,33 @@ export default function ConfirmPresenceTaskScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#effbf3',
+    backgroundColor: '#0a0505',
   },
   vignetteOverlay: {
     ...StyleSheet.absoluteFillObject,
-    borderWidth: 30,
-    borderColor: 'rgba(0,0,0,0.015)',
-    borderRadius: 70,
+    backgroundColor: 'rgba(0,0,0,0.3)',
   },
   foregroundLayer: {
     flex: 1,
-    justifyContent: 'space-between',
     zIndex: 2,
   },
-  backButton: {
-    padding: 12,
-    marginTop: 14,
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    height: 60,
   },
-  backText: {
-    color: '#6b7280',
-    fontSize: 16,
-    fontWeight: '600',
+  backBtn: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
-  abortButton: {
-    padding: 12,
-    marginTop: 20,
-  },
-  abortButtonText: {
-    color: '#ef4444',
-    fontSize: 15,
-    fontWeight: '600',
-    letterSpacing: 0.5,
+  headerTitle: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 1.5,
   },
   uiWrapper: {
     flex: 1,
@@ -398,52 +396,52 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingBottom: 40,
+    paddingBottom: 20,
   },
   detailsMascotContainer: {
-    marginBottom: 20,
-    backgroundColor: 'rgba(255,255,255,0.75)',
-    borderRadius: 80,
-    width: 140,
-    height: 140,
+    marginBottom: 16,
+    backgroundColor: 'rgba(255, 115, 0, 0.15)',
+    borderRadius: 75,
+    width: 130,
+    height: 130,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#10b981',
-    shadowOpacity: 0.1,
-    shadowRadius: 25,
-    shadowOffset: { width: 0, height: 10 },
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.9)',
+    shadowColor: '#f97316',
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 8 },
+    borderWidth: 1.5,
+    borderColor: 'rgba(249, 115, 22, 0.4)',
   },
   heroEmoji: {
-    fontSize: 75,
+    fontSize: 68,
   },
   glassPanel: {
     width: '100%',
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    backgroundColor: 'rgba(20, 10, 8, 0.85)',
     borderRadius: 30,
     paddingHorizontal: 24,
-    paddingVertical: 30,
+    paddingVertical: 26,
     alignItems: 'center',
-    shadowColor: '#065f46',
+    shadowColor: '#ea580c',
     shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.05,
-    shadowRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.9)',
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    borderWidth: 1.5,
+    borderColor: 'rgba(249, 115, 22, 0.25)',
   },
   title: {
-    fontSize: 25,
+    fontSize: 22,
     fontWeight: '800',
-    color: '#1f2937',
-    marginBottom: 16,
+    color: '#ffffff',
+    marginBottom: 14,
     textAlign: 'center',
   },
   badgesRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 8,
-    marginBottom: 24,
+    marginBottom: 20,
   },
   badge: {
     flexDirection: 'row',
@@ -455,50 +453,72 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   badgeDuration: {
-    backgroundColor: '#eff6ff',
-    borderColor: '#bfdbfe',
+    backgroundColor: 'rgba(249, 115, 22, 0.1)',
+    borderColor: 'rgba(249, 115, 22, 0.3)',
   },
   badgeDifficulty: {
-    backgroundColor: '#f0fdf4',
-    borderColor: '#bbf7d0',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+    shadowColor: '#ef4444',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
   },
   badgePoints: {
-    backgroundColor: '#f0fdf4',
-    borderColor: '#bbf7d0',
+    backgroundColor: 'rgba(234, 88, 12, 0.15)',
+    borderColor: 'rgba(234, 88, 12, 0.35)',
   },
   badgeText: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
   },
   textDuration: {
-    color: '#2563eb',
+    color: '#f97316',
   },
   textDifficulty: {
-    color: '#16a34a',
+    color: '#ef4444',
   },
   textPoints: {
-    color: '#16a34a',
+    color: '#ea580c',
   },
   descriptionList: {
     width: '100%',
-    marginBottom: 35,
+    marginBottom: 24,
     gap: 12,
   },
+  introText: {
+    fontSize: 14,
+    color: '#d1d5db',
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  bulletContainer: {
+    paddingLeft: 8,
+    gap: 6,
+  },
   descLine: {
-    fontSize: 15,
-    color: '#4b5563',
-    lineHeight: 22,
-    fontWeight: '400',
+    fontSize: 13,
+    color: '#9ca3af',
+    lineHeight: 18,
+  },
+  courageText: {
+    fontSize: 14,
+    color: '#fdba74',
+    fontWeight: '700',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginTop: 10,
+    lineHeight: 20,
   },
   startButton: {
     width: '100%',
-    height: 56,
-    borderRadius: 28,
+    height: 52,
+    borderRadius: 26,
     overflow: 'hidden',
-    shadowColor: '#10b981',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 15,
+    shadowColor: '#ef4444',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
     elevation: 4,
   },
   gradientBtn: {
@@ -508,7 +528,7 @@ const styles = StyleSheet.create({
   },
   startButtonText: {
     color: '#ffffff',
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '700',
   },
   
@@ -516,6 +536,7 @@ const styles = StyleSheet.create({
   timerCenter: {
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 24,
   },
   timerContentWrapper: {
     alignItems: 'center',
@@ -523,121 +544,115 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   mascotPulseCircle: {
-    width: 170,
-    height: 170,
-    borderRadius: 85,
-    backgroundColor: 'rgba(255,255,255,0.8)',
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: 'rgba(249, 115, 22, 0.1)',
+    borderWidth: 2,
+    borderColor: 'rgba(249, 115, 22, 0.3)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 30,
-    shadowColor: '#10b981',
-    shadowOpacity: 0.1,
-    shadowRadius: 30,
-    shadowOffset: { width: 0, height: 10 },
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.9)',
+    marginBottom: 40,
+    shadowColor: '#f97316',
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
   },
   giantEmoji: {
-    fontSize: 90,
+    fontSize: 76,
   },
   timerText: {
-    fontSize: 82,
-    fontWeight: '200',
-    color: '#374151',
-    letterSpacing: 2,
-    marginBottom: 10,
+    fontSize: 84,
+    fontWeight: '800',
+    color: '#ffffff',
     fontVariant: ['tabular-nums'],
-    textShadowColor: 'rgba(156, 163, 175, 0.1)',
+    letterSpacing: 2,
+    textShadowColor: 'rgba(249, 115, 22, 0.6)',
     textShadowOffset: { width: 0, height: 4 },
     textShadowRadius: 15,
   },
   focusSubtitle: {
-    fontSize: 18,
-    color: '#4b5563',
-    fontWeight: '500',
+    fontSize: 16,
+    color: '#f3f4f6',
+    fontWeight: '600',
+    marginTop: 10,
     marginBottom: 40,
+    letterSpacing: 0.5,
   },
   timerControlsRow: {
     flexDirection: 'row',
     gap: 16,
-    width: '80%',
-    justifyContent: 'center',
+    marginBottom: 20,
   },
   controlButton: {
-    paddingHorizontal: 40,
-    paddingVertical: 15,
-    borderRadius: 30,
-    width: 180,
+    width: 160,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#10b981',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
+    borderWidth: 1.5,
   },
   pauseButton: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.2)',
+    backgroundColor: 'transparent',
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   resumeButton: {
-    backgroundColor: '#10b981',
+    backgroundColor: '#f97316',
+    borderColor: '#ea580c',
   },
   controlButtonText: {
+    color: '#ffffff',
     fontSize: 16,
     fontWeight: '700',
-    color: '#10b981',
   },
-  
-  // Success state
+  abortButton: {
+    padding: 12,
+  },
+  abortButtonText: {
+    color: '#ef4444',
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
   successContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 28,
-    paddingVertical: 35,
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    borderRadius: 35,
-    width: width * 0.86,
-    shadowColor: '#10b981',
-    shadowOffset: { width: 0, height: 20 },
-    shadowOpacity: 0.12,
-    shadowRadius: 30,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.95)',
+    padding: 24,
+    width: '100%',
   },
   successEmoji: {
-    fontSize: 70,
+    fontSize: 80,
     marginBottom: 20,
   },
   successText: {
-    fontSize: 23,
+    fontSize: 32,
     fontWeight: '800',
-    color: '#1f2937',
+    color: '#ffffff',
+    marginBottom: 10,
     textAlign: 'center',
-    marginBottom: 12,
   },
   successMessage: {
-    fontSize: 15,
-    color: '#4b5563',
+    fontSize: 16,
+    color: '#d1d5db',
     textAlign: 'center',
+    marginBottom: 40,
     lineHeight: 22,
-    marginBottom: 35,
-    paddingHorizontal: 10,
   },
   finishButton: {
-    backgroundColor: '#10b981',
-    paddingVertical: 18,
-    borderRadius: 30,
     width: '100%',
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#f97316',
+    justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#10b981',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 15,
+    shadowColor: '#ea580c',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
     elevation: 4,
   },
   finishButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
+    color: '#ffffff',
     fontSize: 17,
+    fontWeight: '800',
   },
 });

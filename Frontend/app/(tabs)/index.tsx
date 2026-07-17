@@ -1145,7 +1145,7 @@ export default function HomeScreen() {
                 { label: "Reflect", emoji: "✍️" },
                 { label: "Smile", emoji: "😊" },
                 { label: "Breathe", emoji: "🫁" },
-                { label: "Eye Rest", emoji: "👁️" },
+                { label: "Eye Rest", emoji: "👀" },
                 { label: "Stretch", emoji: "🧘‍♀️" },
                 { label: "Silent", emoji: "🤫" },
                 { label: "Focus", emoji: "🐕" },
