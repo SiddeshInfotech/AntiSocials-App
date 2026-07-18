@@ -68,6 +68,9 @@ export default function RootLayout() {
             <Stack.Screen name="note" options={{ headerShown: false }} />
             <Stack.Screen name="label" options={{ headerShown: false }} />
             <Stack.Screen name="imagnimation" options={{ headerShown: false }} />
+            <Stack.Screen name="resume" options={{ headerShown: false }} />
+            <Stack.Screen name="surround" options={{ headerShown: false }} />
+            <Stack.Screen name="social" options={{ headerShown: false }} />
           </Stack>
           <StatusBar style="dark" />
         </ThemeProvider>

@@ -409,6 +409,46 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       points: "+1200 points",
       route: "/group-trip",
     },
+    {
+      emoji: "💼",
+      difficulty: "hard",
+      title: "Resume Focus",
+      subtitle: "Build a professional resume and get AI feedback",
+      points: "+500 points",
+      route: "/resume",
+    },
+    {
+      emoji: "🛡️",
+      difficulty: "medium",
+      title: "Write a Courage Moment",
+      subtitle: "Remember when you faced fear or uncertainty",
+      points: "+300 points",
+      route: "/courage",
+    },
+    {
+      emoji: "🤝",
+      difficulty: "medium",
+      title: "Spend 20 minutes offline with someone",
+      subtitle: "Enjoy uninterrupted presence with someone you care about",
+      points: "+500 points",
+      route: "/offline-time",
+    },
+    {
+      emoji: "👁️",
+      difficulty: "easy",
+      title: "Observe Surroundings",
+      subtitle: "Slow down and notice the details around you with a calming video",
+      points: "+300 points",
+      route: "/surround",
+    },
+    {
+      emoji: "🤝",
+      difficulty: "easy",
+      title: "Write 1 Social Observation",
+      subtitle: "Observe and write a positive social interaction",
+      points: "+300 points",
+      route: "/social",
+    },
   ];
 
   const activeTaskBucketIndex = Math.floor((activePrototype - 1) / 7);
