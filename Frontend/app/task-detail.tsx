@@ -13,7 +13,7 @@ const { width, height } = Dimensions.get('window');
 export default function TaskDetailScreen() {
   const router = useRouter();
   
-  const [timeLeft, setTimeLeft] = useState(3600); 
+  const [timeLeft, setTimeLeft] = useState(120); 
   const [isActive, setIsActive] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   
@@ -96,7 +96,7 @@ export default function TaskDetailScreen() {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const progressPercentage = ((3600 - timeLeft) / 3600) * 100;
+  const progressPercentage = ((120 - timeLeft) / 120) * 100;
 
   return (
     <View style={styles.container}>

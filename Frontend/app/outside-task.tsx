@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity, Animated, Easing, Dimensions 
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as SecureStore from 'expo-secure-store';
+import { API_BASE_URL } from '../constants/Api';
 
 const { width, height } = Dimensions.get('window');
 const TASK_DURATION = 120; // 2 minutes
@@ -131,8 +133,35 @@ export default function OutsideTaskScreen() {
     ]).start();
   };
 
-  const finishTask = () => {
-    router.replace({ pathname: '/task-success', params: { points: '150' } } as any);
+  const finishTask = async () => {
+    let pointsData = { pointsAdded: '150', totalPoints: '0', streak: '0' };
+    try {
+      const token = await SecureStore.getItemAsync('token');
+      if (token) {
+        const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ task_name: 'Look outside for 2 minutes' })
+        });
+        const data = await response.json();
+        if (response.ok || data.success) {
+          pointsData = { 
+            pointsAdded: data.pointsAdded?.toString() || "150", 
+            totalPoints: data.totalPoints?.toString() || "0",
+            streak: data.streak?.toString() || "0"
+          };
+        }
+      }
+    } catch (e) {
+      console.error("Look outside complete task error:", e);
+    }
+    router.replace({ 
+      pathname: '/task-success', 
+      params: { points: pointsData.pointsAdded, totalPoints: pointsData.totalPoints, streak: pointsData.streak } 
+    } as any);
   };
 
   // Format time (MM:SS)

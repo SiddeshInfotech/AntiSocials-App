@@ -47,6 +47,13 @@ export default function RootLayout() {
             <Stack.Screen name="volunteer-interest" options={{ headerShown: false }} />
             <Stack.Screen name="volunteer-task" options={{ headerShown: false }} />
             <Stack.Screen name="breath-task" options={{ headerShown: false }} />
+            <Stack.Screen name="groundingBreath" options={{ headerShown: false }} />
+            <Stack.Screen name="groupEnergy" options={{ headerShown: false }} />
+            <Stack.Screen name="fear" options={{ headerShown: false }} />
+            <Stack.Screen name="release" options={{ headerShown: false }} />
+            <Stack.Screen name="hardest" options={{ headerShown: false }} />
+            <Stack.Screen name="deep" options={{ headerShown: false }} />
+             <Stack.Screen name="observe-emotion" options={{ headerShown: false }} />
             <Stack.Screen name="cleanup-task" options={{ headerShown: false }} />
             <Stack.Screen name="group-trip" options={{ headerShown: false }} />
             <Stack.Screen name="eye-rest-task" options={{ headerShown: false }} />
@@ -83,6 +90,18 @@ export default function RootLayout() {
             <Stack.Screen name="name-badge-task" options={{ headerShown: false }} />
             <Stack.Screen name="social-observer-task" options={{ headerShown: false }} />
             <Stack.Screen name="location-checkin-task" options={{ headerShown: false }} />
+            <Stack.Screen name="gratitude" options={{ headerShown: false }} />
+            <Stack.Screen name="learning2" options={{ headerShown: false }} />
+            <Stack.Screen name="ask" options={{ headerShown: false }} />
+            <Stack.Screen name="negativeThought" options={{ headerShown: false }} />
+            <Stack.Screen name="positiveThought" options={{ headerShown: false }} />
+            <Stack.Screen name="silent" options={{ headerShown: false }} />
+            <Stack.Screen name="stillness" options={{ headerShown: false }} />
+            <Stack.Screen name="reflect" options={{ headerShown: false }} />
+            <Stack.Screen name="recurringThought" options={{ headerShown: false }} />
+            <Stack.Screen name="note" options={{ headerShown: false }} />
+            <Stack.Screen name="label" options={{ headerShown: false }} />
+            <Stack.Screen name="imagnimation" options={{ headerShown: false }} />
           </Stack>
           <StatusBar style="dark" />
         </ThemeProvider>

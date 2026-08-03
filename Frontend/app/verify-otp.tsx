@@ -6,7 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as SecureStore from 'expo-secure-store';
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch } from '../constants/Api';
 
 export default function VerifyOtpScreen() {
   const router = useRouter();
@@ -96,7 +96,7 @@ export default function VerifyOtpScreen() {
 
     try {
       // 1. Verify OTP with the backend
-      const verifyRes = await fetch(`${API_BASE_URL}/auth/verify-otp`, {
+      const verifyRes = await apiFetch('/auth/verify-otp', {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phoneNumber: phone, otp: otpCode, purpose }),
@@ -112,7 +112,7 @@ export default function VerifyOtpScreen() {
 
       // 2. Perform Login or Register based on purpose
       if (purpose === 'signup') {
-        const regRes = await fetch(`${API_BASE_URL}/auth/register`, {
+        const regRes = await apiFetch('/auth/register', {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -140,7 +140,7 @@ export default function VerifyOtpScreen() {
         router.replace('/onboarding' as any);
       } else {
         // purpose === 'login'
-        const loginRes = await fetch(`${API_BASE_URL}/auth/login`, {
+        const loginRes = await apiFetch('/auth/login', {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ phoneNumber: phone }),
@@ -172,7 +172,7 @@ export default function VerifyOtpScreen() {
     setError('');
     setTimer(30);
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/send-otp`, {
+      const response = await apiFetch('/auth/send-otp', {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phoneNumber: phone, purpose }),

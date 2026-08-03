@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notice Fear — UI/UX Case Study Presentation</title>
+    <!-- Google Fonts for premium typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,400&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Premium Case Study Header -->
+    <header class="presentation-header">
+        <div class="header-content">
+            <span class="badge">UI/UX CASE STUDY</span>
+            <h1>Notice Fear</h1>
+            <p class="subtitle">A premium mobile flow for mindfulness, guiding users to observe, map, and release fear with a luxury dark cosmic aesthetic.</p>
+            <div class="presentation-meta">
+                <span class="meta-item"><span class="bullet"></span> 12 iPhone 16 Pro Mockups</span>
+                <span class="meta-item"><span class="bullet"></span> Pure CSS Device Frames</span>
+                <span class="meta-item"><span class="bullet"></span> Interactive Case Study Grid</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Grid Container -->
+    <main class="case-study-container">
+        <div class="screens-grid">
+            
+            <!-- SCREEN 1: INTRO -->
+            <div class="screen-wrapper" data-screen-index="1">
+                <div class="iphone-16-pro">
+                    <div class="bezel"></div>
+                    <div class="screen-content bg-cosmic screen-1">
+                        <!-- Top status bar -->
+                        <div class="status-bar">
+                            <span class="time">9:41</span>
+                            <div class="indicators">
+                                <svg class="icon-wifi" viewBox="0 0 24 24"><path d="M12 21l-12-12c4.97-4.97 13.03-4.97 18 0l-6 12z" fill="currentColor"/></svg>
+                                <svg class="icon-signal" viewBox="0 0 24 24"><path d="M2 22h20v-20h-20v20z" fill="none"/><path d="M17 5h3v14h-3zM12 9h3v10h-3zM7 13h3v6h-3z" fill="currentColor"/></svg>
+                                <svg class="icon-battery" viewBox="0 0 24 24"><rect x="2" y="5" width="16" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="19" y="8" width="3" height="4" rx="1" fill="currentColor"/></svg>
+                            </div>
+                        </div>
+                        <!-- Dynamic Island -->
+                        <div class="dynamic-island"></div>
+                        
+                        <!-- Canvas for floating particles -->
+                        <canvas class="particles-canvas"></canvas>
+                        
+                        <!-- Ambient glows -->
+                        <div class="ambient-glow glow-top"></div>
+                        <div class="smoke-cloud smoke-top"></div>
+                        
+                        <!-- Screen Body -->
+                        <div class="screen-body flex-center">
+                            <div class="intro-content">
+                                <h2 class="serif-title">Notice Fear</h2>
+                                <p class="intro-desc">Fear is only a visitor.<br>You don't have to become it.</p>
+                            </div>
+                            
+                            <div class="bottom-action">
+                                <button class="btn btn-primary btn-glow">Begin Observation <span class="arrow">→</span></button>
+                            </div>
+                        </div>
+                        
+                        <!-- Mountain silhouette -->
+                        <div class="mountain-silhouette"></div>
+                        
+                        <!-- Home Indicator -->
+                        <div class="home-indicator"></div>
+                    </div>
+                </div>
+                <div class="screen-label">01. INTRO</div>
+            </div>
+
+            <!-- SCREEN 2: FEAR ORB -->
+            <div class="screen-wrapper" data-screen-index="2">
+                <div class="iphone-16-pro">
+                    <div class="bezel"></div>
+                    <div class="screen-content bg-cosmic">
+                        <div class="status-bar">
+                            <span class="time">9:41</span>
+                            <div class="indicators">
+                                <svg class="icon-wifi" viewBox="0 0 24 24"><path d="M12 21l-12-12c4.97-4.97 13.03-4.97 18 0l-6 12z" fill="currentColor"/></svg>
+                                <svg class="icon-signal" viewBox="0 0 24 24"><path d="M17 5h3v14h-3zM12 9h3v10h-3zM7 13h3v6h-3z" fill="currentColor"/></svg>
+                                <svg class="icon-battery" viewBox="0 0 24 24"><rect x="2" y="5" width="16" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="19" y="8" width="3" height="4" rx="1" fill="currentColor"/></svg>
+                            </div>
+                        </div>
+                        <div class="dynamic-island"></div>
+                        
+                        <canvas class="particles-canvas"></canvas>
+                        <div class="ambient-glow glow-center"></div>
+
+                        <!-- Top Nav -->
+                        <div class="screen-header">
+                            <button class="back-arrow">
+                                <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" fill="currentColor"/></svg>
+                            </button>
+                        </div>
+
+                        <!-- Screen Body -->
+                        <div class="screen-body">
+                            <h3 class="sans-title center-text">What is your fear?</h3>
+                            
+                            <!-- Glowing Orb Container -->
+                            <div class="orb-container">
+                                <div class="smoke-surround"></div>
+                                <div class="fear-orb"></div>
+                            </div>
+
+                            <div class="bottom-container">
+                                <p class="hint-text text-pulse">Tap the orb to begin</p>
+                                <!-- Progress Dots (4 dots, second active) -->
+                                <div class="progress-dots">
+                                    <span class="dot"></span>
+                                    <span class="dot active"></span>
+                                    <span class="dot"></span>
+                                    <span class="dot"></span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="home-indicator"></div>
+                    </div>
+                </div>
+                <div class="screen-label">02. FEAR ORB</div>
+            </div>
+
+            <!-- SCREEN 3: INPUT -->
+            <div class="screen-wrapper" data-screen-index="3">
+                <div class="iphone-16-pro">
+                    <div class="bezel"></div>
+                    <div class="screen-content bg-cosmic">
+                        <div class="status-bar">
+                            <span class="time">9:41</span>
+                            <div class="indicators">
+                                <svg class="icon-wifi" viewBox="0 0 24 24"><path d="M12 21l-12-12c4.97-4.97 13.03-4.97 18 0l-6 12z" fill="currentColor"/></svg>
+                                <svg class="icon-signal" viewBox="0 0 24 24"><path d="M17 5h3v14h-3zM12 9h3v10h-3zM7 13h3v6h-3z" fill="currentColor"/></svg>
+                                <svg class="icon-battery" viewBox="0 0 24 24"><rect x="2" y="5" width="16" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="19" y="8" width="3" height="4" rx="1" fill="currentColor"/></svg>
+                            </div>
+                        </div>
+                        <div class="dynamic-island"></div>
+                        
+                        <canvas class="particles-canvas"></canvas>
+                        <div class="ambient-glow glow-bottom-right"></div>
+
+                        <!-- Top Nav -->
+                        <div class="screen-header">
+                            <button class="back-arrow">
+                                <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" fill="currentColor"/></svg>
+                            </button>
+                        </div>
+
+                        <!-- Screen Body -->
+                        <div class="screen-body">
+                            <h3 class="sans-title left-text">I'm afraid that...</h3>
+                            
+                            <!-- Glassmorphism Textbox -->
+                            <div class="textarea-wrapper">
+                                <textarea class="glass-textarea" placeholder="Type your fear here..."></textarea>
+                            </div>
+
+                            <div class="bottom-container">
+                                <button class="btn btn-primary btn-glow btn-continue">Continue <span class="arrow">→</span></button>
+                                <div class="progress-dots">
+                                    <span class="dot"></span>
+                                    <span class="dot"></span>
+                                    <span class="dot active"></span>
+                                    <span class="dot"></span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="home-indicator"></div>
+                    </div>
+                </div>
+                <div class="screen-label">03. INPUT</div>
+            </div>
+
+            <!-- SCREEN 4: INTENSITY -->
+            <div class="screen-wrapper" data-screen-index="4">
+                <div class="iphone-16-pro">
+                    <div class="bezel"></div>
+                    <div class="screen-content bg-cosmic">
+                        <div class="status-bar">
+                            <span class="time">9:41</span>
+                            <div class="indicators">
+                                <svg class="icon-wifi" viewBox="0 0 24 24"><path d="M12 21l-12-12c4.97-4.97 13.03-4.97 18 0l-6 12z" fill="currentColor"/></svg>
+                                <svg class="icon-signal" viewBox="0 0 24 24"><path d="M17 5h3v14h-3zM12 9h3v10h-3zM7 13h3v6h-3z" fill="currentColor"/></svg>
+                                <svg class="icon-battery" viewBox="0 0 24 24"><rect x="2" y="5" width="16" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="19" y="8" width="3" height="4" rx="1" fill="currentColor"/></svg>
+                            </div>
+                        </div>
+                        <div class="dynamic-island"></div>
+                        
+                        <canvas class="particles-canvas"></canvas>
+                        <div class="ambient-glow glow-center"></div>
+
+                        <!-- Top Nav -->
+                        <div class="screen-header">
+                            <button class="back-arrow">
+                                <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" fill="currentColor"/></svg>
+                            </button>
+                        </div>
+
+                        <!-- Screen Body -->
+                        <div class="screen-body">
+                            <h3 class="sans-title center-text">How strong does it feel?</h3>
+                            
+                            <!-- Circular intensity ring -->
+                            <div class="intensity-wrapper">
+                                <svg class="intensity-svg" viewBox="0 0 200 200">
+                                    <circle class="ring-bg" cx="100" cy="100" r="80"></circle>
+                                    <circle class="ring-fill level-4" cx="100" cy="100" r="80" stroke-dasharray="502" stroke-dashoffset="100"></circle>
+                                </svg>
+                                <div class="intensity-info">
+                                    <span class="intensity-number glow-text">4</span>
+                                    <span class="intensity-label">Strong</span>
+                                </div>
+                            </div>
+
+                            <!-- Selector pills -->
+                            <div class="number-selector">
+                                <button class="num-pill" data-val="1">1</button>
+                                <button class="num-pill" data-val="2">2</button>
+                                <button class="num-pill" data-val="3">3</button>
+                                <button class="num-pill active" data-val="4">4</button>
+                                <button class="num-pill" data-val="5">5</button>
+                            </div>
+
+                            <div class="bottom-container">
+                                <p class="hint-text mb-20 text-muted">Notice it. Don't judge it.</p>
+                                <div class="progress-dots">
+                                    <span class="dot"></span>
+                                    <span class="dot"></span>
+                                    <span class="dot"></span>
+                                    <span class="dot active"></span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="home-indicator"></div>
+                    </div>
+                </div>
+                <div class="screen-label">04. INTENSITY</div>
+            </div>
+
+            <!-- SCREEN 5: BODY MAP -->
+            <div class="screen-wrapper" data-screen-index="5">
+                <div class="iphone-16-pro">
+                    <div class="bezel"></div>
+                    <div class="screen-content bg-cosmic">
+                        <div class="status-bar">
+                            <span class="time">9:41</span>
+                            <div class="indicators">
+                                <svg class="icon-wifi" viewBox="0 0 24 24"><path d="M12 21l-12-12c4.97-4.97 13.03-4.97 18 0l-6 12z" fill="currentColor"/></svg>
+                                <svg class="icon-signal" viewBox="0 0 24 24"><path d="M17 5h3v14h-3zM12 9h3v10h-3zM7 13h3v6h-3z" fill="currentColor"/></svg>
+                                <svg class="icon-battery" viewBox="0 0 24 24"><rect x="2" y="5" width="16" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="19" y="8" width="3" height="4" rx="1" fill="currentColor"/></svg>
+                            </div>
+                        </div>
+                        <div class="dynamic-island"></div>
+                        
+                        <canvas class="particles-canvas"></canvas>
+                        <div class="ambient-glow glow-left"></div>
+
+                        <div class="screen-header">
+                            <button class="back-arrow">
+                                <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" fill="currentColor"/></svg>
+                            </button>
+                        </div>
+
+                        <!-- Screen Body -->
+                        <div class="screen-body">
+                            <h3 class="sans-title center-text">Where do you feel it?</h3>
+                            
+                            <!-- Silhouette body with hotspot controls -->
+                            <div class="bodymap-container">
+                                <svg class="body-silhouette" viewBox="0 0 200 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path class="body-outline" d="M100 25C93.4 25 88 30.4 88 37C88 43.6 93.4 49 100 49C106.6 49 112 43.6 112 37C112 30.4 106.6 25 100 25ZM100 49C94.5 49 84 52 82 56C80 60 80 84 80 84L82 135C82 135 77 150 72 170C67 190 53 235 50 250C47 265 52 270 56 270C60 270 65 255 70 230C75 205 84 165 84 165L86 240L75 350C75 350 73 370 78 375C83 380 91 380 92 370L100 290L108 370C109 380 117 380 122 375C127 370 125 350 125 350L114 240L116 165C116 165 125 205 130 230C135 255 140 270 144 270C148 270 153 265 150 250C147 235 133 190 128 170C123 150 118 135 118 135L120 84C120 84 120 60 118 56C116 52 105.5 49 100 49Z" stroke="rgba(255,255,255,0.15)" stroke-width="2"/>
+                                </svg>
+                                
+                                <!-- Interactive Hotspots -->
+                                <div class="hotspot head-hotspot" data-part="Head">
+                                    <span class="hotspot-dot"></span>
+                                    <span class="hotspot-label left-label">Head</span>
+                                </div>
+                                <div class="hotspot chest-hotspot active" data-part="Chest">
+                                    <span class="hotspot-dot"></span>
+                                    <span class="hotspot-label right-label-chip">Chest</span>
+                                </div>
+                                <div class="hotspot stomach-hotspot" data-part="Stomach">
+                                    <span class="hotspot-dot"></span>
+                                    <span class="hotspot-label right-label">Stomach</span>
+                                </div>
+                                <div class="hotspot legs-hotspot" data-part="Legs">
+                                    <span class="hotspot-dot"></span>
+                                    <span class="hotspot-label right-label-short">Legs</span>
+                                </div>
+                            </div>
+
+                            <div class="bottom-container">
+                                <p class="hint-text mb-20 text-muted">Tap where fear appears</p>
+                                <div class="progress-dots">
+                                    <span class="dot"></span>
+                                    <span class="dot"></span>
+                                    <span class="dot"></span>
+                                    <span class="dot active"></span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="home-indicator"></div>
+                    </div>
+                </div>
+                <div class="screen-label">05. BODY MAP</div>
+            </div>
+
+            <!-- SCREEN 6: OBSERVE -->
+            <div class="screen-wrapper" data-screen-index="6">
+                <div class="iphone-16-pro">
+                    <div class="bezel"></div>
+                    <div class="screen-content bg-cosmic">
+                        <div class="status-bar">
+                            <span class="time">9:41</span>
+                            <div class="indicators">
+                                <svg class="icon-wifi" viewBox="0 0 24 24"><path d="M12 21l-12-12c4.97-4.97 13.03-4.97 18 0l-6 12z" fill="currentColor"/></svg>
+                                <svg class="icon-signal" viewBox="0 0 24 24"><path d="M17 5h3v14h-3zM12 9h3v10h-3zM7 13h3v6h-3z" fill="currentColor"/></svg>
+                                <svg class="icon-battery" viewBox="0 0 24 24"><rect x="2" y="5" width="16" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="19" y="8" width="3" height="4" rx="1" fill="currentColor"/></svg>
+                            </div>
+                        </div>
+                        <div class="dynamic-island"></div>
+                        
+                        <canvas class="particles-canvas"></canvas>
+                        <div class="ambient-glow glow-top-left"></div>
+
+                        <!-- Screen Body -->
+                        <div class="screen-body">
+                            <div class="observe-header">
+                                <h3 class="sans-title center-text">Look at your fear...</h3>
+                                <p class="observe-subtitle center-text">Without changing it...<br>What does it feel like?</p>
+                            </div>
+                            
+                            <!-- Floating smoke cloud container -->
+                            <div class="smoke-cloud-container">
+                                <div class="smoke-cloud-big"></div>
+                            </div>
+
+                            <!-- Chip selector -->
+                            <div class="chips-container grid-2x3">
+                                <button class="glass-chip active">Heavy</button>
+                                <button class="glass-chip">Cold</button>
+                                <button class="glass-chip">Tight</button>
+                                <button class="glass-chip">Fast</button>
+                                <button class="glass-chip">Empty</button>
+                                <button class="glass-chip">Unknown</button>
+                            </div>
+
+                            <div class="bottom-container mt-15">
+                                <div class="progress-dots">
+                                    <span class="dot"></span>
+                                    <span class="dot"></span>
+                                    <span class="dot active"></span>
+                                    <span class="dot"></span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="home-indicator"></div>
+                    </div>
+                </div>
+                <div class="screen-label">06. OBSERVE</div>
+            </div>
+
+            <!-- SCREEN 7: SHAPE -->
+            <div class="screen-wrapper" data-screen-index="7">
+                <div class="iphone-16-pro">
+                    <div class="bezel"></div>
+                    <div class="screen-content bg-cosmic">
+                        <div class="status-bar">
+                            <span class="time">9:41</span>
+                            <div class="indicators">
+                                <svg class="icon-wifi" viewBox="0 0 24 24"><path d="M12 21l-12-12c4.97-4.97 13.03-4.97 18 0l-6 12z" fill="currentColor"/></svg>
+                                <svg class="icon-signal" viewBox="0 0 24 24"><path d="M17 5h3v14h-3zM12 9h3v10h-3zM7 13h3v6h-3z" fill="currentColor"/></svg>
+                                <svg class="icon-battery" viewBox="0 0 24 24"><rect x="2" y="5" width="16" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="19" y="8" width="3" height="4" rx="1" fill="currentColor"/></svg>
+                            </div>
+                        </div>
+                        <div class="dynamic-island"></div>
+                        
+                        <canvas class="particles-canvas"></canvas>
+                        <div class="ambient-glow glow-bottom-left"></div>
+
+                        <div class="screen-header">
+                            <button class="back-arrow">
+                                <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" fill="currentColor"/></svg>
+                            </button>
+                        </div>
+
+                        <!-- Screen Body -->
+                        <div class="screen-body">
+                            <h3 class="sans-title center-text">If fear had a shape...</h3>
+                            <p class="observe-subtitle center-text">What would it be?</p>
+                            
+                            <!-- 2x3 Shape grid -->
+                            <div class="shapes-selection-grid">
+                                <button class="shape-grid-item active" data-shape="cloud">
+                                    <svg viewBox="0 0 24 24" class="shape-icon"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z" fill="currentColor"/></svg>
+                                    <span>Cloud</span>
+                                </button>
+                                <button class="shape-grid-item" data-shape="wave">
+                                    <svg viewBox="0 0 24 24" class="shape-icon"><path d="M12 2C6.48 2 2 6.48 2 12c0 2.88 1.22 5.47 3.19 7.31.28.26.7.27.99-.02.26-.26.25-.69-.02-.95C4.64 16.84 3.75 14.53 3.75 12c0-4.56 3.7-8.25 8.25-8.25.96 0 1.88.17 2.75.47.37.13.78-.06.91-.43.13-.37-.06-.78-.43-.91C14.28 2.29 13.16 2 12 2z" fill="currentColor"/><path d="M12 5.5c-3.59 0-6.5 2.91-6.5 6.5 0 2 .9 3.82 2.34 5.07.28.24.7.22.95-.07.25-.29.22-.72-.07-.97C7.6 15.02 7 13.58 7 12c0-2.76 2.24-5 5-5 .66 0 1.29.13 1.87.37.36.15.77-.02.92-.38.15-.36-.02-.77-.38-.92C13.62 5.76 12.83 5.5 12 5.5z" fill="currentColor"/></svg>
+                                    <span>Wave</span>
+                                </button>
+                                <button class="shape-grid-item" data-shape="fire">
+                                    <svg viewBox="0 0 24 24" class="shape-icon"><path d="M19.48 12.35c-1.57-4.08-7.16-4.3-5.81-10.23.1-.44-.37-.78-.75-.55C9.29 3.7 6 8.7 6 12.38c0 3.66 2.96 6.63 6.63 6.63 1.95 0 3.7-.85 4.93-2.18 1.22-1.33 1.92-3.08 1.92-4.48 0-.34-.01-.67-.03-1z" fill="currentColor"/></svg>
+                                    <span>Fire</span>
+                                </button>
+                                <button class="shape-grid-item" data-shape="rock">
+                                    <svg viewBox="0 0 24 24" class="shape-icon"><path d="M12 2L2 22h20L12 2zm0 3.99L18.8 19H5.2L12 5.99z" fill="currentColor"/></svg>
+                                    <span>Rock</span>
+                                </button>
+                                <button class="shape-grid-item" data-shape="storm">
+                                    <svg viewBox="0 0 24 24" class="shape-icon"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM19 18H6c-2.21 0-4-1.79-4-4 0-2.05 1.53-3.76 3.56-3.97l1.07-.11.5-.95C8.08 7.14 9.94 6 12 6c2.62 0 4.88 1.86 5.39 4.43l.3 1.5 1.53.11c1.56.1 2.78 1.41 2.78 2.96 0 1.65-1.35 3-3 3zm-9 3h2v2h-2zm4 0h2v2h-2zm-8 0h2v2H6z" fill="currentColor"/></svg>
+                                    <span>Storm</span>
+                                </button>
+                                <button class="shape-grid-item" data-shape="shadow">
+                                    <svg viewBox="0 0 24 24" class="shape-icon"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H7c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.04-.42 1.99-1.07 2.75z" fill="currentColor"/></svg>
+                                    <span>Shadow</span>
+                                </button>
+                            </div>
+
+                            <!-- Smoke cloud illustration under grid -->
+                            <div class="illustration-smoke-container">
+                                <div class="smoke-cloud-small text-pulse"></div>
+                            </div>
+
+                            <div class="bottom-container">
+                                <div class="progress-dots">
+                                    <span class="dot"></span>
+                                    <span class="dot"></span>
+                                    <span class="dot"></span>
+                                    <span class="dot active"></span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="home-indicator"></div>
+                    </div>
+                </div>
+                <div class="screen-label">07. SHAPE</div>
+            </div>
+
+            <!-- SCREEN 8: WATCH IT PASS -->
+            <div class="screen-wrapper" data-screen-index="8">
+                <div class="iphone-16-pro">
+                    <div class="bezel"></div>
+                    <div class="screen-content bg-cosmic">
+                        <div class="status-bar">
+                            <span class="time">9:41</span>
+                            <div class="indicators">
+                                <svg class="icon-wifi" viewBox="0 0 24 24"><path d="M12 21l-12-12c4.97-4.97 13.03-4.97 18 0l-6 12z" fill="currentColor"/></svg>
+                                <svg class="icon-signal" viewBox="0 0 24 24"><path d="M17 5h3v14h-3zM12 9h3v10h-3zM7 13h3v6h-3z" fill="currentColor"/></svg>
+                                <svg class="icon-battery" viewBox="0 0 24 24"><rect x="2" y="5" width="16" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="19" y="8" width="3" height="4" rx="1" fill="currentColor"/></svg>
+                            </div>
+                        </div>
+                        <div class="dynamic-island"></div>
+                        
+                        <canvas class="particles-canvas"></canvas>
+                        <div class="ambient-glow glow-center"></div>
+
+                        <!-- Top Nav -->
+                        <div class="screen-header">
+                            <button class="back-arrow">
+                                <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" fill="currentColor"/></svg>
+                            </button>
+                        </div>
+
+                        <!-- Screen Body -->
+                        <div class="screen-body">
+                            <h3 class="sans-title center-text">Watch it pass...</h3>
+                            <p class="observe-subtitle center-text">Nothing lasts forever.</p>
+
+                            <!-- Cloud drifting away (will be animated in CSS/JS) -->
+                            <div class="drift-cloud-container">
+                                <div class="smoke-cloud-drifting"></div>
+                            </div>
+
+                            <div class="bottom-container">
+                                <p class="hint-text mb-20 text-muted">Even fear changes.</p>
+                                <div class="progress-dots">
+                                    <span class="dot"></span>
+                                    <span class="dot"></span>
+                                    <span class="dot"></span>
+                                    <span class="dot active"></span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="home-indicator"></div>
+                    </div>
+                </div>
+                <div class="screen-label">08. WATCH IT PASS</div>
+            </div>
+
+            <!-- SCREEN 9: REMINDER -->
+            <div class="screen-wrapper" data-screen-index="9">
+                <div class="iphone-16-pro">
+                    <div class="bezel"></div>
+                    <div class="screen-content bg-cosmic">
+                        <div class="status-bar">
+                            <span class="time">9:41</span>
+                            <div class="indicators">
+                                <svg class="icon-wifi" viewBox="0 0 24 24"><path d="M12 21l-12-12c4.97-4.97 13.03-4.97 18 0l-6 12z" fill="currentColor"/></svg>
+                                <svg class="icon-signal" viewBox="0 0 24 24"><path d="M17 5h3v14h-3zM12 9h3v10h-3zM7 13h3v6h-3z" fill="currentColor"/></svg>
+                                <svg class="icon-battery" viewBox="0 0 24 24"><rect x="2" y="5" width="16" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="19" y="8" width="3" height="4" rx="1" fill="currentColor"/></svg>
+                            </div>
+                        </div>
+                        <div class="dynamic-island"></div>
+                        
+                        <canvas class="particles-canvas"></canvas>
+                        <div class="ambient-glow glow-top-right"></div>
+
+                        <!-- Top Nav -->
+                        <div class="screen-header">
+                            <button class="back-arrow">
+                                <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" fill="currentColor"/></svg>
+                            </button>
+                        </div>
+
+                        <!-- Screen Body -->
+                        <div class="screen-body">
+                            <h3 class="sans-title center-text">What do you want<br>to remind yourself?</h3>
+                            
+                            <!-- 3 premium cards -->
+                            <div class="reminder-cards-list">
+                                <div class="reminder-card active">
+                                    <span class="card-icon">
+                                        <svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 2.18l7 3.11v4.71c0 4.52-2.98 8.69-7 9.87-4.02-1.18-7-5.35-7-9.87V6.29l7-3.11z" fill="currentColor"/></svg>
+                                    </span>
+                                    <span class="card-text">I am safe in this moment</span>
+                                </div>
+                                <div class="reminder-card">
+                                    <span class="card-icon">
+                                        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12c0 2.88 1.22 5.47 3.19 7.31.28.26.7.27.99-.02.26-.26.25-.69-.02-.95C4.64 16.84 3.75 14.53 3.75 12c0-4.56 3.7-8.25 8.25-8.25.96 0 1.88.17 2.75.47.37.13.78-.06.91-.43.13-.37-.06-.78-.43-.91C14.28 2.29 13.16 2 12 2z" fill="currentColor"/></svg>
+                                    </span>
+                                    <span class="card-text">This feeling will pass</span>
+                                </div>
+                                <div class="reminder-card">
+                                    <span class="card-icon">
+                                        <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="currentColor"/></svg>
+                                    </span>
+                                    <span class="card-text">I can handle hard things</span>
+                                </div>
+                            </div>
+
+                            <div class="bottom-container">
+                                <button class="btn btn-secondary btn-outline mb-15">+ Add your own</button>
+                                <div class="progress-dots">
+                                    <span class="dot"></span>
+                                    <span class="dot"></span>
+                                    <span class="dot"></span>
+                                    <span class="dot active"></span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="home-indicator"></div>
+                    </div>
+                </div>
+                <div class="screen-label">09. REMINDER</div>
+            </div>
+
+            <!-- SCREEN 10: REFLECTION -->
+            <div class="screen-wrapper" data-screen-index="10">
+                <div class="iphone-16-pro">
+                    <div class="bezel"></div>
+                    <div class="screen-content bg-cosmic">
+                        <div class="status-bar">
+                            <span class="time">9:41</span>
+                            <div class="indicators">
+                                <svg class="icon-wifi" viewBox="0 0 24 24"><path d="M12 21l-12-12c4.97-4.97 13.03-4.97 18 0l-6 12z" fill="currentColor"/></svg>
+                                <svg class="icon-signal" viewBox="0 0 24 24"><path d="M17 5h3v14h-3zM12 9h3v10h-3zM7 13h3v6h-3z" fill="currentColor"/></svg>
+                                <svg class="icon-battery" viewBox="0 0 24 24"><rect x="2" y="5" width="16" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="19" y="8" width="3" height="4" rx="1" fill="currentColor"/></svg>
+                            </div>
+                        </div>
+                        <div class="dynamic-island"></div>
+                        
+                        <canvas class="particles-canvas"></canvas>
+                        <div class="ambient-glow glow-bottom-left"></div>
+
+                        <!-- Top Nav -->
+                        <div class="screen-header">
+                            <button class="back-arrow">
+                                <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" fill="currentColor"/></svg>
+                            </button>
+                        </div>
+
+                        <!-- Screen Body -->
+                        <div class="screen-body">
+                            <h3 class="sans-title left-text pl-20">Today I noticed...</h3>
+                            
+                            <!-- 3 Checklist cards -->
+                            <div class="reflection-cards-list">
+                                <div class="checklist-card active">
+                                    <div class="check-box checked">
+                                        <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="currentColor"/></svg>
+                                    </div>
+                                    <span class="checklist-text">My fear was real, and that's okay</span>
+                                </div>
+                                <div class="checklist-card active">
+                                    <div class="check-box checked">
+                                        <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="currentColor"/></svg>
+                                    </div>
+                                    <span class="checklist-text">I stayed with it, instead of avoiding</span>
+                                </div>
+                                <div class="checklist-card active">
+                                    <div class="check-box checked">
+                                        <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="currentColor"/></svg>
+                                    </div>
+                                    <span class="checklist-text">I didn't try to change it</span>
+                                </div>
+                            </div>
+
+                            <div class="bottom-container">
+                                <div class="progress-dots">
+                                    <span class="dot"></span>
+                                    <span class="dot"></span>
+                                    <span class="dot"></span>
+                                    <span class="dot active"></span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="home-indicator"></div>
+                    </div>
+                </div>
+                <div class="screen-label">10. REFLECTION</div>
+            </div>
+
+            <!-- SCREEN 11: COMPLETION -->
+            <div class="screen-wrapper" data-screen-index="11">
+                <div class="iphone-16-pro">
+                    <div class="bezel"></div>
+                    <div class="screen-content bg-cosmic">
+                        <div class="status-bar">
+                            <span class="time">9:41</span>
+                            <div class="indicators">
+                                <svg class="icon-wifi" viewBox="0 0 24 24"><path d="M12 21l-12-12c4.97-4.97 13.03-4.97 18 0l-6 12z" fill="currentColor"/></svg>
+                                <svg class="icon-signal" viewBox="0 0 24 24"><path d="M17 5h3v14h-3zM12 9h3v10h-3zM7 13h3v6h-3z" fill="currentColor"/></svg>
+                                <svg class="icon-battery" viewBox="0 0 24 24"><rect x="2" y="5" width="16" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="19" y="8" width="3" height="4" rx="1" fill="currentColor"/></svg>
+                            </div>
+                        </div>
+                        <div class="dynamic-island"></div>
+                        
+                        <canvas class="particles-canvas"></canvas>
+                        <div class="ambient-glow glow-center"></div>
+
+                        <!-- Screen Body -->
+                        <div class="screen-body flex-center">
+                            <!-- Large glowing ring checkmark -->
+                            <div class="completion-ring-container">
+                                <div class="completion-ring-glow"></div>
+                                <div class="completion-ring">
+                                    <svg viewBox="0 0 24 24" class="checkmark-svg"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="currentColor"/></svg>
+                                </div>
+                            </div>
+
+                            <div class="completion-content text-center">
+                                <h3 class="sans-title text-glow">Observation<br>Complete</h3>
+                                <div class="spacing-block"></div>
+                                <div class="meditation-summary">
+                                    <p class="summary-line">Fear was acknowledged.</p>
+                                    <p class="summary-line">Not defeated.</p>
+                                    <p class="summary-line">Not ignored.</p>
+                                    <p class="summary-line highlighted">Simply noticed.</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="home-indicator"></div>
+                    </div>
+                </div>
+                <div class="screen-label">11. COMPLETION</div>
+            </div>
+
+            <!-- SCREEN 12: SUCCESS -->
+            <div class="screen-wrapper" data-screen-index="12">
+                <div class="iphone-16-pro">
+                    <div class="bezel"></div>
+                    <div class="screen-content bg-sunrise">
+                        <div class="status-bar">
+                            <span class="time">9:41</span>
+                            <div class="indicators">
+                                <svg class="icon-wifi" viewBox="0 0 24 24"><path d="M12 21l-12-12c4.97-4.97 13.03-4.97 18 0l-6 12z" fill="currentColor"/></svg>
+                                <svg class="icon-signal" viewBox="0 0 24 24"><path d="M17 5h3v14h-3zM12 9h3v10h-3zM7 13h3v6h-3z" fill="currentColor"/></svg>
+                                <svg class="icon-battery" viewBox="0 0 24 24"><rect x="2" y="5" width="16" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="19" y="8" width="3" height="4" rx="1" fill="currentColor"/></svg>
+                            </div>
+                        </div>
+                        <div class="dynamic-island"></div>
+
+                        <!-- Sun rays glow -->
+                        <div class="sun-glow"></div>
+                        <div class="sunrise-sky-overlay"></div>
+
+                        <!-- Screen Body -->
+                        <div class="screen-body flex-center z-index-above">
+                            <div class="success-content text-center">
+                                <h3 class="sans-title text-gold">Well done!</h3>
+                                <div class="success-desc-block">
+                                    <p class="success-desc">You showed up for yourself.</p>
+                                    <p class="success-subdesc">That's something to be proud of.</p>
+                                </div>
+                            </div>
+
+                            <div class="bottom-action">
+                                <button class="btn btn-secondary btn-solid">Finish</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Mountain silhouette landscape -->
+                        <div class="mountain-landscape"></div>
+                        
+                        <div class="home-indicator"></div>
+                    </div>
+                </div>
+                <div class="screen-label">12. SUCCESS</div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Footer Information -->
+    <footer class="presentation-footer">
+        <p>© 2026 AntiSocials Design. Created with pixel-perfection inspired by Apple Human Interface Guidelines.</p>
+        <p class="tip">Click any device to view details, interact with mockups, and zoom to details.</p>
+    </footer>
+
+    <!-- INTERACTIVE ZOOM/INSPECT MODAL OVERLAY -->
+    <div id="zoomModal" class="zoom-modal">
+        <div class="modal-overlay"></div>
+        <div class="modal-wrapper">
+            <button class="modal-close" aria-label="Close modal">
+                <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="currentColor"/></svg>
+            </button>
+            <div class="modal-content">
+                <!-- Loaded iPhone cloned container here dynamically -->
+                <div class="modal-iphone-container"></div>
+                <div class="modal-sidebar">
+                    <h2 class="sidebar-title">Screen Details</h2>
+                    <p class="sidebar-subtitle">Interactive Mockup Preview</p>
+                    <div class="sidebar-info-box">
+                        <h4 id="screenTitle">Intro Screen</h4>
+                        <p id="screenDetailDesc">This screen greets users with a calming, cosmic night sky and prompts them to begin their observation journey.</p>
+                    </div>
+                    <div class="sidebar-controls">
+                        <button id="prevScreenBtn" class="btn-nav">← Previous</button>
+                        <button id="nextScreenBtn" class="btn-nav">Next →</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script connection -->
+    <script src="script.js"></script>
+</body>
+</html>

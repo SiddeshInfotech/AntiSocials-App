@@ -6,6 +6,8 @@ import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import * as SecureStore from 'expo-secure-store';
+import { API_BASE_URL } from '../constants/Api';
 
 const { width } = Dimensions.get('window');
 
@@ -148,9 +150,37 @@ export default function CleanupTaskScreen() {
             activeOpacity={0.85}
             onPressIn={() => Animated.spring(btnScale, { toValue: 0.95, useNativeDriver: true }).start()}
             onPressOut={() => Animated.spring(btnScale, { toValue: 1, useNativeDriver: true }).start()}
-            onPress={() => {
+            onPress={async () => {
               if (imageUri) {
-                router.replace({ pathname: '/task-success', params: { points: '1000' } } as any);
+                let pointsData = { pointsAdded: '1000', totalPoints: '0', streak: '0' };
+                try {
+                  const token = await SecureStore.getItemAsync('token');
+                  if (token) {
+                    const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                      },
+                      body: JSON.stringify({ task_name: 'Organise a cleanup drive' })
+                    });
+                    const data = await response.json();
+                    if (response.ok || data.success) {
+                      pointsData = { 
+                        pointsAdded: data.pointsAdded?.toString() || "1000", 
+                        totalPoints: data.totalPoints?.toString() || "0",
+                        streak: data.streak?.toString() || "0"
+                      };
+                    }
+                  }
+                } catch (e) {
+                  console.error("Cleanup complete API error:", e);
+                }
+
+                router.replace({ 
+                  pathname: '/task-success', 
+                  params: { points: pointsData.pointsAdded, totalPoints: pointsData.totalPoints, streak: pointsData.streak } 
+                } as any);
               }
             }}
           >

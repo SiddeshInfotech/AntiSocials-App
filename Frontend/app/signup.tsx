@@ -19,7 +19,7 @@ import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
 import * as ImagePicker from "expo-image-picker";
 import * as SecureStore from 'expo-secure-store';
-import { API_BASE_URL } from '../constants/Api';
+import { API_BASE_URL, apiFetch } from '../constants/Api';
 
 export default function Signup() {
   const router = useRouter();
@@ -74,12 +74,7 @@ export default function Signup() {
 
     setIsLoading(true);
     try {
-      // Adding AbortController to prevent infinite loading on network failure
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 seconds timeout
-
-      // Replaced localhost with your computer's IP address to fix the Android Network Request Failed error
-      const response = await fetch(`${API_BASE_URL}/auth/send-otp`, {
+      const response = await apiFetch('/auth/send-otp', {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -88,10 +83,7 @@ export default function Signup() {
           phoneNumber,
           purpose: 'signup'
         }),
-        signal: controller.signal
       });
-
-      clearTimeout(timeoutId);
 
       const data = await response.json();
 
@@ -101,22 +93,48 @@ export default function Signup() {
         return;
       }
 
-      // Navigate to OTP screen passing all the user data
-      router.push({
-        pathname: "/otp",
-        params: {
-          phone: phoneNumber,
-          purpose: 'signup',
-          username,
-          email,
-          profession,
-          about,
-          imageUrl: image,
-          pincode,
-          city,
-          state
-        }
-      });
+      // Show alert with OTP as a notification fallback
+      if (data.otp) {
+        Alert.alert(
+          "OTP Sent",
+          `Your verification code is: ${data.otp}\n(Sent via WhatsApp / local fallback)`,
+          [{ text: "OK", onPress: () => {
+            router.push({
+              pathname: "/otp",
+              params: {
+                phone: phoneNumber,
+                purpose: 'signup',
+                username,
+                email,
+                profession,
+                about,
+                imageUrl: image || undefined,
+                devOtp: data.otp,
+                pincode,
+                city,
+                state
+              }
+            });
+          }}]
+        );
+      } else {
+        // Navigate to OTP screen passing all the user data
+        router.push({
+          pathname: "/otp",
+          params: {
+            phone: phoneNumber,
+            purpose: 'signup',
+            username,
+            email,
+            profession,
+            about,
+            imageUrl: image || undefined,
+            pincode,
+            city,
+            state
+          }
+        });
+      }
 
     } catch (error) {
       console.error("Network Error: ", error);
