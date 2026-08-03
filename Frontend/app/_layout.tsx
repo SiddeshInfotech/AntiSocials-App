@@ -55,6 +55,34 @@ export default function RootLayout() {
             <Stack.Screen name="fear-task" options={{ headerShown: false }} />
             <Stack.Screen name="self-talk-task" options={{ headerShown: false }} />
             <Stack.Screen name="courage-task" options={{ headerShown: false }} />
+            <Stack.Screen name="say-hello-task" options={{ headerShown: false }} />
+            <Stack.Screen name="say-hello-to-3-people-task" options={{ headerShown: false }} />
+            <Stack.Screen name="thoughtful-message-task" options={{ headerShown: false }} />
+            <Stack.Screen name="ask-question-task" options={{ headerShown: false }} />
+            <Stack.Screen name="initiate-conversations-task" options={{ headerShown: false }} />
+            <Stack.Screen name="stay-in-social-space-task" options={{ headerShown: false }} />
+            <Stack.Screen name="presence-task" options={{ headerShown: false }} />
+            <Stack.Screen name="walk-outside-task" options={{ headerShown: false }} />
+            <Stack.Screen name="eye-contact-task" options={{ headerShown: false }} />
+            <Stack.Screen name="eat-meal-task" options={{ headerShown: false }} />
+            <Stack.Screen name="message-task" options={{ headerShown: false }} />
+            <Stack.Screen name="sit-near-people-task" options={{ headerShown: false }} />
+            <Stack.Screen name="reflection-feel-task" options={{ headerShown: false }} />
+            <Stack.Screen name="ask-about-day-task" options={{ headerShown: false }} />
+            <Stack.Screen name="observe-fear-task" options={{ headerShown: false }} />
+            <Stack.Screen name="share-personal-task" options={{ headerShown: false }} />
+            <Stack.Screen name="handle-silence-task" options={{ headerShown: false }} />
+            <Stack.Screen name="no-escape-task" options={{ headerShown: false }} />
+            <Stack.Screen name="initiate-naturally-task" options={{ headerShown: false }} />
+            <Stack.Screen name="curiosity-task" options={{ headerShown: false }} />
+            <Stack.Screen name="authenticity-task" options={{ headerShown: false }} />
+            <Stack.Screen name="stage2-final-task" options={{ headerShown: false }} />
+            <Stack.Screen name="emotion-tide-task" options={{ headerShown: false }} />
+            <Stack.Screen name="join-group-task" options={{ headerShown: false }} />
+            <Stack.Screen name="stay-15m-task" options={{ headerShown: false }} />
+            <Stack.Screen name="name-badge-task" options={{ headerShown: false }} />
+            <Stack.Screen name="social-observer-task" options={{ headerShown: false }} />
+            <Stack.Screen name="location-checkin-task" options={{ headerShown: false }} />
           </Stack>
           <StatusBar style="dark" />
         </ThemeProvider>

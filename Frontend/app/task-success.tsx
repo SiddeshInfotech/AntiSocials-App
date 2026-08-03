@@ -62,16 +62,20 @@ const Particle = ({ x, color, size, delay, duration }: typeof PARTICLES[0]) => {
 export default function TaskSuccessScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { points, totalPoints, streak, message, difficulty } = useLocalSearchParams<{ 
+  const { points, totalPoints, streak, message, difficulty, taskName, task_name, badge } = useLocalSearchParams<{ 
     points: string; 
     totalPoints: string; 
     streak: string; 
     message?: string;
     difficulty?: string;
+    taskName?: string;
+    task_name?: string;
+    badge?: string;
   }>();
   const displayPoints = points ?? '0';
   const displayTotal = totalPoints ?? '0';
   const displayStreak = streak ?? '0';
+  const resolvedTaskName = taskName || task_name || '';
 
   // Animation refs
   const bgScale     = useRef(new Animated.Value(0)).current;
@@ -205,9 +209,28 @@ export default function TaskSuccessScreen() {
 
         {/* Title area */}
         <Animated.View style={[styles.titleBlock, { opacity: cardOpacity, transform: [{ translateY: cardSlide }] }]}>
+          {resolvedTaskName ? (
+            <View style={styles.taskBadgePill}>
+              <Text style={styles.taskBadgePillText}>{resolvedTaskName}</Text>
+            </View>
+          ) : null}
           <Text style={styles.title}>{difficulty === 'hard' ? 'Courage Unlocked! 🦁' : 'Well Done! 🎉'}</Text>
           <Text style={styles.subtitle}>{difficulty === 'hard' ? 'You stood tall in the face of discomfort.' : 'You showed up and made it happen.'}</Text>
         </Animated.View>
+
+        {/* Optional Achievement Badge Card */}
+        {badge && (
+          <Animated.View style={[
+            styles.badgeCard,
+            { opacity: cardOpacity, transform: [{ translateY: cardSlide }] }
+          ]}>
+            <Text style={styles.badgeCardIcon}>🏅</Text>
+            <View style={styles.badgeCardTextWrapper}>
+              <Text style={styles.badgeCardSubtitle}>ACHIEVEMENT UNLOCKED</Text>
+              <Text style={styles.badgeCardTitle}>{badge}</Text>
+            </View>
+          </Animated.View>
+        )}
 
         {/* Points card */}
         <Animated.View style={[
@@ -403,6 +426,53 @@ const styles = StyleSheet.create({
   },
 
   btnArea: { width: '100%', gap: 14 },
+
+  taskBadgePill: {
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 14,
+    backgroundColor: 'rgba(96, 165, 250, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(96, 165, 250, 0.4)',
+    marginBottom: 8,
+  },
+  taskBadgePillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#60A5FA',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  badgeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    padding: 16,
+    borderRadius: 20,
+    backgroundColor: 'rgba(124, 58, 237, 0.15)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(124, 58, 237, 0.4)',
+    marginBottom: 16,
+  },
+  badgeCardIcon: {
+    fontSize: 32,
+    marginRight: 14,
+  },
+  badgeCardTextWrapper: {
+    flex: 1,
+  },
+  badgeCardSubtitle: {
+    fontSize: 10,
+    fontWeight: '900',
+    color: '#a855f7',
+    letterSpacing: 1.2,
+  },
+  badgeCardTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#f8fafc',
+    marginTop: 2,
+  },
 
   primaryBtn: {
     width: '100%',
