@@ -874,7 +874,6 @@ const initDB = async () => {
             );
         `);
 
-<<<<<<< HEAD
         // Seeding the Eye Rest task separately (ensures it is seeded even if database is already initialized)
         await db.query(`
             INSERT INTO tasks (title, description, category, points_reward, duration, difficulty, mascot, completion_message)
@@ -902,7 +901,11 @@ const initDB = async () => {
                    'Easy', 
                    '🌿', 
                    'You checked in.'
-=======
+            WHERE NOT EXISTS (
+                SELECT 1 FROM tasks WHERE title = 'Confirm Presence'
+            );
+        `);
+
         // Seeding the Reflect on Week task separately (ensures it is seeded even if database is already initialized)
         await db.query(`
             INSERT INTO tasks (title, description, category, points_reward, duration, difficulty, mascot, completion_message)
@@ -1046,13 +1049,11 @@ const initDB = async () => {
                    'Easy', 
                    '🧘', 
                    'You were present. That is enough.'
->>>>>>> 0f2fbef9d20d1488c9a1eb7d89e20860a44ac7df
             WHERE NOT EXISTS (
                 SELECT 1 FROM tasks WHERE title = 'Confirm Presence'
             );
         `);
 
-<<<<<<< HEAD
         // Seeding the Do One Uncomfortable Thing task separately (ensures it is seeded even if database is already initialized)
         await db.query(`
             INSERT INTO tasks (title, description, category, points_reward, duration, difficulty, mascot, completion_message)
@@ -1402,7 +1403,9 @@ const initDB = async () => {
                    'You completed the foundation.'
             WHERE NOT EXISTS (
                 SELECT 1 FROM tasks WHERE title = 'Life Path Unlock'
-=======
+            );
+        `);
+
         // Seeding Eye Rest task
         await db.query(`
             INSERT INTO tasks (title, description, category, points_reward, duration, difficulty, mascot, completion_message)
@@ -1848,7 +1851,6 @@ const initDB = async () => {
                    'Twenty minutes of your full presence. That is connection.'
             WHERE NOT EXISTS (
                 SELECT 1 FROM tasks WHERE title = 'Spend 20 minutes offline with someone'
->>>>>>> 0f2fbef9d20d1488c9a1eb7d89e20860a44ac7df
             );
         `);
 
@@ -2268,7 +2270,6 @@ app.get('/api/health', (req, res) => {
 
 // TASK INTEGRATION APIs
 
-<<<<<<< HEAD
 // Start Task Endpoint
 app.post('/api/tasks/start', authenticateToken, async (req, res) => {
     const { task_name } = req.body;
@@ -5280,7 +5281,9 @@ app.post('/api/tasks/location-checkin/save-progress', authenticateToken, async (
     } catch (err) {
         console.error('location-checkin save-progress error:', err);
         return res.status(500).json({ error: 'Internal server error' });
-=======
+    }
+});
+
 app.get('/api/tasks/:title', authenticateToken, async (req, res) => {
     const { title } = req.params;
     try {
@@ -5292,7 +5295,6 @@ app.get('/api/tasks/:title', authenticateToken, async (req, res) => {
     } catch (error) {
         console.error('Fetch task error:', error);
         res.status(500).json({ error: 'Internal server error' });
->>>>>>> 0f2fbef9d20d1488c9a1eb7d89e20860a44ac7df
     }
 });
 
@@ -5902,8 +5904,7 @@ app.post('/api/tasks/complete', authenticateToken, async (req, res) => {
                 VALUES ($1, $2, $3)
             `, [userId, taskId, calm_breath_summary]);
         }
-        if (distraction_text) {
-=======
+
         // Save response text if provided (support custom parameters or general response_text)
         let response_text = req.body.response_text || req.body.distraction_text || req.body.courageMoment;
         if (!response_text) {
@@ -5921,7 +5922,6 @@ app.post('/api/tasks/complete', authenticateToken, async (req, res) => {
             }
         }
         if (response_text) {
->>>>>>> 0f2fbef9d20d1488c9a1eb7d89e20860a44ac7df
             const taskDb = await db.query('SELECT id FROM tasks WHERE title = $1', [task_name]);
             const taskId = taskDb.rows[0] ? taskDb.rows[0].id : null;
             // Upsert into task_responses
