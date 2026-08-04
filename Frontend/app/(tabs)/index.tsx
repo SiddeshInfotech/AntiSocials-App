@@ -1149,12 +1149,6 @@ export default function HomeScreen() {
                 { label: "Eye Rest", emoji: "👀" },
                 { label: "Stretch", emoji: "🧘‍♀️" },
                 { label: "Silent", emoji: "🤫" },
-                { label: "Outside", emoji: "👀" },
-                { label: "Connect", emoji: "🤝" },
-                { label: "Gratitude", emoji: "🧘‍♀️" },
-                { label: "Walk", emoji: "👣" },
-                { label: "Focus", emoji: "🐕" },
-                { label: "Eat", emoji: "🍽️" },
               ];
 
               const BUTTON_SIZE = 70;
@@ -1193,7 +1187,7 @@ export default function HomeScreen() {
                 
                 // Handle complex tasks that have their own routes
                 if (task === "Connect") {
-                  router.push("/ask");
+                  router.push("/ask" as any);
                   setActiveTask(null);
                   return;
                 }

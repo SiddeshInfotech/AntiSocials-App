@@ -17,7 +17,7 @@ import { useRouter } from "expo-router";
 import { useIsFocused } from "@react-navigation/native";
 import * as SecureStore from 'expo-secure-store';
 import LifeDomainsChart from "../../components/LifeDomainsChart";
-import { API_BASE_URL } from "../../constants/Api";
+import { API_BASE_URL, apiFetch } from "../../constants/Api";
 import { resolveImageUrl } from "../../constants/ImageUtils";
 
 export default function ProfileScreen() {
@@ -27,6 +27,13 @@ export default function ProfileScreen() {
   const [statsData, setStatsData] = useState<any>({ activitiesJoined: 0, tasksCompleted: 0, connections: 0, taskPoints: 0 });
   const [interestsData, setInterestsData] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [imageError, setImageError] = useState(false);
+  const profilePic = userData?.image_url || userData?.profile_image || userData?.avatar_url;
+
+  useEffect(() => {
+    setImageError(false);
+  }, [userData?.image_url, userData?.profile_image]);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -40,7 +47,7 @@ export default function ProfileScreen() {
           return;
         }
 
-        const response = await fetch(`${API_BASE_URL}/api/profile/me`, {
+        const response = await apiFetch('/api/profile/me', {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -51,7 +58,9 @@ export default function ProfileScreen() {
           setUserData(data.user);
           setStatsData(data.stats);
           setInterestsData(data.interests);
-          await SecureStore.setItemAsync('userId', data.user.id.toString());
+          if (data.user?.id) {
+            await SecureStore.setItemAsync('userId', data.user.id.toString());
+          }
         } else {
           console.error("Profile fetch failed. Status:", response.status);
           if (response.status === 401 || response.status === 403) {
@@ -116,10 +125,11 @@ export default function ProfileScreen() {
         <View style={styles.headerBackground}>
           <View style={styles.avatarContainer}>
             <View style={styles.avatarPlaceholder}>
-              {userData?.image_url && !userData.image_url.startsWith('file://') && !userData.image_url.startsWith('data:image') ? (
+              {profilePic && !imageError ? (
                 <Image 
-                  source={{ uri: resolveImageUrl(userData.image_url) }} 
+                  source={{ uri: resolveImageUrl(profilePic) }} 
                   style={{ width: '100%', height: '100%', borderRadius: 45 }} 
+                  onError={() => setImageError(true)}
                 />
               ) : (
                 <Feather name="user" size={40} color="#4B2488" />
@@ -130,8 +140,12 @@ export default function ProfileScreen() {
             </View>
           </View>
 
-          <Text style={styles.userName}>{userData?.username || "Guest User"}</Text>
-          <Text style={styles.userHandle}>{userData?.email ? `@${userData.email.split('@')[0]}` : "@handle"}</Text>
+          <Text style={styles.userName}>
+            {userData?.username || userData?.full_name || userData?.profile_name || (userData?.email ? userData.email.split('@')[0] : null) || (userData?.phone_number ? `User (${userData.phone_number.slice(-4)})` : "Guest User")}
+          </Text>
+          <Text style={styles.userHandle}>
+            {userData?.email ? `@${userData.email.split('@')[0]}` : (userData?.phone_number ? userData.phone_number : "@handle")}
+          </Text>
           <Text style={styles.userTitle}>{userData?.profession || "Life Explorer"}</Text>
           <Text style={styles.userBio}>{userData?.about || "Taking steps towards a more mindful life."}</Text>
           <Text style={styles.memberSince}>Member since 2025</Text>

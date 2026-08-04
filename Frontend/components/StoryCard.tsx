@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Dimensions,
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
+import { resolveImageUrl } from "../constants/ImageUtils";
 
 export type StoryType = {
   id: string;
@@ -31,6 +32,7 @@ interface StoryCardProps {
 
 export default function StoryCard({ story }: StoryCardProps) {
   const scaleValue = useRef(new Animated.Value(1)).current;
+  const [avatarError, setAvatarError] = useState(false);
 
   const handlePressIn = () => {
     Animated.spring(scaleValue, {
@@ -47,6 +49,8 @@ export default function StoryCard({ story }: StoryCardProps) {
       speed: 20,
     }).start();
   };
+
+  const resolvedAvatar = resolveImageUrl(story.user.avatarUrl);
 
   return (
     <Animated.View
@@ -66,10 +70,11 @@ export default function StoryCard({ story }: StoryCardProps) {
         {/* Header */}
         <View style={styles.cardHeader}>
           <View style={styles.userInfo}>
-            {story.user.avatarUrl ? (
+            {story.user.avatarUrl && !avatarError ? (
               <Image 
-                source={{ uri: story.user.avatarUrl }} 
+                source={{ uri: resolvedAvatar }} 
                 style={[styles.avatarCircle, { borderWidth: 0 }]} 
+                onError={() => setAvatarError(true)}
               />
             ) : (
               <View
