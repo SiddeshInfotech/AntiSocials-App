@@ -329,4 +329,54 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     letterSpacing: 0.2,
   },
+  badgeContainer: {
+    marginTop: 8,
+    alignItems: "center",
+    width: "100%",
+  },
+  stagePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: 4,
+  },
+  stagePillDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#10B981",
+    marginRight: 6,
+  },
+  stagePillText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#374151",
+    marginRight: 6,
+  },
+  stageCountText: {
+    fontSize: 10,
+    fontWeight: "500",
+    color: "#9CA3AF",
+  },
+  progressBarBg: {
+    width: 120,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#E5E7EB",
+    overflow: "hidden",
+  },
+  progressBarFill: {
+    height: "100%",
+    borderRadius: 2,
+    backgroundColor: "#9333EA",
+  },
+  progressBarZen: {
+    backgroundColor: "#7C3AED",
+  },
+  progressBarGolden: {
+    backgroundColor: "#F59E0B",
+  },
 });
