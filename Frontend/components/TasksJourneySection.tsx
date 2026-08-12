@@ -1176,6 +1176,35 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
                   end={{ x: 1, y: 1 }}
                   style={[styles.taskCard, styles.mediumTaskCard]}
                 >
+                  <Text style={styles.taskEmoji}>{task.emoji}</Text>
+                  <View style={styles.taskCardContent}>
+                    <View style={styles.cardHeaderRow}>
+                      <View style={[styles.difficultyPill, styles.mediumDifficultyPill]}>
+                        <Text style={[styles.difficultyText, styles.mediumDifficultyText]}>
+                          ⚡ {task.difficulty.toUpperCase()}
+                        </Text>
+                      </View>
+                      <View style={styles.mediumBadgeRight}>
+                        <Feather name="award" size={11} color="#ca8a04" />
+                        <Text style={styles.mediumPointsText}>{task.points}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.taskTitle}>{task.title}</Text>
+                    <Text style={styles.taskSubtitle}>{task.subtitle}</Text>
+                    <View style={styles.taskBottomRow}>
+                      <Text style={styles.mediumDurationText}>
+                        🕒 {task.title.includes("10 min") || task.title === "Do One Uncomfortable Thing" ? "10 min" : task.subtitle.includes("hour") || task.title.includes("hour") ? "1 hour" : "Flexible"}
+                      </Text>
+                    </View>
+                  </View>
+                </LinearGradient>
+              ) : (
+                <View style={[styles.taskCard, isCompleted && { opacity: 0.75, backgroundColor: '#f0fdf4', borderColor: '#86efac', borderWidth: 1 }]}>
+                  <Text style={styles.taskEmoji}>{isCompleted ? "✅" : task.emoji}</Text>
+                  <View style={styles.taskCardContent}>
+                    <View
+                      style={[
+                        styles.difficultyPill,
                         isCompleted ? { backgroundColor: '#dcfce7' } : { backgroundColor: badgeBgColor },
                       ]}
                     >
