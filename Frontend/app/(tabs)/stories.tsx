@@ -1,36 +1,34 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, FlatList, RefreshControl } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  RefreshControl,
+  TouchableOpacity,
+  Alert,
+  Platform,
+  ActivityIndicator,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { useIsFocused } from "@react-navigation/native";
-import { Feather } from "@expo/vector-icons";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import StoryCard, { StoryType } from "../../components/StoryCard";
 import StoryCommentModal from "../../components/StoryCommentModal";
 import * as SecureStore from "expo-secure-store";
+import * as ImagePicker from "expo-image-picker";
 import { apiFetch } from "../../constants/Api";
 import { resolveImageUrl } from "../../constants/ImageUtils";
-
-const formatTimeAgo = (dateStr: string) => {
-  if (!dateStr) return "Just now";
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const hours = Math.floor(diff / (1000 * 60 * 60));
-  if (hours < 1) {
-    const mins = Math.floor(diff / (1000 * 60));
-    if (mins < 1) return "Just now";
-    return `${mins}m ago`;
-  }
-  if (hours < 24) {
-    return `${hours}h ago`;
-  }
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-};
+import { formatTimeAgo, isStoryExpired } from "../../constants/DateUtils";
 
 export default function StoriesFeed() {
   const isFocused = useIsFocused();
   const [stories, setStories] = useState<StoryType[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [hasOwnStory, setHasOwnStory] = useState(false);
 
   // Comment Modal state
   const [activeCommentStory, setActiveCommentStory] = useState<StoryType | null>(null);
@@ -39,6 +37,8 @@ export default function StoriesFeed() {
   const fetchStories = async () => {
     try {
       const token = await SecureStore.getItemAsync("token");
+      const currentUserIdStr = await SecureStore.getItemAsync("userId");
+      const currentUserId = currentUserIdStr ? parseInt(currentUserIdStr, 10) : null;
       if (!token) return;
 
       const response = await apiFetch("/api/stories", {
@@ -57,7 +57,13 @@ export default function StoriesFeed() {
       }
 
       if (response.ok && data.stories) {
-        const formattedStories: StoryType[] = (data.stories || []).map((s: any) => ({
+        const unexpiredStories = (data.stories || []).filter((s: any) => !isStoryExpired(s.expires_at));
+        const userHasActive = currentUserId 
+          ? unexpiredStories.some((s: any) => Number(s.user_id) === currentUserId)
+          : false;
+        setHasOwnStory(userHasActive);
+
+        const formattedStories: StoryType[] = unexpiredStories.map((s: any) => ({
           id: s.id.toString(),
           user: {
             name: s.username || "User",
@@ -93,6 +99,149 @@ export default function StoriesFeed() {
   const onRefresh = () => {
     setRefreshing(true);
     fetchStories();
+  };
+
+  const handleAddStory = async () => {
+    if (hasOwnStory) {
+      Alert.alert("Active Story Exists", "You already have an active story.");
+      return;
+    }
+    if (Platform.OS === "web") {
+      const choice = window.confirm(
+        "Press OK to Upload from Gallery, or Cancel to open Camera.",
+      );
+      if (choice) {
+        pickImage();
+      } else {
+        openCamera();
+      }
+    } else {
+      Alert.alert("Add Story", "Choose an option to share your moment", [
+        { text: "Cancel", style: "cancel" },
+        { text: "Take Photo", onPress: openCamera },
+        { text: "Upload from Gallery", onPress: pickImage },
+      ]);
+    }
+  };
+
+  const openCamera = async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (permission.status !== "granted") {
+      Alert.alert("Permission required", "Please allow camera access!");
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.All,
+      allowsEditing: false,
+      quality: 0.5,
+    });
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      const asset = result.assets[0];
+      uploadStory(asset.uri, asset.type === "video" ? "video" : "image");
+    }
+  };
+
+  const pickImage = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (permission.status !== "granted") {
+      Alert.alert("Permission required", "Please allow camera roll access!");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.All,
+      allowsEditing: false,
+      quality: 0.5,
+    });
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      const asset = result.assets[0];
+      uploadStory(asset.uri, asset.type === "video" ? "video" : "image");
+    }
+  };
+
+  const uploadStory = async (uri: string, mediaType: "image" | "video") => {
+    try {
+      setIsUploading(true);
+      const token = await SecureStore.getItemAsync("token");
+      if (!token) return;
+
+      const filename =
+        uri.split("/").pop() || (mediaType === "video" ? "story.mp4" : "story.jpg");
+      const match = /\.(\w+)$/.exec(filename);
+      const type =
+        mediaType === "video"
+          ? "video/mp4"
+          : match
+          ? `image/${match[1]}`
+          : `image/jpeg`;
+
+      const formData = new FormData();
+      formData.append("image", { uri, name: filename, type } as any);
+
+      console.log("📤 [Stories Tab Upload] Uploading media...");
+      const uploadRes = await apiFetch("/upload", {
+        method: "POST",
+        body: formData,
+        timeoutMs: 30000,
+      });
+
+      const uploadData = await uploadRes.json();
+      if (!uploadRes.ok || !uploadData?.imageUrl) {
+        throw new Error(uploadData?.error || "Media upload failed on server");
+      }
+
+      const storyPayload = {
+        media_url: uploadData.imageUrl,
+        media_type: mediaType,
+        text_elements: [],
+        text_content: null,
+        text_position: {},
+        caption: "",
+      };
+
+      console.log("📤 [Stories Tab Upload] Creating story...");
+      const res = await apiFetch("/api/stories", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(storyPayload),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.story) {
+        const s = data.story;
+        const newStory: StoryType = {
+          id: s.id.toString(),
+          user: {
+            name: s.username || "User",
+            avatarUrl: resolveImageUrl(s.profile_image),
+          },
+          time: "Just now",
+          tag: "Story",
+          image: resolveImageUrl(s.media_url),
+          likes: 0,
+          likes_count: 0,
+          comments_count: 0,
+          shares_count: 0,
+          isLiked: false,
+          is_liked_by_user: false,
+          caption: s.caption || s.text_content || "",
+        };
+
+        // Immediately mark hasOwnStory and prepend newly uploaded story to feed
+        setHasOwnStory(true);
+        setStories((prev) => [newStory, ...prev.filter((item) => item.id !== newStory.id)]);
+        Alert.alert("Success", "Story uploaded successfully!");
+      } else {
+        Alert.alert("Upload Blocked", data?.error || "Failed to create story.");
+      }
+    } catch (e: any) {
+      console.error("❌ [Stories Tab Upload Error]:", e);
+      Alert.alert("Upload Failed", e?.message || "Failed to upload story.");
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   // Optimistic like handler
@@ -142,14 +291,33 @@ export default function StoriesFeed() {
         <Text style={styles.headerTitle}>Stories Feed</Text>
         <Text style={styles.headerSubtitle}>From your connections</Text>
       </View>
-      <View style={styles.pointsBadge}>
-        <Feather
-          name="trending-down"
-          size={16}
-          color="#9333EA"
-          style={{ marginRight: 6 }}
-        />
-        <Text style={styles.pointsText}>Trending</Text>
+      <View style={styles.headerRightActions}>
+        {!hasOwnStory && (
+          <TouchableOpacity
+            style={styles.addStoryHeaderBtn}
+            onPress={handleAddStory}
+            disabled={isUploading}
+            activeOpacity={0.8}
+          >
+            {isUploading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <>
+                <Feather name="plus" size={16} color="#fff" style={{ marginRight: 4 }} />
+                <Text style={styles.addStoryHeaderBtnText}>Add Story</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
+        <View style={styles.pointsBadge}>
+          <Feather
+            name="trending-down"
+            size={15}
+            color="#9333EA"
+            style={{ marginRight: 4 }}
+          />
+          <Text style={styles.pointsText}>Trending</Text>
+        </View>
       </View>
     </View>
   );
@@ -179,6 +347,16 @@ export default function StoriesFeed() {
           !loading ? (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>No stories right now.</Text>
+              {!hasOwnStory && (
+                <TouchableOpacity
+                  style={styles.emptyAddBtn}
+                  onPress={handleAddStory}
+                  activeOpacity={0.8}
+                >
+                  <Feather name="plus-circle" size={18} color="#7C3AED" style={{ marginRight: 6 }} />
+                  <Text style={styles.emptyAddBtnText}>Share your first story</Text>
+                </TouchableOpacity>
+              )}
             </View>
           ) : null
         }
@@ -214,7 +392,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: 20,
   },
   headerTitle: {
     fontSize: 26,
@@ -226,16 +404,39 @@ const styles = StyleSheet.create({
     color: "#A855F7",
     marginTop: 2,
   },
+  headerRightActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  addStoryHeaderBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#7C3AED",
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 18,
+    shadowColor: "#7C3AED",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  addStoryHeaderBtnText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
   pointsBadge: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#F3E8FF",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 18,
   },
   pointsText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "600",
     color: "#9333EA",
   },
@@ -247,6 +448,20 @@ const styles = StyleSheet.create({
   emptyText: {
     color: "#9CA3AF",
     fontSize: 16,
+    marginBottom: 16,
+  },
+  emptyAddBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F3E8FF",
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 22,
+  },
+  emptyAddBtnText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#7C3AED",
   },
 });
 

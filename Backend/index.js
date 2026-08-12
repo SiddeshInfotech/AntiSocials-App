@@ -8015,8 +8015,12 @@ app.use('/api/activities', activityRoutes);
 const emotionAnalysisRoutes = require('./routes/emotionAnalysis');
 app.use('/api/emotion', emotionAnalysisRoutes);
 
+// Story 24-Hour Expiry Lifecycle Service
+const storyExpiryService = require('./services/storyExpiryService');
+
 // Start Server
 app.listen(PORT, HOST, () => {
     console.log(`Backend server running on http://${HOST}:${PORT}`);
     initDB(); // create the table right after starting the server
+    storyExpiryService.startStoryExpiryJob(2 * 60 * 1000); // Check and deactivate expired stories every 2 minutes
 });

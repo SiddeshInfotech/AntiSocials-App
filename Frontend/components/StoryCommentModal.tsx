@@ -20,6 +20,7 @@ import * as Haptics from "expo-haptics";
 import * as SecureStore from "expo-secure-store";
 import { apiFetch } from "../constants/Api";
 import { resolveImageUrl } from "../constants/ImageUtils";
+import { formatTimeAgo as formatCommentTime } from "../constants/DateUtils";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -42,18 +43,6 @@ interface StoryCommentModalProps {
   onClose: () => void;
   onCommentsCountChange?: (storyId: string, count: number) => void;
 }
-
-const formatCommentTime = (dateStr: string) => {
-  if (!dateStr) return "Just now";
-  const diff = Date.now() - new Date(dateStr).getTime();
-  if (diff < 60000) return "Just now";
-  const mins = Math.floor(diff / (1000 * 60));
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-};
 
 export default function StoryCommentModal({
   visible,

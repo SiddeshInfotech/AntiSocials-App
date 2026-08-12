@@ -34,7 +34,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Svg, { Circle } from 'react-native-svg';
 import * as SecureStore from 'expo-secure-store';
-import { API_BASE_URL } from '../constants/Api';
+import { API_BASE_URL, apiFetch } from '../constants/Api';
 
 const { width, height } = Dimensions.get('window');
 

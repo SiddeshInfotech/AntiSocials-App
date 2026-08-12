@@ -1,5 +1,18 @@
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
 require('dotenv').config();
+
+// Ensure TIMESTAMP (1114) and TIMESTAMPTZ (1184) are parsed as UTC ISO 8601 strings
+// This prevents node-pg from erroneously interpreting database UTC timestamps as local server time
+types.setTypeParser(1114, (stringValue) => {
+  if (!stringValue) return null;
+  const cleanStr = stringValue.replace(' ', 'T');
+  return cleanStr.endsWith('Z') ? cleanStr : cleanStr + 'Z';
+});
+
+types.setTypeParser(1184, (stringValue) => {
+  if (!stringValue) return null;
+  return new Date(stringValue).toISOString();
+});
 
 const pool = new Pool({
   user: process.env.PG_USER,
