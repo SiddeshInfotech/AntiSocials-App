@@ -7,7 +7,7 @@ import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import * as SecureStore from "expo-secure-store";
 import {
   Alert,
@@ -29,6 +29,7 @@ import {
 } from "react-native";
 import { apiFetch, API_BASE_URL } from "../../constants/Api";
 import { resolveImageUrl } from "../../constants/ImageUtils";
+import { formatTimeAgo, formatViewerTime, isStoryExpired } from "../../constants/DateUtils";
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -685,9 +686,135 @@ export default function HomeScreen() {
 
   const [homeData, setHomeData] = useState<any>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [viewingStory, setViewingStory] = useState<any>(null);
   const [previewStoryMedia, setPreviewStoryMedia] = useState<string | null>(null);
   const [previewMediaType, setPreviewMediaType] = useState<'image' | 'video'>('image');
+
+  // Multi-Story Viewer State & Controls
+  const [activeStoryList, setActiveStoryList] = useState<any[]>([]);
+  const [activeStoryIndex, setActiveStoryIndex] = useState<number>(0);
+  const [isStoryPaused, setIsStoryPaused] = useState<boolean>(false);
+  const storyProgressAnim = useRef(new Animated.Value(0)).current;
+  const storyAnimRef = useRef<Animated.CompositeAnimation | null>(null);
+  const pausedProgressVal = useRef<number>(0);
+
+  // Derived current active story in viewer
+  const viewingStory = (activeStoryList.length > 0 && activeStoryIndex >= 0 && activeStoryIndex < activeStoryList.length)
+    ? activeStoryList[activeStoryIndex]
+    : null;
+
+  // Group active unexpired stories by user for Home horizontal bar
+  const groupedActiveStories = useMemo(() => {
+    if (!homeData?.active_stories || !Array.isArray(homeData.active_stories)) return [];
+    const map: Record<string, any[]> = {};
+    homeData.active_stories
+      .filter((story: any) => !isStoryExpired(story.expires_at))
+      .forEach((story: any) => {
+        const uid = String(story.user_id);
+        if (!map[uid]) map[uid] = [];
+        map[uid].push(story);
+      });
+    return Object.values(map).map((list: any[]) => 
+      list.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    );
+  }, [homeData?.active_stories]);
+
+  const openOwnStories = (startIndex = 0) => {
+    const stories = (homeData?.own_stories || []).filter((s: any) => !isStoryExpired(s.expires_at));
+    if (stories.length > 0) {
+      setActiveStoryList([stories[0]]);
+      setActiveStoryIndex(0);
+    }
+  };
+
+  const openUserStories = (userStories: any[], startIndex = 0) => {
+    const stories = (userStories || []).filter((s: any) => !isStoryExpired(s.expires_at));
+    if (stories.length > 0) {
+      setActiveStoryList([stories[0]]);
+      setActiveStoryIndex(0);
+    }
+  };
+
+  const closeStoryViewer = () => {
+    if (storyAnimRef.current) {
+      storyAnimRef.current.stop();
+    }
+    storyProgressAnim.setValue(0);
+    pausedProgressVal.current = 0;
+    setIsStoryPaused(false);
+    setActiveStoryList([]);
+    setActiveStoryIndex(0);
+  };
+
+  const startStoryProgress = (fromValue = 0) => {
+    if (storyAnimRef.current) {
+      storyAnimRef.current.stop();
+    }
+    storyProgressAnim.setValue(fromValue);
+    const duration = (viewingStory?.media_type === 'video' ? 10000 : 5000) * (1 - fromValue);
+
+    const anim = Animated.timing(storyProgressAnim, {
+      toValue: 1,
+      duration: Math.max(duration, 100),
+      useNativeDriver: false,
+    });
+    storyAnimRef.current = anim;
+
+    anim.start(({ finished }) => {
+      if (finished) {
+        goToNextStory();
+      }
+    });
+  };
+
+  const goToNextStory = () => {
+    if (activeStoryIndex < activeStoryList.length - 1) {
+      pausedProgressVal.current = 0;
+      storyProgressAnim.setValue(0);
+      setActiveStoryIndex((prev) => prev + 1);
+    } else {
+      closeStoryViewer();
+    }
+  };
+
+  const goToPreviousStory = () => {
+    if (activeStoryIndex > 0) {
+      pausedProgressVal.current = 0;
+      storyProgressAnim.setValue(0);
+      setActiveStoryIndex((prev) => prev - 1);
+    } else {
+      pausedProgressVal.current = 0;
+      storyProgressAnim.setValue(0);
+      startStoryProgress(0);
+    }
+  };
+
+  const handlePauseStory = () => {
+    setIsStoryPaused(true);
+    if (storyAnimRef.current) {
+      storyAnimRef.current.stop();
+    }
+  };
+
+  const handleResumeStory = () => {
+    setIsStoryPaused(false);
+    startStoryProgress(pausedProgressVal.current);
+  };
+
+  useEffect(() => {
+    const listenerId = storyProgressAnim.addListener(({ value }) => {
+      pausedProgressVal.current = value;
+    });
+    return () => {
+      storyProgressAnim.removeListener(listenerId);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (activeStoryList.length > 0 && activeStoryIndex >= 0 && activeStoryIndex < activeStoryList.length) {
+      pausedProgressVal.current = 0;
+      startStoryProgress(0);
+    }
+  }, [activeStoryIndex, activeStoryList.length]);
   
   // Advanced Story Editing State
   const [activeEditorMode, setActiveEditorMode] = useState<'none' | 'text'>('none');
@@ -757,6 +884,12 @@ export default function HomeScreen() {
       console.error("❌ Track view error:", e);
     }
   };
+
+  useEffect(() => {
+    if (viewingStory && homeData?.user?.id && Number(viewingStory.user_id) !== Number(homeData.user.id)) {
+      trackView(viewingStory.id);
+    }
+  }, [viewingStory?.id]);
 
   const fetchViewers = async (storyId: number | string) => {
     if (!storyId) return;
@@ -918,6 +1051,11 @@ export default function HomeScreen() {
   };
 
   const handleAddStory = async () => {
+    const unexpiredOwn = (homeData?.own_stories || []).filter((s: any) => !isStoryExpired(s.expires_at));
+    if (unexpiredOwn.length > 0) {
+      Alert.alert("Active Story Exists", "You already have an active story.");
+      return;
+    }
     if (Platform.OS === "web") {
       const choice = window.confirm(
         "Press OK to Upload from Gallery, or Cancel to open Camera.",
@@ -991,14 +1129,15 @@ export default function HomeScreen() {
         const createdStory = data.story;
         console.log(`✅ [Story Upload Success] Story ID: ${createdStory.id}, User ID: ${createdStory.user_id}, URL: ${createdStory.media_url}`);
 
-        // IMMEDIATELY update local state so "Your Story" is instantly available to view
-        setHomeData((prev: any) => {
-          const existingOwn = prev?.own_stories || [];
-          return {
-            ...(prev || {}),
-            own_stories: [createdStory, ...existingOwn.filter((s: any) => s.id !== createdStory.id)],
-          };
-        });
+        // IMMEDIATELY update local state with the single active story
+        setHomeData((prev: any) => ({
+          ...(prev || {}),
+          own_stories: [createdStory],
+        }));
+
+        // Set activeStoryList in viewer if currently open
+        setActiveStoryList([createdStory]);
+        setActiveStoryIndex(0);
 
         // Close editor preview and reset
         setPreviewStoryMedia(null);
@@ -1009,7 +1148,7 @@ export default function HomeScreen() {
 
         Alert.alert("Success", "Story uploaded successfully!");
       } else {
-        Alert.alert("Upload Failed", data?.error || "Failed to create story record.");
+        Alert.alert("Upload Blocked", data?.error || "Failed to create story record.");
       }
     } catch (e: any) {
       console.error('❌ [Story Upload Exception]:', e);
@@ -1035,11 +1174,21 @@ export default function HomeScreen() {
 
       if (response.ok) {
         console.log(`✅ [Story Delete Success] storyId: ${storyId}`);
-        setViewingStory(null);
         setHomeData((prev: any) => ({
           ...(prev || {}),
           own_stories: (prev?.own_stories || []).filter((s: any) => s.id !== storyId),
         }));
+
+        setActiveStoryList((prevList) => {
+          const remaining = prevList.filter((s: any) => s.id !== storyId);
+          if (remaining.length === 0) {
+            closeStoryViewer();
+          } else {
+            setActiveStoryIndex((prevIdx) => Math.min(prevIdx, remaining.length - 1));
+          }
+          return remaining;
+        });
+
         fetchHomeData().catch((e) => console.error("Error refreshing home data after story deletion:", e));
       } else {
         const data = await response.json().catch(() => ({}));
@@ -1125,11 +1274,11 @@ export default function HomeScreen() {
             contentContainerStyle={styles.storiesScroll}
           >
             {/* 1. CURRENT USER STORY (Add Story or View Own Story) */}
-            {homeData?.own_stories && homeData?.own_stories.length > 0 ? (
+            {homeData?.own_stories && (homeData.own_stories.filter((s: any) => !isStoryExpired(s.expires_at)).length > 0) ? (
               <TouchableOpacity
                 style={styles.storyItemContainer}
                 activeOpacity={0.8}
-                onPress={() => setViewingStory(homeData?.own_stories[0])}
+                onPress={() => openOwnStories(0)}
               >
                 <LinearGradient
                   colors={["#c026d3", "#f43f5e", "#f59e0b"]}
@@ -1157,23 +1306,27 @@ export default function HomeScreen() {
               </TouchableOpacity>
             )}
 
-            {/* 2. OTHER USERS' STORIES */}
-            {homeData?.active_stories?.map((story: any) => (
-              <TouchableOpacity
-                key={story.id}
-                style={styles.storyItemContainer}
-                activeOpacity={0.8}
-                onPress={() => setViewingStory(story)}
-              >
-                <LinearGradient
-                  colors={["#c026d3", "#f43f5e", "#f59e0b"]}
-                  style={styles.storyRing}
+            {/* 2. OTHER USERS' STORIES (Grouped by user) */}
+            {groupedActiveStories.map((userStories: any[]) => {
+              const firstStory = userStories[0];
+              if (!firstStory) return null;
+              return (
+                <TouchableOpacity
+                  key={`user-story-${firstStory.user_id}`}
+                  style={styles.storyItemContainer}
+                  activeOpacity={0.8}
+                  onPress={() => openUserStories(userStories, 0)}
                 >
-                  <Image source={{ uri: resolveImageUrl(story.profile_image) }} style={styles.storyProfileImage} />
-                </LinearGradient>
-                <Text style={styles.storyName} numberOfLines={1}>{story.username}</Text>
-              </TouchableOpacity>
-            ))}
+                  <LinearGradient
+                    colors={["#c026d3", "#f43f5e", "#f59e0b"]}
+                    style={styles.storyRing}
+                  >
+                    <Image source={{ uri: resolveImageUrl(firstStory.profile_image) }} style={styles.storyProfileImage} />
+                  </LinearGradient>
+                  <Text style={styles.storyName} numberOfLines={1}>{firstStory.username}</Text>
+                </TouchableOpacity>
+              );
+            })}
             {/* Dummy Default Stories */}
             {[
               { id: "1", name: "Sarah", emoji: "👱‍♀️" },
@@ -1295,25 +1448,55 @@ export default function HomeScreen() {
         visible={viewingStory !== null} 
         animationType="fade" 
         transparent={true}
-        onShow={() => {
-          if (viewingStory && homeData?.user?.id && Number(viewingStory.user_id) !== Number(homeData.user.id)) {
-            trackView(viewingStory.id);
-          }
-        }}
+        onRequestClose={closeStoryViewer}
       >
         <View style={styles.storyViewerOverlay}>
           <SafeAreaView style={{ flex: 1, position: 'relative' }}>
+             {/* 1. Multi-Story Segmented Progress Bar */}
+             <View style={styles.storyProgressContainer}>
+               {activeStoryList.map((st: any, idx: number) => (
+                 <View key={st.id || idx} style={styles.storyProgressBarTrack}>
+                   {idx < activeStoryIndex ? (
+                     <View style={[styles.storyProgressBarFill, { width: '100%' }]} />
+                   ) : idx === activeStoryIndex ? (
+                     <Animated.View 
+                       style={[
+                         styles.storyProgressBarFill, 
+                         { 
+                           width: storyProgressAnim.interpolate({
+                             inputRange: [0, 1],
+                             outputRange: ['0%', '100%']
+                           })
+                         }
+                       ]} 
+                     />
+                   ) : (
+                     <View style={[styles.storyProgressBarFill, { width: '0%' }]} />
+                   )}
+                 </View>
+               ))}
+             </View>
+
+             {/* 2. Story Header */}
              <View style={styles.storyViewerHeader}>
                 <View style={{flexDirection: 'row', alignItems: 'center'}}>
                   <Image source={{ uri: resolveImageUrl(viewingStory?.profile_image || homeData?.user?.image_url) }} style={styles.storyViewerProfilePic} />
-                  <Text style={styles.storyViewerUsername}>{viewingStory?.username || 'Your Story'}</Text>
+                  <View style={{ marginLeft: 8 }}>
+                    <Text style={styles.storyViewerUsername}>{viewingStory?.username || 'Your Story'}</Text>
+                    {viewingStory?.created_at && (
+                      <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '500' }}>
+                        {formatTimeAgo(viewingStory.created_at)}
+                      </Text>
+                    )}
+                  </View>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   {viewingStory && homeData?.user?.id && Number(viewingStory.user_id) === Number(homeData.user.id) && (
                     <TouchableOpacity 
                       onPress={() => {
+                        handlePauseStory();
                         Alert.alert("Delete Story", "Are you sure you want to delete this story?", [
-                          { text: "Cancel", style: "cancel" },
+                          { text: "Cancel", style: "cancel", onPress: handleResumeStory },
                           { text: "Delete", style: "destructive", onPress: () => deleteStory(viewingStory?.id) }
                         ]);
                       }} 
@@ -1322,18 +1505,20 @@ export default function HomeScreen() {
                       <Feather name="trash-2" size={22} color="#fff" />
                     </TouchableOpacity>
                   )}
-                  <TouchableOpacity onPress={() => setViewingStory(null)} style={{padding: 10}}>
+                  <TouchableOpacity onPress={closeStoryViewer} style={{padding: 10}}>
                     <Feather name="x" size={24} color="#fff" />
                   </TouchableOpacity>
                 </View>
              </View>
+
+             {/* 3. Media Content & Touch Zones */}
              <View style={styles.storyViewerContent}>
                 {viewingStory?.media_type === 'video' ? (
                   <Video
                     source={{ uri: resolveImageUrl(viewingStory?.media_url) }}
                     style={styles.storyViewerImage}
                     resizeMode={ResizeMode.CONTAIN}
-                    shouldPlay
+                    shouldPlay={!isStoryPaused}
                     isLooping
                     useNativeControls
                   />
@@ -1372,29 +1557,51 @@ export default function HomeScreen() {
                     </View>
                   </View>
                 ))}
+
+                {/* Left & Right Tap Zones for Navigation */}
+                <View style={StyleSheet.absoluteFillObject} pointerEvents="box-none">
+                  <View style={{ flex: 1, flexDirection: 'row' }}>
+                    <TouchableOpacity 
+                      activeOpacity={1}
+                      onPress={goToPreviousStory}
+                      onPressIn={handlePauseStory}
+                      onPressOut={handleResumeStory}
+                      style={{ width: '35%', height: '100%' }}
+                    />
+                    <TouchableOpacity 
+                      activeOpacity={1}
+                      onPressIn={handlePauseStory}
+                      onPressOut={handleResumeStory}
+                      style={{ width: '30%', height: '100%' }}
+                    />
+                    <TouchableOpacity 
+                      activeOpacity={1}
+                      onPress={goToNextStory}
+                      onPressIn={handlePauseStory}
+                      onPressOut={handleResumeStory}
+                      style={{ width: '35%', height: '100%' }}
+                    />
+                  </View>
+                </View>
              </View>
 
-             {/* Views Count at Bottom for Owner */}
+             {/* 4. Bottom Action Bar for Own Story: Views */}
              {viewingStory && homeData?.user?.id && Number(viewingStory.user_id) === Number(homeData.user.id) && (
-               <TouchableOpacity 
-                 onPress={() => fetchViewers(viewingStory?.id)}
-                 style={{ 
-                   position: 'absolute', 
-                   bottom: 40, 
-                   left: 20, 
-                   flexDirection: 'row', 
-                   alignItems: 'center',
-                   backgroundColor: 'rgba(0,0,0,0.5)',
-                   paddingVertical: 8,
-                   paddingHorizontal: 15,
-                   borderRadius: 20
-                 }}
-               >
-                 <Ionicons name="eye-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
-                 <Text style={{ color: '#fff', fontSize: 14, fontWeight: '600' }}>
-                   {viewingStory?.view_count || 0} views
-                 </Text>
-               </TouchableOpacity>
+               <View style={styles.storyViewerBottomBar}>
+                 <TouchableOpacity 
+                   onPress={() => {
+                     handlePauseStory();
+                     fetchViewers(viewingStory?.id);
+                   }}
+                   style={styles.storyViewersButton}
+                   activeOpacity={0.8}
+                 >
+                   <Ionicons name="eye-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+                   <Text style={styles.storyViewersText}>
+                     {viewingStory?.view_count || 0} views
+                   </Text>
+                 </TouchableOpacity>
+               </View>
              )}
           </SafeAreaView>
         </View>
@@ -1422,7 +1629,7 @@ export default function HomeScreen() {
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontSize: 16, fontWeight: '600' }}>{viewer.username || 'User'}</Text>
                     <Text style={{ fontSize: 12, color: '#666' }}>
-                      {viewer.viewed_at ? new Date(viewer.viewed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'}
+                      {viewer.viewed_at ? formatViewerTime(viewer.viewed_at) : 'Just now'}
                     </Text>
                   </View>
                 </View>
@@ -1727,11 +1934,33 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000',
   },
+  storyProgressContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 4,
+    alignItems: 'center',
+    zIndex: 20,
+  },
+  storyProgressBarTrack: {
+    flex: 1,
+    height: 2.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.35)',
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginHorizontal: 2,
+  },
+  storyProgressBarFill: {
+    height: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 2,
+  },
   storyViewerHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 15,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
     zIndex: 10,
   },
   storyViewerProfilePic: {
@@ -1756,6 +1985,52 @@ const styles = StyleSheet.create({
   storyViewerImage: {
     width: '100%',
     height: '100%',
+  },
+  storyViewerBottomBar: {
+    position: 'absolute',
+    bottom: 30,
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    zIndex: 30,
+  },
+  storyViewersButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+  },
+  storyViewersText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  storyAddMoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    paddingVertical: 9,
+    paddingHorizontal: 16,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.45)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  storyAddMoreText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
   dashboardContainer: {
     marginHorizontal: 15,

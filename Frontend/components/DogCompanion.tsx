@@ -92,11 +92,6 @@ export default function DogCompanion({
   const rotateAnim = useSharedValue(0);
   const auraGlow = useSharedValue(0.35);
 
-  // Dialog bubble state
-  const [speech, setSpeech] = useState<string>(dogStage.speechPrompt);
-  const [showSpeech, setShowSpeech] = useState<boolean>(false);
-  const speechTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   // Stage change celebration state
   const previousStageRef = useRef<number>(dogStage.stage);
   const [showCelebration, setShowCelebration] = useState<boolean>(false);
@@ -139,21 +134,12 @@ export default function DogCompanion({
         withSpring(1, { damping: 8, stiffness: 110 })
       );
 
-      setSpeech(
-        dogStage.isCompleted100
-          ? "👑 100/100 Master Champion! Full Enlightenment!"
-          : `✨ Stage ${dogStage.stage}: ${dogStage.stageName}! ✨`
-      );
-      setShowSpeech(true);
-
       const timer = setTimeout(() => {
         setShowCelebration(false);
       }, 4000);
 
       previousStageRef.current = dogStage.stage;
       return () => clearTimeout(timer);
-    } else {
-      setSpeech(dogStage.speechPrompt);
     }
   }, [dogStage.stage, dogStage.tasksCompleted]);
 
@@ -174,15 +160,6 @@ export default function DogCompanion({
       withTiming(0, { duration: 75 })
     );
 
-    // Cheerful prompt
-    setSpeech(dogStage.speechPrompt);
-    setShowSpeech(true);
-
-    if (speechTimeoutRef.current) clearTimeout(speechTimeoutRef.current);
-    speechTimeoutRef.current = setTimeout(() => {
-      setShowSpeech(false);
-    }, 3800);
-
     if (onPet) onPet();
   };
 
@@ -202,18 +179,6 @@ export default function DogCompanion({
 
   return (
     <Animated.View entering={FadeInDown.duration(500)} style={styles.container}>
-      {/* Speech / Dialog Bubble */}
-      {showSpeech && (
-        <Animated.View
-          entering={FadeIn.duration(200)}
-          exiting={FadeOut.duration(200)}
-          style={styles.speechBubble}
-        >
-          <Text style={styles.speechText}>{speech}</Text>
-          <View style={styles.speechArrow} />
-        </Animated.View>
-      )}
-
       {/* Dog Character Interactive Area (Large Premium Centered Size) */}
       <TouchableOpacity
         activeOpacity={0.9}
@@ -339,102 +304,11 @@ const styles = StyleSheet.create({
   sparkleItem: {
     position: "absolute",
   },
-  speechBubble: {
-    position: "absolute",
-    top: -46,
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 18,
-    maxWidth: width * 0.75,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.04)",
-    zIndex: 25,
-  },
-  speechText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#374151",
-    textAlign: "center",
-  },
-  speechArrow: {
-    position: "absolute",
-    bottom: -6,
-    alignSelf: "center",
-    width: 0,
-    height: 0,
-    borderLeftWidth: 6,
-    borderRightWidth: 6,
-    borderTopWidth: 6,
-    borderLeftColor: "transparent",
-    borderRightColor: "transparent",
-    borderTopColor: "#FFFFFF",
-  },
-  badgeContainer: {
-    alignItems: "center",
-    marginTop: 4,
-    width: 180,
-  },
-  stagePill: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
-    paddingHorizontal: 11,
-    paddingVertical: 4,
-    borderRadius: 13,
-    borderWidth: 1,
-    borderColor: "rgba(229, 231, 235, 0.8)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
-    marginBottom: 4,
-  },
-  stagePillDot: {
-    width: 6.5,
-    height: 6.5,
-    borderRadius: 3.25,
-    backgroundColor: "#10B981",
-    marginRight: 5,
-  },
-  stagePillText: {
-    fontSize: 11.5,
-    fontWeight: "700",
-    color: "#374151",
-    marginRight: 5,
-  },
-  stageCountText: {
-    fontSize: 10.5,
-    fontWeight: "600",
-    color: "#9CA3AF",
-  },
-  progressBarBg: {
-    width: 140,
-    height: 4.5,
-    borderRadius: 2.25,
-    backgroundColor: "rgba(0, 0, 0, 0.06)",
-    overflow: "hidden",
-  },
-  progressBarFill: {
-    height: "100%",
-    borderRadius: 2.25,
-    backgroundColor: "#10B981",
-  },
-  progressBarZen: {
-    backgroundColor: "#9333EA",
-  },
-  progressBarGolden: {
-    backgroundColor: "#F59E0B",
-  },
   activeTaskActionWrap: {
-    marginTop: 6,
-    zIndex: 15,
+    position: "absolute",
+    bottom: -8,
+    alignSelf: "center",
+    zIndex: 25,
   },
   startHeroBtn: {
     flexDirection: "row",

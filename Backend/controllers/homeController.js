@@ -17,6 +17,9 @@ exports.getHomeData = async (req, res) => {
 
         console.log(`📌 [Backend GET /api/home] userId: ${userId}, totalPoints: ${userSummary.totalPoints}, streak: ${userSummary.currentStreak}, completedCount: ${userSummary.completedCount}`);
 
+        // Deactivate any expired stories before returning home data
+        await db.query('UPDATE stories SET is_active = FALSE WHERE is_active = TRUE AND expires_at <= NOW()');
+
         // Active stories
         const storiesRes = await db.query(`
             SELECT 
@@ -37,7 +40,7 @@ exports.getHomeData = async (req, res) => {
             FROM stories s
             JOIN users u ON s.user_id = u.id
             WHERE s.is_active = TRUE AND s.expires_at > NOW()
-            ORDER BY s.created_at DESC
+            ORDER BY s.created_at ASC
         `);
 
         // Split own story vs others
@@ -103,10 +106,37 @@ exports.uploadStory = async (req, res) => {
             return res.status(400).json({ error: 'media_url is required' });
         }
 
+        // Enforce 1 active story per user rule: check if user already has an active unexpired story
+        const existingStoryRes = await db.query(
+            'SELECT id FROM stories WHERE user_id = $1 AND is_active = TRUE AND expires_at > NOW() LIMIT 1',
+            [userId]
+        );
+
+        if (existingStoryRes.rows.length > 0) {
+            console.log(`❌ [Story Upload Blocked] User ${userId} already has an active story (id: ${existingStoryRes.rows[0].id})`);
+            return res.status(400).json({ 
+                error: 'You already have an active story.',
+                hasActiveStory: true,
+                existingStoryId: existingStoryRes.rows[0].id
+            });
+        }
+
         console.log(`📤 [Story Upload] Processing story upload for userId: ${userId}, media_type: ${media_type}, url: ${media_url}`);
 
         const result = await db.query(
-            'INSERT INTO stories (user_id, media_url, media_type, text_elements, text_content, text_position, music_data, caption) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+            `INSERT INTO stories (
+                user_id, 
+                media_url, 
+                media_type, 
+                text_elements, 
+                text_content, 
+                text_position, 
+                music_data, 
+                caption, 
+                created_at, 
+                expires_at, 
+                is_active
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW() + INTERVAL '24 hours', TRUE) RETURNING *`,
             [
                 userId, 
                 media_url, 
@@ -149,7 +179,7 @@ exports.uploadStory = async (req, res) => {
 
         const fullStory = fullStoryRes.rows[0] || newStory;
 
-        console.log(`✅ [Story Upload Success] userId: ${userId}, storyId: ${newStory.id}, media_url: ${media_url}`);
+        console.log(`✅ [Story Upload Success] userId: ${userId}, storyId: ${newStory.id}, media_url: ${media_url}, expires_at: ${newStory.expires_at}`);
 
         return res.status(201).json({ 
             success: true, 
@@ -166,6 +196,10 @@ exports.getStories = async (req, res) => {
     try {
         const currentUserId = req.user ? parseInt(req.user.id, 10) : 0;
         const { userId } = req.query;
+
+        // Deactivate expired stories before returning feed
+        await db.query('UPDATE stories SET is_active = FALSE WHERE is_active = TRUE AND expires_at <= NOW()');
+
         let query = `
             SELECT 
                 s.id, 
@@ -221,12 +255,12 @@ exports.getStoryById = async (req, res) => {
                 EXISTS(SELECT 1 FROM story_likes sl WHERE sl.story_id = s.id AND sl.user_id = $2) as is_liked_by_user
             FROM stories s
             JOIN users u ON s.user_id = u.id
-            WHERE s.id = $1
+            WHERE s.id = $1 AND s.is_active = TRUE AND s.expires_at > NOW()
         `, [storyId, currentUserId]);
 
         if (result.rows.length === 0) {
-            console.log(`📌 [Backend GET /api/stories/:id] storyId: ${storyId} not found`);
-            return res.status(404).json({ error: 'Story not found' });
+            console.log(`📌 [Backend GET /api/stories/:id] storyId: ${storyId} not found or has expired`);
+            return res.status(404).json({ error: 'Story not found or has expired' });
         }
         console.log(`📌 [Backend GET /api/stories/:id] storyId: ${storyId} found`);
         return res.status(200).json({ story: result.rows[0] });
