@@ -20,10 +20,10 @@ import * as SecureStore from 'expo-secure-store';
 import * as Haptics from 'expo-haptics';
 import { apiFetch } from '../constants/Api';
 
-const ORBIT_RADIUS = 48;
+const ORBIT_RADIUS = 50;
 const DIGIT_NODE_SIZE = 34;
 
-// Transitions for each of the 6 digits: from horizontal input coordinate to circle coordinate
+// Precise coordinates for each of the 6 digits: from input positions to 60-degree circular orbit
 const DIGIT_TRANSITIONS = [0, 1, 2, 3, 4, 5].map((i) => {
   const xStart = (i - 2.5) * 54;
   const yStart = 0;
@@ -60,20 +60,29 @@ export default function OTPScreen() {
   const [isVerifiedState, setIsVerifiedState] = useState(false);
   const [error, setError] = useState('');
 
-  // 1. Morphing & Orbit Animation Values
+  // 1. Cinematic Detach, Orbit & Verification Energy Values
   const formProgress = useRef(new Animated.Value(0)).current;
   const orbitRotation = useRef(new Animated.Value(0)).current;
   const colorProgress = useRef(new Animated.Value(0)).current;
   const digitsCollapse = useRef(new Animated.Value(1)).current;
   const digitsOpacity = useRef(new Animated.Value(1)).current;
+  const trailGlowOpacity = useRef(new Animated.Value(0)).current;
 
-  // 2. Success Checkmark & Glow / Ripple Values
+  // 2. Center Merge, Success Badge & Aura Ripple Values
   const successScale = useRef(new Animated.Value(0)).current;
   const successOpacity = useRef(new Animated.Value(0)).current;
-  const rippleScale = useRef(new Animated.Value(0.8)).current;
-  const rippleOpacity = useRef(new Animated.Value(0.6)).current;
+  const checkScale = useRef(new Animated.Value(0.6)).current;
+  const checkOpacity = useRef(new Animated.Value(0)).current;
+  const auraRippleScale = useRef(new Animated.Value(0.9)).current;
+  const auraRippleOpacity = useRef(new Animated.Value(0.5)).current;
+
+  // 3. Confirmation Label Values
   const confirmationOpacity = useRef(new Animated.Value(0)).current;
-  const confirmationTranslateY = useRef(new Animated.Value(6)).current;
+  const confirmationTranslateY = useRef(new Animated.Value(8)).current;
+
+  // 4. Cinematic App Transition Values (Zoom & Dissolve)
+  const screenScale = useRef(new Animated.Value(1)).current;
+  const screenOpacity = useRef(new Animated.Value(1)).current;
 
   // Resend cooldown timer
   useEffect(() => {
@@ -89,52 +98,63 @@ export default function OTPScreen() {
   const triggerSuccessAnimation = (destination: string) => {
     setIsAnimating(true);
 
-    // Reset animation values
+    // Reset all animated properties
     formProgress.setValue(0);
     orbitRotation.setValue(0);
     colorProgress.setValue(0);
     digitsCollapse.setValue(1);
     digitsOpacity.setValue(1);
+    trailGlowOpacity.setValue(0);
 
     successScale.setValue(0);
     successOpacity.setValue(0);
-    rippleScale.setValue(0.8);
-    rippleOpacity.setValue(0.6);
+    checkScale.setValue(0.6);
+    checkOpacity.setValue(0);
+    auraRippleScale.setValue(0.9);
+    auraRippleOpacity.setValue(0.5);
+
     confirmationOpacity.setValue(0);
-    confirmationTranslateY.setValue(6);
+    confirmationTranslateY.setValue(8);
+    screenScale.setValue(1);
+    screenOpacity.setValue(1);
 
     // =========================================================================
-    // STEP 1: DIGITS MOVE FROM INPUT POSITIONS INTO CIRCULAR FORMATION (0-380ms)
+    // STEP 1: FLUID DETACHMENT & MOVE INTO CIRCULAR ORBIT (0 - 450ms)
     // =========================================================================
     Animated.parallel([
       Animated.timing(formProgress, {
         toValue: 1,
-        duration: 380,
-        easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+        duration: 450,
+        easing: Easing.bezier(0.16, 1, 0.3, 1),
+        useNativeDriver: true,
+      }),
+      Animated.timing(trailGlowOpacity, {
+        toValue: 0.35,
+        duration: 500,
         useNativeDriver: true,
       }),
       Animated.timing(colorProgress, {
         toValue: 1,
         duration: 2800,
-        easing: Easing.inOut(Easing.ease),
+        easing: Easing.inOut(Easing.cubic),
         useNativeDriver: false,
       }),
     ]).start();
 
     // =========================================================================
-    // STEP 2: CIRCULAR ORBIT ROTATION (3.0 SECONDS, EQUIDISTANT & UPRIGHT)
+    // STEP 2: 3-SECOND CINEMATIC ORBIT ROTATION (400ms - 3400ms)
     // =========================================================================
     setTimeout(() => {
       Animated.timing(orbitRotation, {
         toValue: 1,
         duration: 3000,
-        easing: Easing.linear,
+        easing: Easing.bezier(0.25, 0.1, 0.15, 1),
         useNativeDriver: true,
       }).start();
-    }, 380);
+    }, 400);
 
     // =========================================================================
-    // STEP 3: DIGITS COLLAPSE/MERGE & GREEN SUCCESS WITH GLOW/RIPPLE APPEARS
+    // STEP 3: DECELERATE, MERGE INWARD & REVEAL SUCCESS BADGE (3400ms)
     // =========================================================================
     setTimeout(() => {
       setIsVerifiedState(true);
@@ -143,76 +163,113 @@ export default function OTPScreen() {
       } catch (_) {}
 
       Animated.parallel([
-        // Digits collapse into center
+        // Digits smoothly move toward center & fade
         Animated.timing(digitsCollapse, {
           toValue: 0.1,
-          duration: 220,
-          easing: Easing.in(Easing.ease),
+          duration: 240,
+          easing: Easing.bezier(0.4, 0, 0.2, 1),
           useNativeDriver: true,
         }),
         Animated.timing(digitsOpacity, {
           toValue: 0,
-          duration: 180,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(trailGlowOpacity, {
+          toValue: 0,
+          duration: 200,
           useNativeDriver: true,
         }),
 
-        // Minimal green success circle pops in
+        // Green verification circle springs into center
         Animated.timing(successOpacity, {
           toValue: 1,
-          duration: 180,
+          duration: 200,
           useNativeDriver: true,
         }),
         Animated.spring(successScale, {
           toValue: 1,
-          friction: 5,
-          tension: 80,
+          friction: 7,
+          tension: 60,
           useNativeDriver: true,
         }),
 
-        // Subtle glow / ripple effect
+        // Animated checkmark reveal
         Animated.sequence([
           Animated.delay(60),
           Animated.parallel([
-            Animated.timing(rippleScale, {
-              toValue: 1.5,
-              duration: 650,
-              easing: Easing.out(Easing.ease),
+            Animated.timing(checkOpacity, {
+              toValue: 1,
+              duration: 200,
               useNativeDriver: true,
             }),
-            Animated.timing(rippleOpacity, {
-              toValue: 0,
-              duration: 650,
+            Animated.spring(checkScale, {
+              toValue: 1,
+              friction: 6,
+              tension: 70,
               useNativeDriver: true,
             }),
           ]),
         ]),
 
-        // Minimal "✓ Verified Successfully" confirmation badge
+        // Soft aura ripple wave
         Animated.sequence([
-          Animated.delay(100),
+          Animated.delay(80),
+          Animated.parallel([
+            Animated.timing(auraRippleScale, {
+              toValue: 1.6,
+              duration: 700,
+              easing: Easing.out(Easing.cubic),
+              useNativeDriver: true,
+            }),
+            Animated.timing(auraRippleOpacity, {
+              toValue: 0,
+              duration: 700,
+              useNativeDriver: true,
+            }),
+          ]),
+        ]),
+
+        // "Verified Successfully" text
+        Animated.sequence([
+          Animated.delay(120),
           Animated.parallel([
             Animated.timing(confirmationOpacity, {
               toValue: 1,
-              duration: 240,
+              duration: 260,
               useNativeDriver: true,
             }),
             Animated.timing(confirmationTranslateY, {
               toValue: 0,
-              duration: 240,
-              easing: Easing.out(Easing.ease),
+              duration: 260,
+              easing: Easing.out(Easing.cubic),
               useNativeDriver: true,
             }),
           ]),
         ]),
       ]).start();
-    }, 3380);
+    }, 3400);
 
     // =========================================================================
-    // STEP 4: AUTOMATICALLY OPEN ANTISOCIAL APP
+    // STEP 4: CINEMATIC ZOOM/FADE APP TRANSITION (4600ms)
     // =========================================================================
     setTimeout(() => {
-      router.replace(destination as any);
-    }, 4500);
+      Animated.parallel([
+        Animated.timing(screenScale, {
+          toValue: 1.04,
+          duration: 280,
+          easing: Easing.bezier(0.4, 0, 0.2, 1),
+          useNativeDriver: true,
+        }),
+        Animated.timing(screenOpacity, {
+          toValue: 0,
+          duration: 260,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        router.replace(destination as any);
+      });
+    }, 4600);
   };
 
   const handleResend = async () => {
@@ -360,7 +417,7 @@ export default function OTPScreen() {
     }
   };
 
-  // 3 Full continuous rotations (1080deg) over 3 seconds
+  // 3 Full rotations (1080deg) over 3 seconds
   const spin = orbitRotation.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '1080deg'],
@@ -403,7 +460,15 @@ export default function OTPScreen() {
         style={styles.keyboardView}
       >
         <SafeAreaView style={styles.safeArea}>
-          <View style={styles.card}>
+          <Animated.View
+            style={[
+              styles.card,
+              {
+                opacity: screenOpacity,
+                transform: [{ scale: screenScale }],
+              },
+            ]}
+          >
             {/* Security Shield Icon */}
             <View style={styles.iconContainer}>
               <Feather
@@ -463,8 +528,16 @@ export default function OTPScreen() {
                   ))}
                 </View>
               ) : (
-                /* Dynamic In-Place Circular Animation Stage */
+                /* Cinematic In-Place Orbit Stage */
                 <View style={styles.animationStage}>
+                  {/* Subtle Light Trail Halo Ring */}
+                  <Animated.View
+                    style={[
+                      styles.trailGlowRing,
+                      { opacity: trailGlowOpacity },
+                    ]}
+                  />
+
                   {/* Rotating Orbit Container */}
                   <Animated.View
                     style={[
@@ -484,7 +557,7 @@ export default function OTPScreen() {
                       ]}
                     >
                       {DIGIT_TRANSITIONS.map((item, index) => {
-                        // Smoothly translate each digit from its input position to circular coordinate
+                        // Fluid detachment from input position to circular orbit coordinate
                         const translateX = formProgress.interpolate({
                           inputRange: [0, 1],
                           outputRange: [item.xStart, item.xCircle],
@@ -531,13 +604,13 @@ export default function OTPScreen() {
                     </Animated.View>
                   </Animated.View>
 
-                  {/* Subtle Glow / Ripple Ring */}
+                  {/* Soft Aura Ripple Wave */}
                   <Animated.View
                     style={[
-                      styles.glowRippleRing,
+                      styles.auraRipple,
                       {
-                        opacity: rippleOpacity,
-                        transform: [{ scale: rippleScale }],
+                        opacity: auraRippleOpacity,
+                        transform: [{ scale: auraRippleScale }],
                       },
                     ]}
                   />
@@ -552,7 +625,14 @@ export default function OTPScreen() {
                       },
                     ]}
                   >
-                    <Feather name="check" size={26} color="#FFFFFF" />
+                    <Animated.View
+                      style={{
+                        opacity: checkOpacity,
+                        transform: [{ scale: checkScale }],
+                      }}
+                    >
+                      <Feather name="check" size={26} color="#FFFFFF" />
+                    </Animated.View>
                   </Animated.View>
                 </View>
               )}
@@ -608,7 +688,7 @@ export default function OTPScreen() {
                 )}
               </>
             )}
-          </View>
+          </Animated.View>
         </SafeAreaView>
       </KeyboardAvoidingView>
     </View>
@@ -691,7 +771,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   otpSection: {
-    height: 120,
+    height: 124,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
@@ -753,25 +833,34 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
-  // Dynamic In-Place Stage
+  // Cinematic Orbit Stage
   animationStage: {
-    width: 140,
-    height: 120,
+    width: 144,
+    height: 124,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
   },
+  trailGlowRing: {
+    position: 'absolute',
+    width: ORBIT_RADIUS * 2 + 10,
+    height: ORBIT_RADIUS * 2 + 10,
+    borderRadius: (ORBIT_RADIUS * 2 + 10) / 2,
+    borderWidth: 1.5,
+    borderColor: '#10B981',
+    borderStyle: 'dashed',
+  },
   orbitContainer: {
-    width: 140,
-    height: 120,
+    width: 144,
+    height: 124,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'absolute',
   },
   orbitingDigitNode: {
     position: 'absolute',
-    left: 70 - DIGIT_NODE_SIZE / 2,
-    top: 60 - DIGIT_NODE_SIZE / 2,
+    left: 72 - DIGIT_NODE_SIZE / 2,
+    top: 62 - DIGIT_NODE_SIZE / 2,
     width: DIGIT_NODE_SIZE,
     height: DIGIT_NODE_SIZE,
     borderRadius: DIGIT_NODE_SIZE / 2,
@@ -779,21 +868,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.12,
-    shadowRadius: 3,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.22,
+    shadowRadius: 4,
+    elevation: 3,
   },
   orbitingDigitText: {
     fontSize: 15,
     fontWeight: '700',
   },
-  glowRippleRing: {
+  auraRipple: {
     position: 'absolute',
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: 'rgba(16, 185, 129, 0.25)',
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: 'rgba(16, 185, 129, 0.22)',
   },
   successCheckCircle: {
     position: 'absolute',
@@ -805,9 +894,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     shadowColor: '#10B981',
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.28,
-    shadowRadius: 6,
-    elevation: 5,
+    shadowOpacity: 0.3,
+    shadowRadius: 7,
+    elevation: 6,
   },
   verifiedConfirmationWrap: {
     alignItems: 'center',
