@@ -31,13 +31,6 @@ export default function OTPScreen() {
     return () => clearInterval(interval);
   }, [timer]);
 
-  useEffect(() => {
-    if (params.devOtp && params.devOtp.length === 6) {
-      const digits = params.devOtp.split('');
-      setOtp(digits);
-    }
-  }, [params.devOtp]);
-
   const handleResend = async () => {
     setTimer(26);
     setError('');
@@ -191,15 +184,6 @@ export default function OTPScreen() {
             <Text style={styles.descriptionText}>
               This helps us confirm it's really you.
             </Text>
-
-            {/* Dev Mode OTP Banner */}
-            {params.devOtp ? (
-              <View style={styles.devBanner}>
-                <Text style={styles.devBannerText}>
-                  Development Code: <Text style={styles.devBannerCode}>{params.devOtp}</Text>
-                </Text>
-              </View>
-            ) : null}
 
             {/* OTP Inputs */}
             <View style={styles.otpContainer}>

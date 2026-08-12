@@ -44,7 +44,9 @@
         {
           "locationAlwaysAndWhenInUsePermission": "Allow AntiSocial to use your location to show you nearby community activities."
         }
-      ]
+      ],
+      "expo-font",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

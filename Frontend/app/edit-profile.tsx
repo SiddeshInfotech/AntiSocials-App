@@ -5,7 +5,7 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as SecureStore from 'expo-secure-store';
-import { API_BASE_URL } from '../constants/Api';
+import { API_BASE_URL, apiFetch } from '../constants/Api';
 import { resolveImageUrl } from '../constants/ImageUtils';
 
 export default function EditProfileScreen() {
@@ -30,12 +30,12 @@ export default function EditProfileScreen() {
         const userId = await SecureStore.getItemAsync('userId');
         const token = await SecureStore.getItemAsync('token');
         
-        if (!userId || !token) {
+        if (!token) {
           router.replace('/' as any);
           return;
         }
 
-        const response = await fetch(`${API_BASE_URL}/api/profile/me`, {
+        const response = await apiFetch('/api/profile/me', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
 
@@ -150,7 +150,7 @@ export default function EditProfileScreen() {
       const userId = await SecureStore.getItemAsync('userId');
       const token = await SecureStore.getItemAsync('token');
 
-      const response = await fetch(`${API_BASE_URL}/api/profile/update`, {
+      const response = await apiFetch('/api/profile/update', {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

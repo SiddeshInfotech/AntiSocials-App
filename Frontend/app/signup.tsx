@@ -93,48 +93,27 @@ export default function Signup() {
         return;
       }
 
-      // Show alert with OTP as a notification fallback
-      if (data.otp) {
-        Alert.alert(
-          "OTP Sent",
-          `Your verification code is: ${data.otp}\n(Sent via WhatsApp / local fallback)`,
-          [{ text: "OK", onPress: () => {
-            router.push({
-              pathname: "/otp",
-              params: {
-                phone: phoneNumber,
-                purpose: 'signup',
-                username,
-                email,
-                profession,
-                about,
-                imageUrl: image || undefined,
-                devOtp: data.otp,
-                pincode,
-                city,
-                state
-              }
-            });
-          }}]
-        );
-      } else {
-        // Navigate to OTP screen passing all the user data
-        router.push({
-          pathname: "/otp",
-          params: {
-            phone: phoneNumber,
-            purpose: 'signup',
-            username,
-            email,
-            profession,
-            about,
-            imageUrl: image || undefined,
-            pincode,
-            city,
-            state
-          }
-        });
-      }
+      Alert.alert(
+        "OTP Sent",
+        "A 6-digit verification code has been sent to your mobile number.",
+        [{ text: "OK", onPress: () => {
+          router.push({
+            pathname: "/otp",
+            params: {
+              phone: phoneNumber,
+              purpose: 'signup',
+              username,
+              email,
+              profession,
+              about,
+              imageUrl: image || undefined,
+              pincode,
+              city,
+              state
+            }
+          });
+        }}]
+      );
 
     } catch (error) {
       console.error("Network Error: ", error);

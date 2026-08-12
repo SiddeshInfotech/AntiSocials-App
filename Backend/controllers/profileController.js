@@ -187,3 +187,333 @@ exports.updateInterests = async (req, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 };
+
+exports.searchUsers = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const query = (req.query.q || '').trim();
+
+        if (!query || query.length < 2) {
+            return res.json({ users: [] });
+        }
+
+        const searchPattern = `%${query}%`;
+
+        const sql = `
+            SELECT 
+                u.id,
+                u.username,
+                COALESCE(u.profile_name, u.username) AS display_name,
+                u.profession,
+                u.about,
+                u.image_url,
+                c.status AS raw_status,
+                c.user_id AS requester_id,
+                c.friend_id AS receiver_id
+            FROM users u
+            LEFT JOIN user_connections c 
+                ON (c.user_id = $1 AND c.friend_id = u.id) 
+                OR (c.user_id = u.id AND c.friend_id = $1)
+            WHERE u.id != $1
+              AND (
+                u.username ILIKE $2
+                OR u.profile_name ILIKE $2
+                OR u.email ILIKE $2
+              )
+            ORDER BY 
+                CASE 
+                    WHEN LOWER(u.username) = LOWER($3) THEN 1
+                    WHEN LOWER(COALESCE(u.profile_name, '')) = LOWER($3) THEN 2
+                    WHEN u.username ILIKE $4 THEN 3
+                    WHEN u.profile_name ILIKE $4 THEN 4
+                    ELSE 5
+                END,
+                u.username ASC
+            LIMIT 20
+        `;
+
+        const result = await db.query(sql, [userId, searchPattern, query, `${query}%`]);
+
+        const users = result.rows.map(row => {
+            let connection_status = 'none';
+            
+            if (row.raw_status === 'accepted' || row.raw_status === 'connected') {
+                connection_status = 'connected';
+            } else if (row.raw_status === 'pending') {
+                if (row.requester_id === userId) {
+                    connection_status = 'requested';
+                } else if (row.receiver_id === userId) {
+                    connection_status = 'incoming';
+                }
+            }
+
+            return {
+                id: row.id,
+                user_id: row.id,
+                username: row.username,
+                display_name: row.display_name,
+                profile_image: row.image_url,
+                profession: row.profession,
+                about: row.about,
+                connection_status
+            };
+        });
+
+        res.json({ users });
+    } catch (error) {
+        console.error('searchUsers error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+exports.sendConnectionRequest = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { friend_id, user_id } = req.body;
+        const targetUserId = parseInt(friend_id || user_id, 10);
+
+        if (!targetUserId || isNaN(targetUserId)) {
+            return res.status(400).json({ error: 'Valid friend_id is required' });
+        }
+
+        if (targetUserId === userId) {
+            return res.status(400).json({ error: 'Cannot connect with yourself' });
+        }
+
+        const userCheck = await db.query('SELECT id FROM users WHERE id = $1', [targetUserId]);
+        if (userCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const existingRes = await db.query(
+            `SELECT id, status, user_id, friend_id FROM user_connections 
+             WHERE (user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1)`,
+            [userId, targetUserId]
+        );
+
+        if (existingRes.rows.length > 0) {
+            const existing = existingRes.rows[0];
+            if (existing.status === 'accepted' || existing.status === 'connected') {
+                return res.json({ 
+                    message: 'Already connected', 
+                    connection_status: 'connected' 
+                });
+            }
+            if (existing.status === 'pending') {
+                if (existing.user_id === userId) {
+                    return res.json({ 
+                        message: 'Connection request already sent', 
+                        connection_status: 'requested' 
+                    });
+                } else {
+                    return res.json({ 
+                        message: 'Incoming request exists from this user', 
+                        connection_status: 'incoming' 
+                    });
+                }
+            }
+            // If declined, re-open as pending
+            await db.query(
+                `UPDATE user_connections SET user_id = $1, friend_id = $2, status = 'pending', created_at = CURRENT_TIMESTAMP WHERE id = $3`,
+                [userId, targetUserId, existing.id]
+            );
+            return res.json({ 
+                success: true, 
+                message: 'Connection request sent', 
+                connection_status: 'requested' 
+            });
+        }
+
+        await db.query(
+            `INSERT INTO user_connections (user_id, friend_id, status) VALUES ($1, $2, 'pending')`,
+            [userId, targetUserId]
+        );
+
+        res.json({ 
+            success: true, 
+            message: 'Connection request sent', 
+            connection_status: 'requested' 
+        });
+    } catch (error) {
+        console.error('sendConnectionRequest error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+exports.getConnections = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        const sql = `
+            SELECT DISTINCT
+                u.id,
+                u.id AS user_id,
+                u.username,
+                COALESCE(u.profile_name, u.username) AS display_name,
+                u.profession,
+                u.about,
+                u.image_url AS profile_image
+            FROM user_connections c
+            JOIN users u ON u.id = CASE WHEN c.user_id = $1 THEN c.friend_id ELSE c.user_id END
+            WHERE (c.user_id = $1 OR c.friend_id = $1)
+              AND (c.status = 'accepted' OR c.status = 'connected')
+            ORDER BY display_name ASC
+        `;
+
+        const result = await db.query(sql, [userId]);
+
+        const connections = result.rows.map(row => ({
+            id: row.id,
+            user_id: row.user_id,
+            username: row.username,
+            display_name: row.display_name,
+            profile_image: row.profile_image,
+            profession: row.profession,
+            about: row.about,
+            connection_status: 'connected'
+        }));
+
+        res.json({ connections });
+    } catch (error) {
+        console.error('getConnections error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+exports.getIncomingRequests = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        const sql = `
+            SELECT 
+                c.id AS request_id,
+                c.created_at,
+                u.id AS sender_id,
+                u.username,
+                COALESCE(u.profile_name, u.username) AS display_name,
+                u.profession,
+                u.about,
+                u.image_url AS profile_image
+            FROM user_connections c
+            JOIN users u ON u.id = c.user_id
+            WHERE c.friend_id = $1 AND c.status = 'pending'
+            ORDER BY c.created_at DESC
+        `;
+
+        const result = await db.query(sql, [userId]);
+
+        const requests = result.rows.map(row => ({
+            request_id: row.request_id,
+            created_at: row.created_at,
+            status: 'pending',
+            sender: {
+                id: row.sender_id,
+                user_id: row.sender_id,
+                username: row.username,
+                display_name: row.display_name,
+                profile_image: row.profile_image,
+                profession: row.profession,
+                about: row.about,
+                connection_status: 'incoming'
+            }
+        }));
+
+        res.json({ requests });
+    } catch (error) {
+        console.error('getIncomingRequests error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+exports.acceptConnectionRequest = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { friend_id, target_user_id, sender_id } = req.body;
+        const targetId = parseInt(friend_id || target_user_id || sender_id, 10);
+
+        if (!targetId || isNaN(targetId)) {
+            return res.status(400).json({ error: 'Valid friend_id is required' });
+        }
+
+        const result = await db.query(
+            `UPDATE user_connections 
+             SET status = 'accepted' 
+             WHERE ((user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1))
+             RETURNING id, status`,
+            [targetId, userId]
+        );
+
+        if (result.rows.length === 0) {
+            await db.query(
+                `INSERT INTO user_connections (user_id, friend_id, status) VALUES ($1, $2, 'accepted')`,
+                [targetId, userId]
+            );
+        }
+
+        res.json({
+            success: true,
+            message: 'Connection request accepted',
+            connection_status: 'connected'
+        });
+    } catch (error) {
+        console.error('acceptConnectionRequest error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+exports.declineConnectionRequest = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { friend_id, target_user_id, sender_id } = req.body;
+        const targetId = parseInt(friend_id || target_user_id || sender_id || req.params?.friendId, 10);
+
+        if (!targetId || isNaN(targetId)) {
+            return res.status(400).json({ error: 'Valid friend_id is required' });
+        }
+
+        await db.query(
+            `UPDATE user_connections 
+             SET status = 'declined' 
+             WHERE ((user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1))`,
+            [targetId, userId]
+        );
+
+        res.json({
+            success: true,
+            message: 'Connection request declined',
+            connection_status: 'none'
+        });
+    } catch (error) {
+        console.error('declineConnectionRequest error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+exports.removeConnection = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const targetId = parseInt(req.params.friendId, 10);
+
+        if (!targetId || isNaN(targetId)) {
+            return res.status(400).json({ error: 'Valid friendId parameter is required' });
+        }
+
+        await db.query(
+            `DELETE FROM user_connections 
+             WHERE (user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1)`,
+            [userId, targetId]
+        );
+
+        res.json({
+            success: true,
+            message: 'Connection removed successfully',
+            connection_status: 'none'
+        });
+    } catch (error) {
+        console.error('removeConnection error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+
+

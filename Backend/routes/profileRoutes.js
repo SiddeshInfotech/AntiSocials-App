@@ -4,6 +4,14 @@ const profileController = require('../controllers/profileController');
 const authenticateToken = require('../middleware/auth');
 
 router.get('/me', authenticateToken, profileController.getProfile);
+router.get('/search', authenticateToken, profileController.searchUsers);
+router.post('/connect', authenticateToken, profileController.sendConnectionRequest);
+router.get('/', authenticateToken, profileController.getConnections);
+router.get('/list', authenticateToken, profileController.getConnections);
+router.get('/requests/incoming', authenticateToken, profileController.getIncomingRequests);
+router.post('/accept', authenticateToken, profileController.acceptConnectionRequest);
+router.post('/decline', authenticateToken, profileController.declineConnectionRequest);
+router.delete('/:friendId', authenticateToken, profileController.removeConnection);
 router.put('/update', authenticateToken, profileController.updateProfile);
 router.get('/stats', authenticateToken, profileController.getStats);
 router.get('/interests', authenticateToken, profileController.getInterests);

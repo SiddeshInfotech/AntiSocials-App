@@ -79,18 +79,13 @@ export default function LoginScreen() {
         return;
       }
 
-      // Show alert with OTP as a notification fallback
-      if (data.otp) {
-        Alert.alert(
-          "OTP Sent",
-          `Your verification code is: ${data.otp}\n(Sent via WhatsApp / local fallback)`,
-          [{ text: "OK", onPress: () => {
-            router.push({ pathname: '/otp', params: { phone: phoneNumber, purpose: 'login', devOtp: data.otp } });
-          }}]
-        );
-      } else {
-        router.push({ pathname: '/otp', params: { phone: phoneNumber, purpose: 'login' } });
-      }
+      Alert.alert(
+        "OTP Sent",
+        "A 6-digit verification code has been sent to your mobile number.",
+        [{ text: "OK", onPress: () => {
+          router.push({ pathname: '/otp', params: { phone: phoneNumber, purpose: 'login' } });
+        }}]
+      );
 
     } catch (error) {
       console.error("OTP Error: ", error);

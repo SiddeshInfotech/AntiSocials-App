@@ -57,6 +57,62 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
 
   const tasksData = [
     {
+      emoji: "🧭",
+      difficulty: "hard",
+      title: "Lead a Short Interaction (2–3 Minutes)",
+      subtitle: "Gently take the initiative & guide a 2-3 minute interaction",
+      points: "+300 points",
+      route: "/lead-short-interaction-task",
+    },
+    {
+      emoji: "🌟",
+      difficulty: "hard",
+      title: "Welcome a New Participant",
+      subtitle: "Help a newcomer feel comfortable & ignite the community light",
+      points: "+300 points",
+      route: "/welcome-newcomer-task",
+    },
+    {
+      emoji: "🔥",
+      difficulty: "hard",
+      title: "Stay 45+ Minutes",
+      subtitle: "Gather around the campfire circle & stay present for 45 minutes",
+      points: "+300 points",
+      route: "/stay-45m-task",
+    },
+    {
+      emoji: "🧩",
+      difficulty: "hard",
+      title: "Help Organize Small Part",
+      subtitle: "Fulfill one small responsibility at an event & complete the puzzle",
+      points: "+300 points",
+      route: "/help-organize-task",
+    },
+    {
+      emoji: "🤝",
+      difficulty: "hard",
+      title: "Join Local Group (Sports / Hobby)",
+      subtitle: "Join a real sports or hobby group & verify with AI photo + GPS",
+      points: "+300 points",
+      route: "/join-group-activity-task",
+    },
+    {
+      emoji: "📸",
+      difficulty: "medium",
+      title: "Photo Proof (Context-Based)",
+      subtitle: "Capture a real social moment & save it to your Journey Album",
+      points: "+200 points",
+      route: "/photo-proof-task",
+    },
+    {
+      emoji: "🎪",
+      difficulty: "hard",
+      title: "Join a Group Event (Verified)",
+      subtitle: "Discover live nearby community events & verify 15m presence",
+      points: "+300 points",
+      route: "/join-event-verified-task",
+    },
+    {
       emoji: "🫁",
       difficulty: "easy",
       title: "Breathe consciously for 3 minutes",
@@ -729,6 +785,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       points: "+500 points",
       route: "/imagnimation",
     },
+    {
       emoji: "🌙",
       difficulty: "hard",
       title: "Take an hour tech-free break",
@@ -1028,7 +1085,24 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       <View style={styles.tasksListContainer}>
         {visibleTasks.map((task, idx) => {
           const isCompleted = completedTasks.includes(task.title);
-          const isHard = task.difficulty === "hard";
+          const level = (task.difficulty || "").toString().toLowerCase().trim();
+          const isHard = level === "hard";
+          const isMedium = level === "medium";
+
+          let badgeBgColor = "#dcfce7";
+          let badgeTextColor = "#16a34a";
+
+          if (level === "medium") {
+            badgeBgColor = "#fef9c3";
+            badgeTextColor = "#ca8a04";
+          } else if (level === "hard") {
+            badgeBgColor = "#fee2e2";
+            badgeTextColor = "#dc2626";
+          } else if (level === "easy") {
+            badgeBgColor = "#dcfce7";
+            badgeTextColor = "#16a34a";
+          }
+
           return (
             <TouchableOpacity
               key={idx}
@@ -1074,6 +1148,35 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
                     </View>
                   </View>
                 </LinearGradient>
+              ) : isMedium && !isCompleted ? (
+                <LinearGradient
+                  colors={['#fffdf0', '#fefce8', '#fef9c3']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[styles.taskCard, styles.mediumTaskCard]}
+                >
+                  <Text style={styles.taskEmoji}>{task.emoji}</Text>
+                  <View style={styles.taskCardContent}>
+                    <View style={styles.cardHeaderRow}>
+                      <View style={[styles.difficultyPill, styles.mediumDifficultyPill]}>
+                        <Text style={[styles.difficultyText, styles.mediumDifficultyText]}>
+                          ⚡ {task.difficulty.toUpperCase()}
+                        </Text>
+                      </View>
+                      <View style={styles.mediumBadgeRight}>
+                        <Feather name="award" size={11} color="#ca8a04" />
+                        <Text style={styles.mediumPointsText}>{task.points}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.taskTitle}>{task.title}</Text>
+                    <Text style={styles.taskSubtitle}>{task.subtitle}</Text>
+                    <View style={styles.taskBottomRow}>
+                      <Text style={styles.mediumDurationText}>
+                        🕒 {task.title.includes("10 min") || task.title === "Do One Uncomfortable Thing" ? "10 min" : task.subtitle.includes("hour") || task.title.includes("hour") ? "1 hour" : "Flexible"}
+                      </Text>
+                    </View>
+                  </View>
+                </LinearGradient>
               ) : (
                 <View style={[styles.taskCard, isCompleted && { opacity: 0.6, backgroundColor: '#f9fafb' }]}>
                   <Text style={styles.taskEmoji}>{task.emoji}</Text>
@@ -1081,27 +1184,13 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
                     <View
                       style={[
                         styles.difficultyPill,
-                        {
-                          backgroundColor:
-                            task.difficulty === "easy"
-                              ? "#dcfce7"
-                              : task.difficulty === "hard"
-                                ? "#fee2e2"
-                                : "#fef08a",
-                        },
+                        { backgroundColor: badgeBgColor },
                       ]}
                     >
                       <Text
                         style={[
                           styles.difficultyText,
-                          {
-                            color:
-                              task.difficulty === "easy"
-                                ? "#16a34a"
-                                : task.difficulty === "hard"
-                                  ? "#dc2626"
-                                  : "#ca8a04",
-                          },
+                          { color: badgeTextColor },
                         ]}
                       >
                         {task.difficulty}
@@ -1497,6 +1586,54 @@ const styles = StyleSheet.create({
   },
   hardDurationText: {
     color: '#ea580c',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  mediumTaskCard: {
+    borderWidth: 1.5,
+    borderColor: "#fde047",
+    shadowColor: "#eab308",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.16,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  mediumDifficultyPill: {
+    backgroundColor: "#fef08a",
+    borderColor: "#facc15",
+    borderWidth: 1,
+    shadowColor: '#eab308',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 1,
+    marginBottom: 0,
+  },
+  mediumDifficultyText: {
+    color: "#a16207",
+    fontWeight: "800",
+    fontSize: 9,
+    letterSpacing: 0.5,
+  },
+  mediumBadgeRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fefce8',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#fef08a',
+    gap: 4,
+  },
+  mediumPointsText: {
+    color: '#ca8a04',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  mediumDurationText: {
+    color: '#a16207',
     fontSize: 11,
     fontWeight: '600',
     marginTop: 4,

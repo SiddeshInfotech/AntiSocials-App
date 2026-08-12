@@ -9,29 +9,32 @@ import { API_BASE_URL } from './Api';
  * 3. External URL (https://cdn...): returned as-is
  * 4. null/undefined/empty: returns the fallback
  */
-const DEFAULT_AVATAR = 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png';
+const DEFAULT_AVATAR = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400&auto=format&fit=crop&q=80';
 
 export function resolveImageUrl(url: string | null | undefined, fallback: string = DEFAULT_AVATAR): string {
-  if (!url || url.trim() === '') return fallback;
+  if (!url || typeof url !== 'string' || url.trim() === '') return fallback;
 
-  // Already a full external URL (not pointing to our backend)
-  if (url.startsWith('https://') && !url.includes('/uploads/')) return url;
+  const cleanUrl = url.trim();
 
-  // Local file URI (from image picker preview, not yet uploaded)
-  if (url.startsWith('file://') || url.startsWith('data:image')) return url;
+  // Local file URI (from camera or image picker before upload)
+  if (cleanUrl.startsWith('file://') || cleanUrl.startsWith('data:image')) return cleanUrl;
 
-  // Relative path (new format): prepend API_BASE_URL
-  if (url.startsWith('/uploads/')) {
-    return `${API_BASE_URL}${url}`;
-  }
-
-  // Old absolute URL with hardcoded IP: extract the relative path and rebuild
-  const uploadsIndex = url.indexOf('/uploads/');
+  // Check if URL points to an uploaded image resource (/uploads/...)
+  const uploadsIndex = cleanUrl.indexOf('/uploads/');
   if (uploadsIndex !== -1) {
-    const relativePath = url.substring(uploadsIndex);
+    const relativePath = cleanUrl.substring(uploadsIndex);
     return `${API_BASE_URL}${relativePath}`;
   }
 
-  // Fallback: return as-is
-  return url;
+  // Already a valid HTTPS external image URL
+  if (cleanUrl.startsWith('https://') || cleanUrl.startsWith('http://')) {
+    return cleanUrl;
+  }
+
+  // Relative path without leading slash
+  if (cleanUrl.startsWith('uploads/')) {
+    return `${API_BASE_URL}/${cleanUrl}`;
+  }
+
+  return cleanUrl;
 }
