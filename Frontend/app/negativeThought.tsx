@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import * as Haptics from 'expo-haptics';
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch, API_BASE_URL } from '../constants/Api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -825,7 +825,7 @@ export default function NegativeThoughtScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (!token) return;
-      await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+      await apiFetch('/api/tasks/complete', {
         method: 'POST',
         headers: { 'Content-Type':'application/json', Authorization:`Bearer ${token}` },
         body: JSON.stringify({ 

@@ -21,7 +21,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch, API_BASE_URL } from '../constants/Api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -263,7 +263,7 @@ export default function HelpOrganizeTaskScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token && capturedPhoto) {
-        const res = await fetch(`${API_BASE_URL}/api/tasks/verify-contribution`, {
+        const res = await apiFetch('/api/tasks/verify-contribution', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -281,7 +281,7 @@ export default function HelpOrganizeTaskScreen() {
           pointsAdded = data.pointsRewarded?.toString() || '300';
         }
 
-        const compRes = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+        const compRes = await apiFetch('/api/tasks/complete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ task_name: 'Help Organize Small Part' }),
@@ -352,7 +352,7 @@ export default function HelpOrganizeTaskScreen() {
           </View>
 
           <View style={styles.pointsPill}>
-            <Text style={styles.pointsText}>+300 Pts</Text>
+            <Text style={styles.pointsText}>+600 Pts</Text>
           </View>
         </View>
 

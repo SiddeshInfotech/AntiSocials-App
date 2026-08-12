@@ -15,7 +15,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as SecureStore from 'expo-secure-store';
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch, API_BASE_URL } from '../constants/Api';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
@@ -252,7 +252,7 @@ export default function AskQuestionTaskScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
-        await fetch(`${API_BASE_URL}/api/tasks/start`, {
+        await apiFetch('/api/tasks/start', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({ task_name: 'Ask Someone a Simple Question' })
@@ -307,7 +307,7 @@ export default function AskQuestionTaskScreen() {
       try {
         const token = await SecureStore.getItemAsync('token');
         if (token) {
-          await fetch(`${API_BASE_URL}/api/tasks/save-ask-question-progress`, {
+          await apiFetch('/api/tasks/save-ask-question-progress', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({
@@ -331,7 +331,7 @@ export default function AskQuestionTaskScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
-        await fetch(`${API_BASE_URL}/api/tasks/save-ask-question-progress`, {
+        await apiFetch('/api/tasks/save-ask-question-progress', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({
@@ -357,7 +357,7 @@ export default function AskQuestionTaskScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
-        await fetch(`${API_BASE_URL}/api/tasks/save-ask-question-progress`, {
+        await apiFetch('/api/tasks/save-ask-question-progress', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({
@@ -381,7 +381,7 @@ export default function AskQuestionTaskScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
-        await fetch(`${API_BASE_URL}/api/tasks/save-ask-question-progress`, {
+        await apiFetch('/api/tasks/save-ask-question-progress', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({
@@ -402,7 +402,7 @@ export default function AskQuestionTaskScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
-        await fetch(`${API_BASE_URL}/api/tasks/save-ask-question-progress`, {
+        await apiFetch('/api/tasks/save-ask-question-progress', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({
@@ -424,7 +424,7 @@ export default function AskQuestionTaskScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
-        const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+        const response = await apiFetch('/api/tasks/complete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({
@@ -546,7 +546,7 @@ export default function AskQuestionTaskScreen() {
                     <Text style={styles.hardBadgeText}>⭐⭐⭐ Hard</Text>
                   </View>
                   <View style={[styles.badge, { backgroundColor: 'rgba(37, 99, 235, 0.12)' }]}>
-                    <Text style={[styles.badgeText, { color: '#2563EB' }]}>+300 Pts</Text>
+                    <Text style={[styles.badgeText, { color: '#2563EB' }]}>+600 Pts</Text>
                   </View>
                   <View style={[styles.badge, { backgroundColor: 'rgba(52, 211, 153, 0.15)' }]}>
                     <Text style={[styles.badgeText, { color: '#059669' }]}>10 Min</Text>

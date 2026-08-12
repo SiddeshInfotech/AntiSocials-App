@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as SecureStore from 'expo-secure-store';
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch, API_BASE_URL } from '../constants/Api';
 
 const { width, height } = Dimensions.get('window');
 const TASK_DURATION = 120; // 2 minutes
@@ -138,7 +138,7 @@ export default function OutsideTaskScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
-        const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+        const response = await apiFetch('/api/tasks/complete', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

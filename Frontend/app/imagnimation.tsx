@@ -16,7 +16,7 @@ import { useRouter } from 'expo-router';
 import Svg, { Circle, G } from 'react-native-svg';
 import * as SecureStore from 'expo-secure-store';
 import * as Haptics from 'expo-haptics';
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch, API_BASE_URL } from '../constants/Api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -198,7 +198,7 @@ export default function BrainVsCameraScreen() {
       setHasCalledComplete(true);
       const token = await SecureStore.getItemAsync('token');
       if (!token) return null;
-      const res = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+      const res = await apiFetch('/api/tasks/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ 

@@ -62,19 +62,55 @@ const Particle = ({ x, color, size, delay, duration }: typeof PARTICLES[0]) => {
 export default function TaskSuccessScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { points, totalPoints, streak, message, difficulty, taskName, task_name, badge } = useLocalSearchParams<{ 
-    points: string; 
-    totalPoints: string; 
-    streak: string; 
+  const { 
+    points, 
+    points_earned, 
+    pointsEarned, 
+    pointsAdded,
+    totalPoints, 
+    total_points, 
+    streak, 
+    current_streak, 
+    message, 
+    difficulty, 
+    taskName, 
+    task_name, 
+    badge,
+    rewardClaimed
+  } = useLocalSearchParams<{ 
+    points?: string; 
+    points_earned?: string;
+    pointsEarned?: string;
+    pointsAdded?: string;
+    totalPoints?: string; 
+    total_points?: string;
+    streak?: string; 
+    current_streak?: string;
     message?: string;
     difficulty?: string;
     taskName?: string;
     task_name?: string;
     badge?: string;
+    rewardClaimed?: string;
   }>();
-  const displayPoints = points ?? '0';
-  const displayTotal = totalPoints ?? '0';
-  const displayStreak = streak ?? '0';
+
+  const isDuplicate = rewardClaimed === 'false' || (rewardClaimed === undefined && (pointsEarned === '0' || points_earned === '0'));
+
+  // Determine fallback points strictly by difficulty (for first-time completion)
+  const getFallbackPointsByDifficulty = (diff?: string) => {
+    const d = (diff || '').trim().toLowerCase();
+    if (d.includes('hard') || d.includes('ultra') || d.includes('advanced')) return 600;
+    if (d.includes('medium') || d.includes('intermediate')) return 300;
+    return 100; // default Easy
+  };
+
+  const rawPoints = pointsEarned || points_earned || pointsAdded || points;
+  const parsedPoints = rawPoints ? parseInt(rawPoints, 10) : 0;
+  const finalPoints = isDuplicate ? 0 : (parsedPoints > 0 ? parsedPoints : getFallbackPointsByDifficulty(difficulty));
+
+  const displayPoints = String(finalPoints);
+  const displayTotal = totalPoints || total_points || displayPoints;
+  const displayStreak = streak || current_streak || '1';
   const resolvedTaskName = taskName || task_name || '';
 
   // Animation refs
@@ -214,8 +250,14 @@ export default function TaskSuccessScreen() {
               <Text style={styles.taskBadgePillText}>{resolvedTaskName}</Text>
             </View>
           ) : null}
-          <Text style={styles.title}>{difficulty === 'hard' ? 'Courage Unlocked! 🦁' : 'Well Done! 🎉'}</Text>
-          <Text style={styles.subtitle}>{difficulty === 'hard' ? 'You stood tall in the face of discomfort.' : 'You showed up and made it happen.'}</Text>
+          <Text style={styles.title}>
+            {isDuplicate ? 'Task Completed! ✅' : (difficulty === 'hard' ? 'Courage Unlocked! 🦁' : 'Well Done! 🎉')}
+          </Text>
+          <Text style={styles.subtitle}>
+            {isDuplicate 
+              ? 'Reward already claimed • 0 additional points' 
+              : (difficulty === 'hard' ? 'You stood tall in the face of discomfort.' : 'You showed up and made it happen.')}
+          </Text>
         </Animated.View>
 
         {/* Optional Achievement Badge Card */}
@@ -242,7 +284,7 @@ export default function TaskSuccessScreen() {
             colors={difficulty === 'hard' ? ['rgba(249, 115, 22, 0.2)', 'rgba(239, 68, 68, 0.1)'] : ['rgba(168,85,247,0.2)', 'rgba(99,102,241,0.1)']} 
             style={styles.pointsCardInner}
           >
-            <Text style={styles.pointsLabel}>Points Earned</Text>
+            <Text style={styles.pointsLabel}>{isDuplicate ? "Reward Already Claimed" : "Points Earned"}</Text>
             <Text style={[styles.pointsValue, difficulty === 'hard' && { color: '#f97316' }]}>+{displayCount}</Text>
             <View style={styles.divider} />
             <View style={styles.statRow}>
@@ -254,8 +296,8 @@ export default function TaskSuccessScreen() {
               <View style={styles.statDivider} />
               <View style={styles.statItem}>
                 <Ionicons name="checkmark-done-circle" size={20} color="#22c55e" />
-                <Text style={styles.statNum}>1</Text>
-                <Text style={styles.statLbl}>Task Today</Text>
+                <Text style={styles.statNum}>✓</Text>
+                <Text style={styles.statLbl}>Status</Text>
               </View>
               <View style={styles.statDivider} />
               <View style={styles.statItem}>
@@ -275,7 +317,7 @@ export default function TaskSuccessScreen() {
         ]}>
           <Feather name={difficulty === 'hard' ? "shield" : "zap"} size={18} color={difficulty === 'hard' ? "#ef4444" : "#f59e0b"} style={{ marginRight: 10 }} />
           <Text style={[styles.msgText, difficulty === 'hard' && { color: '#fca5a5' }]}>
-            {message || "Every small action builds who you become. Keep going — Day 2 awaits!"}
+            {message || (isDuplicate ? "You've already completed this task today. Keep up the great consistency!" : "Every small action builds who you become. Keep going — Day 2 awaits!")}
           </Text>
         </Animated.View>
 

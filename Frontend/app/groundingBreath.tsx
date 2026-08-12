@@ -55,72 +55,76 @@ const HOLD_WORDS = ["Hold", "Be Still", "Relax", "Hold Peace", "Remain Calm"];
 const EXHALE_WORDS = ["Slowly Exhale", "Let Go", "Release", "Breathe Out", "Exhale Calm"];
 const REST_WORDS = ["Relax", "Calm", "Let Go", "Stay Here", "Peace"];
 
+const ParticleItem = ({ width, height, index }: { width: number; height: number; index: number }) => {
+  const particleX = useSharedValue(Math.random() * width);
+  const particleY = useSharedValue(height + Math.random() * 100);
+  const scale = useSharedValue(Math.random() * 0.6 + 0.4);
+  const opacity = useSharedValue(Math.random() * 0.35 + 0.1);
+  const size = useMemo(() => Math.random() * 6 + 4, []);
+
+  useEffect(() => {
+    const duration = 12000 + Math.random() * 12000;
+    const delay = Math.random() * 8000;
+
+    particleY.value = withDelay(
+      delay,
+      withRepeat(
+        withSequence(
+          withTiming(height + 50, { duration: 0 }),
+          withTiming(-50, { duration, easing: Easing.linear })
+        ),
+        -1,
+        false
+      )
+    );
+
+    particleX.value = withRepeat(
+      withSequence(
+        withTiming(particleX.value + (Math.random() * 60 - 30), {
+          duration: 4000 + Math.random() * 2000,
+          easing: Easing.inOut(Easing.ease),
+        }),
+        withTiming(particleX.value - (Math.random() * 60 - 30), {
+          duration: 4000 + Math.random() * 2000,
+          easing: Easing.inOut(Easing.ease),
+        })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  const style = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: particleX.value },
+      { translateY: particleY.value },
+      { scale: scale.value },
+    ],
+    opacity: opacity.value,
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        styles.particle,
+        style,
+        {
+          backgroundColor: index % 2 === 0 ? COLORS.purple : COLORS.cyan,
+          width: size,
+          height: size,
+        },
+      ]}
+    />
+  );
+};
+
 // Reusable Floating Particles Component
 const FloatingParticles = ({ width, height, count = 25 }: { width: number; height: number; count?: number }) => {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {[...Array(count)].map((_, i) => {
-        const particleX = useSharedValue(Math.random() * width);
-        const particleY = useSharedValue(height + Math.random() * 100);
-        const scale = useSharedValue(Math.random() * 0.6 + 0.4);
-        const opacity = useSharedValue(Math.random() * 0.35 + 0.1);
-
-        useEffect(() => {
-          const duration = 12000 + Math.random() * 12000;
-          const delay = Math.random() * 8000;
-
-          particleY.value = withDelay(
-            delay,
-            withRepeat(
-              withSequence(
-                withTiming(height + 50, { duration: 0 }),
-                withTiming(-50, { duration, easing: Easing.linear })
-              ),
-              -1,
-              false
-            )
-          );
-
-          particleX.value = withRepeat(
-            withSequence(
-              withTiming(particleX.value + (Math.random() * 60 - 30), {
-                duration: 4000 + Math.random() * 2000,
-                easing: Easing.inOut(Easing.ease),
-              }),
-              withTiming(particleX.value - (Math.random() * 60 - 30), {
-                duration: 4000 + Math.random() * 2000,
-                easing: Easing.inOut(Easing.ease),
-              })
-            ),
-            -1,
-            true
-          );
-        }, []);
-
-        const style = useAnimatedStyle(() => ({
-          transform: [
-            { translateX: particleX.value },
-            { translateY: particleY.value },
-            { scale: scale.value },
-          ],
-          opacity: opacity.value,
-        }));
-
-        return (
-          <Animated.View
-            key={i}
-            style={[
-              styles.particle,
-              style,
-              {
-                backgroundColor: i % 2 === 0 ? COLORS.purple : COLORS.cyan,
-                width: Math.random() * 6 + 4,
-                height: Math.random() * 6 + 4,
-              },
-            ]}
-          />
-        );
-      })}
+      {Array.from({ length: count }).map((_, i) => (
+        <ParticleItem key={i} index={i} width={width} height={height} />
+      ))}
     </View>
   );
 };

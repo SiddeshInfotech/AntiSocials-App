@@ -21,7 +21,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch, API_BASE_URL } from '../constants/Api';
 
 const { width, height } = Dimensions.get('window');
 const TOTAL_STAY_DURATION = 2700; // 45 Minutes = 2700 Seconds
@@ -259,7 +259,7 @@ export default function Stay45mTaskScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
-        const res = await fetch(`${API_BASE_URL}/api/tasks/save-commitment-session`, {
+        const res = await apiFetch('/api/tasks/save-commitment-session', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -279,7 +279,7 @@ export default function Stay45mTaskScreen() {
           pointsAdded = data.pointsRewarded?.toString() || '300';
         }
 
-        const compRes = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+        const compRes = await apiFetch('/api/tasks/complete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ task_name: 'Stay 45+ Minutes' }),
@@ -407,7 +407,7 @@ export default function Stay45mTaskScreen() {
           </View>
 
           <View style={styles.pointsPill}>
-            <Text style={styles.pointsText}>+300 Pts</Text>
+            <Text style={styles.pointsText}>+600 Pts</Text>
           </View>
         </View>
 

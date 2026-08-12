@@ -6,7 +6,7 @@ import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as SecureStore from 'expo-secure-store';
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch, API_BASE_URL } from '../constants/Api';
 
 const TOTAL_SECONDS = 180;
 const BREATH_CYCLE_SECONDS = 16;
@@ -130,7 +130,7 @@ export default function BreathTaskScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
-        const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+        const response = await apiFetch('/api/tasks/complete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({ task_name: 'Breathe consciously for 3 minutes' })

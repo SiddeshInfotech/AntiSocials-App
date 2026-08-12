@@ -21,7 +21,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch, API_BASE_URL } from '../constants/Api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -229,7 +229,7 @@ export default function WelcomeNewcomerTaskScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token && capturedPhoto) {
-        const res = await fetch(`${API_BASE_URL}/api/tasks/verify-inclusion`, {
+        const res = await apiFetch('/api/tasks/verify-inclusion', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -247,7 +247,7 @@ export default function WelcomeNewcomerTaskScreen() {
           pointsAdded = data.pointsRewarded?.toString() || '300';
         }
 
-        const compRes = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+        const compRes = await apiFetch('/api/tasks/complete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ task_name: 'Welcome a New Participant' }),
@@ -305,7 +305,7 @@ export default function WelcomeNewcomerTaskScreen() {
           </View>
 
           <View style={styles.pointsPill}>
-            <Text style={styles.pointsText}>+300 Pts</Text>
+            <Text style={styles.pointsText}>+600 Pts</Text>
           </View>
         </View>
 

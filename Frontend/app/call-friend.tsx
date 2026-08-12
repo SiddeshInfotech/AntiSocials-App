@@ -6,7 +6,7 @@ import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SecureStore from 'expo-secure-store';
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch, API_BASE_URL } from '../constants/Api';
 
 const { width, height } = Dimensions.get('window');
 const AnimatedSafeArea = Animated.createAnimatedComponent(SafeAreaView);
@@ -116,7 +116,7 @@ export default function CallFriendTaskScreen() {
       try {
         const token = await SecureStore.getItemAsync('token');
         if (token) {
-          const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+          const response = await apiFetch('/api/tasks/complete', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({ task_name: 'Call an old friend' })

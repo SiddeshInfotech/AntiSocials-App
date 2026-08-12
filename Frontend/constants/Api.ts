@@ -31,40 +31,63 @@ const candidateBases = [
   'http://127.0.0.1:5000',
 ].filter((value, index, self) => Boolean(value) && self.indexOf(value) === index) as string[];
 
-export const API_BASE_URL = candidateBases[0] || 'http://10.0.2.2:5000';
+let activeBaseUrl = candidateBases[0] || (Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://127.0.0.1:5000');
+
+export let API_BASE_URL = activeBaseUrl;
 console.log('[API] Candidate Bases:', candidateBases);
 export const API_BASE_URLS = candidateBases;
-export const REQUEST_TIMEOUT_MS = 8000;
+export const REQUEST_TIMEOUT_MS = 10000;
 
-export const apiFetch = async (path: string, options: RequestInit = {}) => {
+export const getApiBaseUrl = () => activeBaseUrl;
+
+export interface ApiFetchOptions extends RequestInit {
+  timeoutMs?: number;
+}
+
+export const apiFetch = async (path: string, options: ApiFetchOptions = {}) => {
   let lastError: unknown;
+  const timeoutDuration = options.timeoutMs || REQUEST_TIMEOUT_MS;
 
-  for (const baseUrl of API_BASE_URLS) {
+  // Try the active/last-successful base URL first
+  const orderedBases = [activeBaseUrl, ...API_BASE_URLS.filter(b => b !== activeBaseUrl)];
+
+  for (const baseUrl of orderedBases) {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    const timeoutId = setTimeout(() => controller.abort(), timeoutDuration);
 
     try {
-      console.log(`[API] Attempting ${path} on ${baseUrl}`);
+      console.log(`[API] Attempting ${options.method || 'GET'} ${path} on ${baseUrl}`);
+      const { timeoutMs, ...fetchOptions } = options;
       const response = await fetch(`${baseUrl}${path}`, {
-        ...options,
+        ...fetchOptions,
         signal: controller.signal,
         headers: {
           Accept: 'application/json',
-          ...(options.headers || {}),
+          ...(fetchOptions.headers || {}),
         },
       });
 
       clearTimeout(timeoutId);
+      // Remember working base URL
+      if (activeBaseUrl !== baseUrl) {
+        activeBaseUrl = baseUrl;
+        API_BASE_URL = baseUrl;
+        console.log(`[API] Promoted working baseUrl to: ${baseUrl}`);
+      }
       return response;
-    } catch (error) {
+    } catch (error: any) {
       clearTimeout(timeoutId);
       lastError = error;
+      console.log(`[API] Attempt failed on ${baseUrl}${path}:`, error?.message || error);
     }
   }
 
-  if (lastError instanceof Error && lastError.name === 'AbortError') {
-    throw new Error('Request timed out');
+  if (lastError instanceof Error) {
+    if (lastError.name === 'AbortError') {
+      throw new Error('Connection timed out. Please verify the backend server is reachable.');
+    }
+    throw lastError;
   }
 
-  throw lastError instanceof Error ? lastError : new Error('Request timed out');
+  throw new Error('Network request failed. Please check your connection.');
 };

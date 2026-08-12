@@ -20,7 +20,7 @@ import * as SecureStore from 'expo-secure-store';
 import * as Haptics from 'expo-haptics';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch, API_BASE_URL } from '../constants/Api';
 
 const { width, height } = Dimensions.get('window');
 const TIMER_DURATION = 12 * 60; // 12 minutes (720 seconds)
@@ -186,7 +186,7 @@ export default function FinaleTaskScreen() {
     setIsLoading(true);
     try {
       const token = await SecureStore.getItemAsync('token');
-      const res = await fetch(`${API_BASE_URL}/api/tasks/finale/save-path`, {
+      const res = await apiFetch('/api/tasks/finale/save-path', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -223,7 +223,7 @@ export default function FinaleTaskScreen() {
     setIsLoading(true);
     try {
       const token = await SecureStore.getItemAsync('token');
-      const res = await fetch(`${API_BASE_URL}/api/tasks/finale/save-compass`, {
+      const res = await apiFetch('/api/tasks/finale/save-compass', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -252,7 +252,7 @@ export default function FinaleTaskScreen() {
     setIsLoading(true);
     try {
       const token = await SecureStore.getItemAsync('token');
-      const res = await fetch(`${API_BASE_URL}/api/tasks/finale/save-vision`, {
+      const res = await apiFetch('/api/tasks/finale/save-vision', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -363,7 +363,7 @@ export default function FinaleTaskScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
-        const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+        const response = await apiFetch('/api/tasks/complete', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -396,7 +396,7 @@ export default function FinaleTaskScreen() {
     setIsLoading(true);
     try {
       const token = await SecureStore.getItemAsync('token');
-      await fetch(`${API_BASE_URL}/api/tasks/start`, {
+      await apiFetch('/api/tasks/start', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -935,7 +935,7 @@ export default function FinaleTaskScreen() {
                     style={styles.actionButton}
                   >
                     <Text style={styles.actionBtnText}>
-                      {isLoading ? 'SAVING FINALE...' : 'COMPLETE FINALE (+300 PTS)'}
+                      {isLoading ? 'SAVING FINALE...' : 'COMPLETE FINALE (+600 PTS)'}
                     </Text>
                   </LinearGradient>
                 </TouchableOpacity>

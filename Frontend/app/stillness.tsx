@@ -31,7 +31,7 @@ import * as Haptics from 'expo-haptics';
 import * as SecureStore from 'expo-secure-store';
 import { Feather } from '@expo/vector-icons';
 import { Fonts } from '../constants/theme';
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch, API_BASE_URL } from '../constants/Api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -254,7 +254,7 @@ export default function StillnessWelcomeScreen() {
       try {
         const token = await SecureStore.getItemAsync('token');
         if (token) {
-          const response = await fetch(`${API_BASE_URL}/api/tasks/Silent Sitting`, {
+          const response = await apiFetch('/api/tasks/Silent Sitting', {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
@@ -394,7 +394,7 @@ export default function StillnessWelcomeScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
-        const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+        const response = await apiFetch('/api/tasks/complete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({ task_name: 'Silent Sitting' })

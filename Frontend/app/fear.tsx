@@ -66,6 +66,61 @@ const triggerHaptic = (type: 'light' | 'medium' | 'success') => {
   }
 };
 
+const AmbientParticleItem = ({ width, height }: { width: number; height: number }) => {
+  const pX = useSharedValue(Math.random() * width);
+  const pY = useSharedValue(height + Math.random() * 80);
+  const scaleBase = Math.random() * 0.4 + 0.15;
+  const opacityBase = Math.random() * 0.3 + 0.1;
+
+  useEffect(() => {
+    const duration = 12000 + Math.random() * 8000;
+    const delay = Math.random() * 5000;
+
+    pY.value = withRepeat(
+      withSequence(
+        withTiming(height + 20, { duration: delay }),
+        withTiming(-30, { duration, easing: Easing.linear })
+      ),
+      -1,
+      false
+    );
+
+    pX.value = withRepeat(
+      withSequence(
+        withTiming(pX.value + (Math.random() * 40 - 20), {
+          duration: 3000 + Math.random() * 2000,
+          easing: Easing.inOut(Easing.ease),
+        }),
+        withTiming(pX.value - (Math.random() * 40 - 20), {
+          duration: 3000 + Math.random() * 2000,
+          easing: Easing.inOut(Easing.ease),
+        })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  const style = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: pX.value },
+      { translateY: pY.value },
+      { scale: scaleBase },
+    ],
+    opacity: opacityBase,
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        styles.ambientParticle,
+        style,
+        { backgroundColor: COLORS.purple },
+      ]}
+    />
+  );
+};
+
 // Embers rising slowly in the background
 const AmbientParticles = ({ 
   count = 20,
@@ -78,62 +133,62 @@ const AmbientParticles = ({
 }) => {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {[...Array(count)].map((_, i) => {
-        const pX = useSharedValue(Math.random() * width);
-        const pY = useSharedValue(height + Math.random() * 80);
-        const scaleBase = Math.random() * 0.4 + 0.15;
-        const opacityBase = Math.random() * 0.3 + 0.1;
-
-        useEffect(() => {
-          const duration = 12000 + Math.random() * 8000;
-          const delay = Math.random() * 5000;
-
-          pY.value = withRepeat(
-            withSequence(
-              withTiming(height + 20, { duration: delay }),
-              withTiming(-30, { duration, easing: Easing.linear })
-            ),
-            -1,
-            false
-          );
-
-          pX.value = withRepeat(
-            withSequence(
-              withTiming(pX.value + (Math.random() * 40 - 20), {
-                duration: 3000 + Math.random() * 2000,
-                easing: Easing.inOut(Easing.ease),
-              }),
-              withTiming(pX.value - (Math.random() * 40 - 20), {
-                duration: 3000 + Math.random() * 2000,
-                easing: Easing.inOut(Easing.ease),
-              })
-            ),
-            -1,
-            true
-          );
-        }, []);
-
-        const style = useAnimatedStyle(() => ({
-          transform: [
-            { translateX: pX.value },
-            { translateY: pY.value },
-            { scale: scaleBase },
-          ],
-          opacity: opacityBase,
-        }));
-
-        return (
-          <Animated.View
-            key={i}
-            style={[
-              styles.ambientParticle,
-              style,
-              { backgroundColor: COLORS.purple },
-            ]}
-          />
-        );
-      })}
+      {Array.from({ length: count }).map((_, i) => (
+        <AmbientParticleItem key={i} width={width} height={height} />
+      ))}
     </View>
+  );
+};
+
+const FlyingLeafItem = ({ width, height }: { width: number; height: number }) => {
+  const pX = useSharedValue(-50);
+  const pY = useSharedValue(Math.random() * (height * 0.6));
+  const rot = useSharedValue(0);
+  const scale = Math.random() * 0.4 + 0.3;
+
+  useEffect(() => {
+    const duration = 6000 + Math.random() * 4000;
+    const delay = Math.random() * 3000;
+
+    pX.value = withRepeat(
+      withSequence(
+        withTiming(-50, { duration: delay }),
+        withTiming(width + 50, { duration, easing: Easing.linear })
+      ),
+      -1,
+      false
+    );
+
+    pY.value = withRepeat(
+      withSequence(
+        withTiming(pY.value + 60, { duration: duration / 2, easing: Easing.inOut(Easing.ease) }),
+        withTiming(pY.value - 60, { duration: duration / 2, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
+
+    rot.value = withRepeat(
+      withTiming(360, { duration: 4000, easing: Easing.linear }),
+      -1,
+      false
+    );
+  }, []);
+
+  const style = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: pX.value },
+      { translateY: pY.value },
+      { scale },
+      { rotate: `${rot.value}deg` },
+    ],
+    opacity: 0.3,
+  }));
+
+  return (
+    <Animated.View style={[styles.leafWrapper, style]}>
+      <Feather name="feather" size={24} color={COLORS.purple} />
+    </Animated.View>
   );
 };
 
@@ -147,57 +202,9 @@ const FlyingLeaves = ({
 }) => {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {[...Array(6)].map((_, i) => {
-        const pX = useSharedValue(-50);
-        const pY = useSharedValue(Math.random() * (height * 0.6));
-        const rot = useSharedValue(0);
-        const scale = Math.random() * 0.4 + 0.3;
-
-        useEffect(() => {
-          const duration = 6000 + Math.random() * 4000;
-          const delay = Math.random() * 3000;
-
-          pX.value = withRepeat(
-            withSequence(
-              withTiming(-50, { duration: delay }),
-              withTiming(width + 50, { duration, easing: Easing.linear })
-            ),
-            -1,
-            false
-          );
-
-          pY.value = withRepeat(
-            withSequence(
-              withTiming(pY.value + 60, { duration: duration / 2, easing: Easing.inOut(Easing.ease) }),
-              withTiming(pY.value - 60, { duration: duration / 2, easing: Easing.inOut(Easing.ease) })
-            ),
-            -1,
-            true
-          );
-
-          rot.value = withRepeat(
-            withTiming(360, { duration: 4000, easing: Easing.linear }),
-            -1,
-            false
-          );
-        }, []);
-
-        const style = useAnimatedStyle(() => ({
-          transform: [
-            { translateX: pX.value },
-            { translateY: pY.value },
-            { scale },
-            { rotate: `${rot.value}deg` },
-          ],
-          opacity: 0.3,
-        }));
-
-        return (
-          <Animated.View key={i} style={[styles.leafWrapper, style]}>
-            <Feather name="feather" size={24} color={COLORS.purple} />
-          </Animated.View>
-        );
-      })}
+      {Array.from({ length: 6 }).map((_, i) => (
+        <FlyingLeafItem key={i} width={width} height={height} />
+      ))}
     </View>
   );
 };

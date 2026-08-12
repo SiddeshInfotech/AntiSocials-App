@@ -52,67 +52,78 @@ const MOTIVATIONAL_QUOTES = [
   "Your attention belongs to you.",
 ];
 
+const ParticleItem = ({
+  width,
+  height,
+  color,
+}: {
+  width: number;
+  height: number;
+  color: string;
+}) => {
+  const posX = useSharedValue(Math.random() * width);
+  const posY = useSharedValue(height + 20);
+  const pScale = useSharedValue(Math.random() * 0.8 + 0.4);
+  const pOpacity = useSharedValue(Math.random() * 0.5 + 0.3);
+
+  useEffect(() => {
+    const duration = 9000 + Math.random() * 6000;
+    const delay = Math.random() * 3000;
+
+    posY.value = withRepeat(
+      withSequence(
+        withTiming(height + 20, { duration: delay }),
+        withTiming(-40, { duration, easing: Easing.linear })
+      ),
+      -1,
+      false
+    );
+
+    posX.value = withRepeat(
+      withSequence(
+        withTiming(posX.value + (Math.random() * 40 - 20), {
+          duration: 3000 + Math.random() * 2000,
+          easing: Easing.inOut(Easing.ease),
+        }),
+        withTiming(posX.value - (Math.random() * 40 - 20), {
+          duration: 3000 + Math.random() * 2000,
+          easing: Easing.inOut(Easing.ease),
+        })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  const style = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: posX.value },
+      { translateY: posY.value },
+      { scale: pScale.value },
+    ],
+    opacity: pOpacity.value,
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        styles.ambientParticle,
+        style,
+        { backgroundColor: color },
+      ]}
+    />
+  );
+};
+
 // Floating Ambient Particles Component
 const AmbientParticles = ({ color = '#10B981', count = 12 }: { color?: string; count?: number }) => {
   const { width, height } = useWindowDimensions();
 
   return (
     <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
-      {Array.from({ length: count }).map((_, i) => {
-        const posX = useSharedValue(Math.random() * width);
-        const posY = useSharedValue(height + 20);
-        const pScale = useSharedValue(Math.random() * 0.8 + 0.4);
-        const pOpacity = useSharedValue(Math.random() * 0.5 + 0.3);
-
-        useEffect(() => {
-          const duration = 9000 + Math.random() * 6000;
-          const delay = Math.random() * 3000;
-
-          posY.value = withRepeat(
-            withSequence(
-              withTiming(height + 20, { duration: delay }),
-              withTiming(-40, { duration, easing: Easing.linear })
-            ),
-            -1,
-            false
-          );
-
-          posX.value = withRepeat(
-            withSequence(
-              withTiming(posX.value + (Math.random() * 40 - 20), {
-                duration: 3000 + Math.random() * 2000,
-                easing: Easing.inOut(Easing.ease),
-              }),
-              withTiming(posX.value - (Math.random() * 40 - 20), {
-                duration: 3000 + Math.random() * 2000,
-                easing: Easing.inOut(Easing.ease),
-              })
-            ),
-            -1,
-            true
-          );
-        }, []);
-
-        const style = useAnimatedStyle(() => ({
-          transform: [
-            { translateX: posX.value },
-            { translateY: posY.value },
-            { scale: pScale.value },
-          ],
-          opacity: pOpacity.value,
-        }));
-
-        return (
-          <Animated.View
-            key={i}
-            style={[
-              styles.ambientParticle,
-              style,
-              { backgroundColor: color, shadowColor: color },
-            ]}
-          />
-        );
-      })}
+      {Array.from({ length: count }).map((_, i) => (
+        <ParticleItem key={i} width={width} height={height} color={color} />
+      ))}
     </View>
   );
 };

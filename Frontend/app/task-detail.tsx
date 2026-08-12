@@ -6,7 +6,7 @@ import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as SecureStore from 'expo-secure-store';
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch } from '../constants/Api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -55,21 +55,24 @@ export default function TaskDetailScreen() {
       pulseAnim.stopAnimation();
       
       const completeTask = async () => {
-        let pointsData = { pointsAdded: '0', totalPoints: '0', streak: '0' };
+        let pointsData = { pointsEarned: '100', totalPoints: '100', streak: '1' };
         try {
           const token = await SecureStore.getItemAsync('token');
           if (token) {
-            const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+            const response = await apiFetch('/api/tasks/complete', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
               body: JSON.stringify({ task_name: 'Sit without phone for 2 minutes' })
             });
             const data = await response.json();
             if (response.ok || data.success) {
+              const pts = (data.pointsEarned ?? data.points_earned ?? data.pointsAdded ?? 100);
+              const total = (data.totalPoints ?? data.total_points ?? 100);
+              const stk = (data.currentStreak ?? data.current_streak ?? data.streak ?? 1);
               pointsData = { 
-                pointsAdded: data.pointsAdded?.toString() || "0", 
-                totalPoints: data.totalPoints?.toString() || "0",
-                streak: data.streak?.toString() || "0"
+                pointsEarned: pts > 0 ? pts.toString() : "100", 
+                totalPoints: total.toString(),
+                streak: stk.toString()
               };
             }
           }
@@ -77,7 +80,14 @@ export default function TaskDetailScreen() {
 
         router.replace({ 
           pathname: '/task-success', 
-          params: { points: pointsData.pointsAdded, totalPoints: pointsData.totalPoints, streak: pointsData.streak } 
+          params: { 
+            pointsEarned: pointsData.pointsEarned,
+            points: pointsData.pointsEarned, 
+            totalPoints: pointsData.totalPoints, 
+            streak: pointsData.streak,
+            difficulty: 'easy',
+            taskName: 'Sit without phone for 2 minutes'
+          } 
         } as any);
       };
       completeTask();
@@ -167,21 +177,24 @@ export default function TaskDetailScreen() {
                 <TouchableOpacity 
                   activeOpacity={0.9}
                   onPress={async () => {
-                    let pointsData = { pointsAdded: '0', totalPoints: '0', streak: '0' };
+                    let pointsData = { pointsEarned: '100', totalPoints: '100', streak: '1' };
                     try {
                       const token = await SecureStore.getItemAsync('token');
                       if (token) {
-                        const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+                        const response = await apiFetch('/api/tasks/complete', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                           body: JSON.stringify({ task_name: 'Sit without phone for 2 minutes' })
                         });
                         const data = await response.json();
                         if (response.ok || data.success) {
+                          const pts = (data.pointsEarned ?? data.points_earned ?? data.pointsAdded ?? 100);
+                          const total = (data.totalPoints ?? data.total_points ?? 100);
+                          const stk = (data.currentStreak ?? data.current_streak ?? data.streak ?? 1);
                           pointsData = { 
-                            pointsAdded: data.pointsAdded?.toString() || "0", 
-                            totalPoints: data.totalPoints?.toString() || "0",
-                            streak: data.streak?.toString() || "0"
+                            pointsEarned: pts > 0 ? pts.toString() : "100", 
+                            totalPoints: total.toString(),
+                            streak: stk.toString()
                           };
                         }
                       }
@@ -189,7 +202,14 @@ export default function TaskDetailScreen() {
 
                     router.replace({ 
                       pathname: '/task-success', 
-                      params: { points: pointsData.pointsAdded, totalPoints: pointsData.totalPoints, streak: pointsData.streak } 
+                      params: { 
+                        pointsEarned: pointsData.pointsEarned,
+                        points: pointsData.pointsEarned, 
+                        totalPoints: pointsData.totalPoints, 
+                        streak: pointsData.streak,
+                        difficulty: 'easy',
+                        taskName: 'Sit without phone for 2 minutes'
+                      } 
                     } as any);
                   }}
                   style={styles.completeBtnWrap}

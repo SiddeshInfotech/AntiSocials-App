@@ -7,7 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import * as SecureStore from 'expo-secure-store';
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch, API_BASE_URL } from '../constants/Api';
 
 // ─── Category Data ───────────────────────────────────────────────────────────
 const CAUSE_DATA: Record<string, any> = {
@@ -130,7 +130,7 @@ export default function VolunteerTaskScreen() {
         try {
           const token = await SecureStore.getItemAsync('token');
           if (token) {
-            await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+            await apiFetch('/api/tasks/complete', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',

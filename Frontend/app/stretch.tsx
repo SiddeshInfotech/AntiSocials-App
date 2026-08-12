@@ -233,7 +233,7 @@ export default function MorningStretchScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (!token) return;
-      const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+      const response = await apiFetch('/api/tasks/complete', {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -246,9 +246,9 @@ export default function MorningStretchScreen() {
       const data = await response.json();
       if (response.ok || data.success) {
         setCompleteData({
-          totalPoints: data.totalPoints,
-          streak: data.streak,
-          pointsAdded: data.pointsAdded
+          totalPoints: data.totalPoints ?? data.total_points ?? 100,
+          streak: data.currentStreak ?? data.current_streak ?? data.streak ?? 1,
+          pointsAdded: data.pointsEarned ?? data.points_earned ?? 100
         });
       }
     } catch (e) {

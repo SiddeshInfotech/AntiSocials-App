@@ -135,7 +135,7 @@ export default function StayInSocialSpaceTaskScreen() {
       const token = await SecureStore.getItemAsync('token');
       if (!token) return;
 
-      const res = await fetch(`${API_BASE_URL}/api/tasks`, {
+      const res = await apiFetch('/api/tasks', {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) return;
@@ -148,7 +148,7 @@ export default function StayInSocialSpaceTaskScreen() {
 
           // Fetch stored detailed response
           if (thisTask.id) {
-            const respRes = await fetch(`${API_BASE_URL}/api/tasks/anchor-task-response/${thisTask.id}`, {
+            const respRes = await apiFetch('/api/tasks/anchor-task-response/${thisTask.id}', {
               headers: { Authorization: `Bearer ${token}` },
             });
             if (respRes.ok) {
@@ -346,7 +346,7 @@ export default function StayInSocialSpaceTaskScreen() {
       const token = await SecureStore.getItemAsync('token');
       if (!token) return;
 
-      const res = await fetch(`${API_BASE_URL}/api/tasks`, {
+      const res = await apiFetch('/api/tasks', {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) return;
@@ -354,7 +354,7 @@ export default function StayInSocialSpaceTaskScreen() {
       if (data && data.tasks) {
         const thisTask = data.tasks.find((t: any) => t.title === 'Stay in Social Space (15 Minutes)');
         if (thisTask) {
-          await fetch(`${API_BASE_URL}/api/tasks/${thisTask.id}/start`, {
+          await apiFetch('/api/tasks/${thisTask.id}/start', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           });
@@ -399,7 +399,7 @@ export default function StayInSocialSpaceTaskScreen() {
         timer_completion: true,
       });
 
-      const res = await fetch(`${API_BASE_URL}/api/tasks`, {
+      const res = await apiFetch('/api/tasks', {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -411,7 +411,7 @@ export default function StayInSocialSpaceTaskScreen() {
         }
 
         if (taskId) {
-          const compRes = await fetch(`${API_BASE_URL}/api/tasks/${taskId}/complete`, {
+          const compRes = await apiFetch('/api/tasks/${taskId}/complete', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           });
@@ -445,7 +445,7 @@ export default function StayInSocialSpaceTaskScreen() {
       const token = await SecureStore.getItemAsync('token');
       if (!token) return;
 
-      await fetch(`${API_BASE_URL}/api/tasks/save-anchor-task-progress`, {
+      await apiFetch('/api/tasks/save-anchor-task-progress', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

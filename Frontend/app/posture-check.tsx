@@ -22,7 +22,7 @@ import { useVideoPlayer, VideoView } from 'expo-video';
 import * as ImagePicker from 'expo-image-picker';
 import * as SecureStore from 'expo-secure-store';
 import * as Haptics from 'expo-haptics';
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch, API_BASE_URL } from '../constants/Api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -461,7 +461,7 @@ export default function PostureCheckScreen() {
     const sendScanRequest = async () => {
       try {
         const token = await SecureStore.getItemAsync('token');
-        const res = await fetch(`${API_BASE_URL}/api/tasks/posture-scan`, {
+        const res = await apiFetch('/api/tasks/posture-scan', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -553,7 +553,7 @@ export default function PostureCheckScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
-        const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+        const response = await apiFetch('/api/tasks/complete', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

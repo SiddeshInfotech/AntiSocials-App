@@ -5,7 +5,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient';
 import * as SecureStore from 'expo-secure-store';
 import * as Haptics from 'expo-haptics';
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch, API_BASE_URL } from '../constants/Api';
 import { Feather, MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 
@@ -268,7 +268,7 @@ export default function CourageUnlockTaskScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
-        const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+        const response = await apiFetch('/api/tasks/complete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({
@@ -383,7 +383,7 @@ export default function CourageUnlockTaskScreen() {
                     <Text style={styles.hardBadgeText}>🔥 Hard</Text>
                   </View>
                   <View style={[styles.badge, { backgroundColor: 'rgba(245, 158, 11, 0.15)' }]}>
-                    <Text style={[styles.badgeText, { color: '#F59E0B' }]}>+300 Pts</Text>
+                    <Text style={[styles.badgeText, { color: '#F59E0B' }]}>+600 Pts</Text>
                   </View>
                   <View style={[styles.badge, { backgroundColor: 'rgba(56, 189, 248, 0.15)' }]}>
                     <Text style={[styles.badgeText, { color: '#38BDF8' }]}>5 Min</Text>

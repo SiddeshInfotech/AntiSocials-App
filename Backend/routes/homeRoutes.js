@@ -14,6 +14,8 @@ router.get('/tasks', homeController.getTasks);
 router.get('/tasks/:id', homeController.getTaskById);
 router.post('/tasks/:id/start', homeController.startTask);
 router.post('/tasks/:id/complete', homeController.completeTask);
+router.post('/complete-task-by-name', homeController.completeTaskByName);
+router.post('/complete-task', homeController.completeTaskByName);
 router.patch('/tasks/:id/progress', homeController.updateTaskProgress);
 
 // Points

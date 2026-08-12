@@ -36,7 +36,7 @@ import { useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import * as Haptics from 'expo-haptics';
 import Svg, { Polygon, Line, Defs, LinearGradient as SvgLinearGradient, Stop, Path, Circle as SvgCircle } from 'react-native-svg';
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch, API_BASE_URL } from '../constants/Api';
 
 const AnimatedPolygon = Animated.createAnimatedComponent(Polygon);
 const AnimatedPath = Animated.createAnimatedComponent(Path);
@@ -69,63 +69,66 @@ const triggerHaptic = (type: 'light' | 'medium' | 'heavy' | 'success') => {
   }
 };
 
+const FireflyItem = ({ width, height, index }: { width: number; height: number; index: number }) => {
+  const x = useSharedValue(Math.random() * width);
+  const y = useSharedValue(Math.random() * height);
+  const opacity = useSharedValue(Math.random() * 0.5 + 0.1);
+  const scale = useSharedValue(Math.random() * 0.8 + 0.5);
+
+  useEffect(() => {
+    x.value = withRepeat(
+      withTiming(x.value + (Math.random() * 80 - 40), {
+        duration: 6000 + Math.random() * 6000,
+      }),
+      -1,
+      true
+    );
+    y.value = withRepeat(
+      withTiming(y.value + (Math.random() * 80 - 40), {
+        duration: 6000 + Math.random() * 6000,
+      }),
+      -1,
+      true
+    );
+    opacity.value = withRepeat(
+      withTiming(Math.random() * 0.6 + 0.2, {
+        duration: 2000 + Math.random() * 3000,
+      }),
+      -1,
+      true
+    );
+  }, []);
+
+  const style = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: x.value },
+      { translateY: y.value },
+      { scale: scale.value }
+    ],
+    opacity: opacity.value,
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        styles.firefly,
+        style,
+        {
+          backgroundColor: index % 2 === 0 ? COLORS.accent : COLORS.secondary,
+        }
+      ]}
+    />
+  );
+};
+
 // Premium background particle systems
 const Fireflies = () => {
   const { width, height } = useWindowDimensions();
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {[...Array(20)].map((_, i) => {
-        const x = useSharedValue(Math.random() * width);
-        const y = useSharedValue(Math.random() * height);
-        const opacity = useSharedValue(Math.random() * 0.5 + 0.1);
-        const scale = useSharedValue(Math.random() * 0.8 + 0.5);
-
-        useEffect(() => {
-          x.value = withRepeat(
-            withTiming(x.value + (Math.random() * 80 - 40), {
-              duration: 6000 + Math.random() * 6000,
-            }),
-            -1,
-            true
-          );
-          y.value = withRepeat(
-            withTiming(y.value + (Math.random() * 80 - 40), {
-              duration: 6000 + Math.random() * 6000,
-            }),
-            -1,
-            true
-          );
-          opacity.value = withRepeat(
-            withTiming(Math.random() * 0.6 + 0.2, {
-              duration: 2000 + Math.random() * 3000,
-            }),
-            -1,
-            true
-          );
-        }, []);
-
-        const style = useAnimatedStyle(() => ({
-          transform: [
-            { translateX: x.value },
-            { translateY: y.value },
-            { scale: scale.value }
-          ],
-          opacity: opacity.value,
-        }));
-
-        return (
-          <Animated.View
-            key={i}
-            style={[
-              styles.firefly,
-              style,
-              {
-                backgroundColor: Math.random() > 0.4 ? COLORS.accent : COLORS.secondary,
-              }
-            ]}
-          />
-        );
-      })}
+      {Array.from({ length: 20 }).map((_, i) => (
+        <FireflyItem key={i} index={i} width={width} height={height} />
+      ))}
     </View>
   );
 };
@@ -444,7 +447,7 @@ export default function Write3LearningsScreen() {
 
     try {
       const token = await SecureStore.getItemAsync('token');
-      const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+      const response = await apiFetch('/api/tasks/complete', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

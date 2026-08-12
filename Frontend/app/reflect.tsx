@@ -36,7 +36,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Feather } from '@expo/vector-icons';
 import Svg, { Path, Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 import { Fonts } from '../constants/theme';
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch } from '../constants/Api';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const SAVE_KEY = '@weekly_reflection_progress';
@@ -449,11 +449,11 @@ export default function ReflectScreen() {
   const completeReflection = async () => {
     if (isLoading) return;
     setIsLoading(true);
-    let pointsData = { pointsAdded: '500', totalPoints: '0', streak: '0' };
+    let pointsData = { pointsEarned: '300', totalPoints: '300', streak: '1' };
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
-        const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+        const response = await apiFetch('/api/tasks/complete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({ 
@@ -469,10 +469,13 @@ export default function ReflectScreen() {
         });
         const data = await response.json();
         if (response.ok || data.success) {
+          const pts = (data.pointsEarned ?? data.points_earned ?? data.pointsAdded ?? 300);
+          const total = (data.totalPoints ?? data.total_points ?? 300);
+          const stk = (data.currentStreak ?? data.current_streak ?? data.streak ?? 1);
           pointsData = { 
-            pointsAdded: data.pointsAdded?.toString() || "500", 
-            totalPoints: data.totalPoints?.toString() || "0",
-            streak: data.streak?.toString() || "0"
+            pointsEarned: pts > 0 ? pts.toString() : "300", 
+            totalPoints: total.toString(),
+            streak: stk.toString()
           };
         } else {
           Alert.alert("Error", data.error || "Failed to submit reflection completion");
@@ -489,9 +492,12 @@ export default function ReflectScreen() {
     router.replace({ 
       pathname: '/task-success', 
       params: { 
-        points: pointsData.pointsAdded, 
+        pointsEarned: pointsData.pointsEarned,
+        points: pointsData.pointsEarned, 
         totalPoints: pointsData.totalPoints, 
         streak: pointsData.streak,
+        difficulty: 'medium',
+        taskName: 'Reflect on Week',
         message: "Reflection complete."
       } 
     } as any);

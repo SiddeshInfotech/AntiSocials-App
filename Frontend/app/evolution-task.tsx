@@ -21,7 +21,7 @@ import * as SecureStore from 'expo-secure-store';
 import * as Haptics from 'expo-haptics';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch, API_BASE_URL } from '../constants/Api';
 
 const { width, height } = Dimensions.get('window');
 const TIMER_DURATION = 12 * 60; // 12 minutes (720 seconds)
@@ -226,7 +226,7 @@ export default function EvolutionTaskScreen() {
     setIsLoading(true);
     try {
       const token = await SecureStore.getItemAsync('token');
-      const res = await fetch(`${API_BASE_URL}/api/tasks/evolution/save-before-now`, {
+      const res = await apiFetch('/api/tasks/evolution/save-before-now', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -266,7 +266,7 @@ export default function EvolutionTaskScreen() {
     setIsLoading(true);
     try {
       const token = await SecureStore.getItemAsync('token');
-      const res = await fetch(`${API_BASE_URL}/api/tasks/evolution/save-changes`, {
+      const res = await apiFetch('/api/tasks/evolution/save-changes', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -312,7 +312,7 @@ export default function EvolutionTaskScreen() {
     setIsLoading(true);
     try {
       const token = await SecureStore.getItemAsync('token');
-      const res = await fetch(`${API_BASE_URL}/api/tasks/evolution/save-strength`, {
+      const res = await apiFetch('/api/tasks/evolution/save-strength', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -451,7 +451,7 @@ export default function EvolutionTaskScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
-        const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+        const response = await apiFetch('/api/tasks/complete', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -484,7 +484,7 @@ export default function EvolutionTaskScreen() {
     setIsLoading(true);
     try {
       const token = await SecureStore.getItemAsync('token');
-      await fetch(`${API_BASE_URL}/api/tasks/start`, {
+      await apiFetch('/api/tasks/start', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1168,7 +1168,7 @@ export default function EvolutionTaskScreen() {
                     style={styles.actionButton}
                   >
                     <Text style={[styles.actionBtnText, { color: '#022C22' }]}>
-                      {isLoading ? 'UPDATING EVOLUTION...' : 'COMPLETE TASK (+300 PTS)'}
+                      {isLoading ? 'UPDATING EVOLUTION...' : 'COMPLETE TASK (+600 PTS)'}
                     </Text>
                   </LinearGradient>
                 </TouchableOpacity>

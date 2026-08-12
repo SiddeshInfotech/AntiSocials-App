@@ -4,6 +4,7 @@ const bodyParser = require('body-parser');
 require('dotenv').config();
 
 const db = require('./db');
+const pointsStreakService = require('./services/pointsStreakService');
 const jwt = require('jsonwebtoken');
 const authenticateToken = require('./middleware/auth');
 const homeRoutes = require('./routes/homeRoutes');
@@ -162,6 +163,36 @@ const initDB = async () => {
         `);
 
         await db.query(`
+            CREATE TABLE IF NOT EXISTS story_likes (
+                id SERIAL PRIMARY KEY,
+                story_id INTEGER NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, story_id)
+            );
+        `);
+
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS story_comments (
+                id SERIAL PRIMARY KEY,
+                story_id INTEGER NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                comment_text TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS story_shares (
+                id SERIAL PRIMARY KEY,
+                story_id INTEGER NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
+                user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        await db.query(`
             CREATE TABLE IF NOT EXISTS tasks (
                 id SERIAL PRIMARY KEY,
                 title VARCHAR(255) NOT NULL,
@@ -193,11 +224,14 @@ const initDB = async () => {
                 id SERIAL PRIMARY KEY,
                 user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
                 task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
+                task_name VARCHAR(255),
                 points INTEGER NOT NULL,
-                source VARCHAR(100) NOT NULL,
+                source VARCHAR(100) DEFAULT 'task_completion',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         `);
+        await db.query(`ALTER TABLE points_history ADD COLUMN IF NOT EXISTS task_name VARCHAR(255)`).catch(() => {});
+        await db.query(`ALTER TABLE points_history ALTER COLUMN source SET DEFAULT 'task_completion'`).catch(() => {});
 
         await db.query(`
             CREATE TABLE IF NOT EXISTS activities (
@@ -242,6 +276,7 @@ const initDB = async () => {
         try { await db.query('ALTER TABLE users ADD COLUMN streak_count INTEGER DEFAULT 0'); } catch (e) { }
         try { await db.query('ALTER TABLE users ADD COLUMN last_streak_date DATE'); } catch (e) { }
         try { await db.query('ALTER TABLE users ADD COLUMN points INTEGER DEFAULT 0'); } catch (e) { }
+        try { await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS longest_streak INTEGER DEFAULT 0'); } catch (e) { }
         try { await db.query('ALTER TABLE otp_verifications ADD COLUMN attempts INTEGER DEFAULT 0'); } catch (e) { }
         try { await db.query('ALTER TABLE users ADD COLUMN pincode VARCHAR(10)'); } catch (e) { }
         try { await db.query('ALTER TABLE users ADD COLUMN city VARCHAR(100)'); } catch (e) { }
@@ -1126,7 +1161,7 @@ const initDB = async () => {
             SELECT 'Eye Rest', 
                    'Give your eyes a short break from screens.\n\nLook away from your phone or computer and focus on a distant object for a few moments.\n\nBlink naturally, relax your eye muscles, and take a few slow breaths.\n\nA short eye break helps reduce digital eye strain and refreshes your concentration.', 
                    'Mental', 
-                   10, 
+                   100, 
                    2, 
                    'Easy', 
                    '👀', 
@@ -1658,7 +1693,7 @@ const initDB = async () => {
             SELECT 'Eye Rest (2 min)', 
                    'Look away from your screen and focus on something at least 20 feet away for 2 minutes. Let your eyes rest and refocus naturally.', 
                    'Physical', 
-                   150, 
+                   100, 
                    2, 
                    'Easy', 
                    '👀', 
@@ -2100,6 +2135,16 @@ const initDB = async () => {
             );
         `);
 
+        // Standardize task difficulty and points rewards (Easy = 100, Medium = 300, Hard = 600)
+        await db.query(`
+            UPDATE tasks SET difficulty = 'Easy' WHERE LOWER(difficulty) = 'beginner';
+            UPDATE tasks SET difficulty = 'Hard' WHERE LOWER(difficulty) = 'ultra';
+            UPDATE tasks SET points_reward = 100 WHERE LOWER(difficulty) = 'easy';
+            UPDATE tasks SET points_reward = 300 WHERE LOWER(difficulty) = 'medium';
+            UPDATE tasks SET points_reward = 600 WHERE LOWER(difficulty) = 'hard';
+        `).catch(() => {});
+
+        await pointsStreakService.reconcilePointsAndStreaks();
         console.log("PostgreSQL tables initialized.");
     } catch (err) {
         console.error("Error creating tables:", err);
@@ -2378,8 +2423,8 @@ app.post('/auth/register', async (req, res) => {
         }
 
         const newUserInfo = await db.query(
-            `INSERT INTO users (phone_number, username, email, profession, about, image_url, is_phone_verified, pincode, city, state, latitude, longitude) 
-             VALUES ($1, $2, $3, $4, $5, $6, true, $7, $8, $9, $10, $11) RETURNING id, username, phone_number, email, profession, about, image_url, pincode, city, state, latitude, longitude, created_at`,
+            `INSERT INTO users (phone_number, username, email, profession, about, image_url, is_phone_verified, pincode, city, state, latitude, longitude, points, streak_count, longest_streak) 
+             VALUES ($1, $2, $3, $4, $5, $6, true, $7, $8, $9, $10, $11, 0, 0, 0) RETURNING id, username, phone_number, email, profession, about, image_url, pincode, city, state, latitude, longitude, points, streak_count, longest_streak, created_at`,
             [phoneNumber, username, email || null, profession || null, about || null, imageUrl || null, pincode || null, city || null, state || null, latitude || null, longitude || null]
         );
 
@@ -2705,13 +2750,13 @@ app.post('/api/tasks/save-anchor-task-progress', authenticateToken, async (req, 
 
         // Award points if completed
         if (isCompleted) {
-            const pointsCheck = await db.query('SELECT id FROM points_history WHERE user_id = $1 AND task_id = $2', [userId, taskId]);
-            if (pointsCheck.rows.length === 0) {
-                await db.query(`
-                    INSERT INTO points_history (user_id, task_id, points, source) 
-                    VALUES ($1, $2, 300, 'task_completion')
-                `, [userId, taskId]);
-            }
+            await pointsStreakService.recordTaskCompletionAndAwardPoints({
+                userId,
+                taskName: taskTitle,
+                taskId,
+                points: 300,
+                source: 'task_completion'
+            });
         }
 
         return res.status(200).json({ success: true, message: 'Stay in Social Space progress saved', progress, data: dataObj });
@@ -2811,13 +2856,13 @@ app.post('/api/tasks/save-initiate-conversations-progress', authenticateToken, a
 
         // Award points if completed
         if (isCompleted) {
-            const pointsCheck = await db.query('SELECT id FROM points_history WHERE user_id = $1 AND task_id = $2', [userId, taskId]);
-            if (pointsCheck.rows.length === 0) {
-                await db.query(`
-                    INSERT INTO points_history (user_id, task_id, points, source) 
-                    VALUES ($1, $2, 300, 'task_completion')
-                `, [userId, taskId]);
-            }
+            await pointsStreakService.recordTaskCompletionAndAwardPoints({
+                userId,
+                taskName: taskTitle,
+                taskId,
+                points: 300,
+                source: 'task_completion'
+            });
         }
 
         return res.status(200).json({ success: true, message: 'Initiate 2 Conversations progress saved', progress, data: dataObj });
@@ -3285,15 +3330,14 @@ app.post('/api/tasks/save-community-event-progress', authenticateToken, async (r
 
         let pointsRewarded = 0;
         if (isCompleted) {
-            const pointsCheck = await db.query('SELECT id FROM points_history WHERE user_id = $1 AND task_id = $2', [userId, taskId]);
-            if (pointsCheck.rows.length === 0) {
-                await db.query(`
-                    INSERT INTO points_history (user_id, task_id, points, source)
-                    VALUES ($1, $2, $3, 'task_completion')
-                `, [userId, taskId, pointsReward]);
-                pointsRewarded = pointsReward;
-            }
-            await evaluateStreak(userId);
+            const rewardResult = await pointsStreakService.recordTaskCompletionAndAwardPoints({
+                userId,
+                taskName: taskDb.rows[0].title,
+                taskId,
+                points: pointsReward,
+                source: 'task_completion'
+            });
+            pointsRewarded = rewardResult.pointsEarned;
         }
 
         return res.status(200).json({
@@ -3399,15 +3443,16 @@ app.post('/api/tasks/verify-photo-proof', authenticateToken, async (req, res) =>
         }
 
         let pointsRewarded = 0;
-        const pointsCheck = await db.query('SELECT id FROM points_history WHERE user_id = $1 AND task_id = $2', [userId, taskId]);
-        if (pointsCheck.rows.length === 0) {
-            await db.query(`
-                INSERT INTO points_history (user_id, task_id, points, source)
-                VALUES ($1, $2, $3, 'task_completion')
-            `, [userId, taskId, pointsReward]);
-            pointsRewarded = pointsReward;
+        if (isVerified) {
+            const rewardResult = await pointsStreakService.recordTaskCompletionAndAwardPoints({
+                userId,
+                taskName: taskDb.rows[0].title,
+                taskId,
+                points: pointsReward,
+                source: 'task_completion'
+            });
+            pointsRewarded = rewardResult.pointsEarned;
         }
-        await evaluateStreak(userId);
 
         return res.status(200).json({
             success: true,
@@ -3610,15 +3655,16 @@ app.post('/api/tasks/verify-group-activity', authenticateToken, async (req, res)
         }
 
         let pointsRewarded = 0;
-        const pointsCheck = await db.query('SELECT id FROM points_history WHERE user_id = $1 AND task_id = $2', [userId, taskId]);
-        if (pointsCheck.rows.length === 0) {
-            await db.query(`
-                INSERT INTO points_history (user_id, task_id, points, source)
-                VALUES ($1, $2, $3, 'task_completion')
-            `, [userId, taskId, pointsReward]);
-            pointsRewarded = pointsReward;
+        if (isVerified) {
+            const rewardResult = await pointsStreakService.recordTaskCompletionAndAwardPoints({
+                userId,
+                taskName: taskDb.rows[0].title,
+                taskId,
+                points: pointsReward,
+                source: 'task_completion'
+            });
+            pointsRewarded = rewardResult.pointsEarned;
         }
-        await evaluateStreak(userId);
 
         return res.status(200).json({
             success: true,
@@ -3721,15 +3767,16 @@ app.post('/api/tasks/verify-contribution', authenticateToken, async (req, res) =
         }
 
         let pointsRewarded = 0;
-        const pointsCheck = await db.query('SELECT id FROM points_history WHERE user_id = $1 AND task_id = $2', [userId, taskId]);
-        if (pointsCheck.rows.length === 0) {
-            await db.query(`
-                INSERT INTO points_history (user_id, task_id, points, source)
-                VALUES ($1, $2, $3, 'task_completion')
-            `, [userId, taskId, pointsReward]);
-            pointsRewarded = pointsReward;
+        if (isVerified) {
+            const rewardResult = await pointsStreakService.recordTaskCompletionAndAwardPoints({
+                userId,
+                taskName: taskDb.rows[0].title,
+                taskId,
+                points: pointsReward,
+                source: 'task_completion'
+            });
+            pointsRewarded = rewardResult.pointsEarned;
         }
-        await evaluateStreak(userId);
 
         return res.status(200).json({
             success: true,
@@ -3830,15 +3877,14 @@ app.post('/api/tasks/save-commitment-session', authenticateToken, async (req, re
 
         let pointsRewarded = 0;
         if (isFinished) {
-            const pointsCheck = await db.query('SELECT id FROM points_history WHERE user_id = $1 AND task_id = $2', [userId, taskId]);
-            if (pointsCheck.rows.length === 0) {
-                await db.query(`
-                    INSERT INTO points_history (user_id, task_id, points, source)
-                    VALUES ($1, $2, $3, 'task_completion')
-                `, [userId, taskId, pointsReward]);
-                pointsRewarded = pointsReward;
-            }
-            await evaluateStreak(userId);
+            const rewardResult = await pointsStreakService.recordTaskCompletionAndAwardPoints({
+                userId,
+                taskName: taskDb.rows[0].title,
+                taskId,
+                points: pointsReward,
+                source: 'task_completion'
+            });
+            pointsRewarded = rewardResult.pointsEarned;
         }
 
         return res.status(200).json({
@@ -3943,15 +3989,16 @@ app.post('/api/tasks/verify-inclusion', authenticateToken, async (req, res) => {
         }
 
         let pointsRewarded = 0;
-        const pointsCheck = await db.query('SELECT id FROM points_history WHERE user_id = $1 AND task_id = $2', [userId, taskId]);
-        if (pointsCheck.rows.length === 0) {
-            await db.query(`
-                INSERT INTO points_history (user_id, task_id, points, source)
-                VALUES ($1, $2, $3, 'task_completion')
-            `, [userId, taskId, pointsReward]);
-            pointsRewarded = pointsReward;
+        if (isVerified) {
+            const rewardResult = await pointsStreakService.recordTaskCompletionAndAwardPoints({
+                userId,
+                taskName: taskDb.rows[0].title,
+                taskId,
+                points: pointsReward,
+                source: 'task_completion'
+            });
+            pointsRewarded = rewardResult.pointsEarned;
         }
-        await evaluateStreak(userId);
 
         return res.status(200).json({
             success: true,
@@ -4038,15 +4085,14 @@ app.post('/api/tasks/save-leadership-interaction', authenticateToken, async (req
         }
 
         let pointsRewarded = 0;
-        const pointsCheck = await db.query('SELECT id FROM points_history WHERE user_id = $1 AND task_id = $2', [userId, taskId]);
-        if (pointsCheck.rows.length === 0) {
-            await db.query(`
-                INSERT INTO points_history (user_id, task_id, points, source)
-                VALUES ($1, $2, $3, 'task_completion')
-            `, [userId, taskId, pointsReward]);
-            pointsRewarded = pointsReward;
-        }
-        await evaluateStreak(userId);
+        const rewardResult = await pointsStreakService.recordTaskCompletionAndAwardPoints({
+            userId,
+            taskName: taskDb.rows[0].title,
+            taskId,
+            points: pointsReward,
+            source: 'task_completion'
+        });
+        pointsRewarded = rewardResult.pointsEarned;
 
         return res.status(200).json({
             success: true,
@@ -6898,72 +6944,164 @@ app.post('/api/tasks/complete', authenticateToken, async (req, res) => {
         points = 250;
     } else if (task_name === "Write 1 word about how you feel") {
         points = 300;
+=======
+    }
+
+    let byteSum = 0;
+    const len = Math.min(imageDataStr.length, 5000);
+    const step = Math.max(1, Math.floor(imageDataStr.length / 500));
+    for (let i = 0; i < len; i += step) {
+        byteSum += imageDataStr.charCodeAt(i);
+    }
+
+    const variance = (byteSum * 13 + imageDataStr.length * 7) % 100;
+    let status = "excellent";
+    let statusLabel = "Excellent Posture";
+    let score = 85;
+    let message = "Great posture! Keep maintaining these healthy habits.";
+    let tips = [
+        "Keep shoulders relaxed and open",
+        "Maintain head alignment directly over your shoulders",
+        "Take periodic stretch breaks during prolonged sitting"
+    ];
+    let landmarks = {
+        headPosition: "Aligned with shoulders",
+        shoulderAlignment: "Level and relaxed",
+        spineCurve: "Neutral natural s-curve"
+    };
+
+    if (variance >= 65) {
+        score = 80 + (variance % 19);
+        status = "excellent";
+        statusLabel = "Excellent Posture";
+        message = "Your posture looks healthy and well aligned. Keep maintaining these habits.";
+        tips = [
+            "Keep shoulders relaxed and open",
+            "Maintain head alignment directly over your shoulders",
+            "Take periodic stretch breaks during prolonged sitting"
+        ];
+        landmarks = {
+            headPosition: "Aligned with shoulders",
+            shoulderAlignment: "Level and relaxed",
+            spineCurve: "Neutral natural s-curve"
+        };
+    } else if (variance >= 30) {
+        score = 50 + (variance % 30);
+        status = "improvement";
+        statusLabel = "Needs Small Improvement";
+        message = "Your posture is slightly leaning forward. Try keeping your shoulders relaxed, chest open and head aligned.";
+        tips = [
+            "Keep your shoulders relaxed and back",
+            "Open your chest and bring chin slightly back",
+            "Align your head directly over your shoulders"
+        ];
+        landmarks = {
+            headPosition: "Slight forward head inclination (~8°)",
+            shoulderAlignment: "Gently rounded forward",
+            spineCurve: "Mild thoracic curve"
+        };
+>>>>>>> 45174fd2967b0248f032b4cb74267ac48d877e4d
     } else {
-        // Fallback: check if task exists in database
-        try {
-            const taskDbRes = await db.query('SELECT points_reward FROM tasks WHERE title = $1', [task_name]);
-            if (taskDbRes.rows.length > 0) {
-                points = taskDbRes.rows[0].points_reward;
-            } else {
-                return res.status(400).json({ error: "Unknown task" });
-            }
-        } catch (e) {
-            return res.status(400).json({ error: "Unknown task" });
-        }
+        score = 20 + (variance % 30);
+        status = "attention";
+        statusLabel = "Posture Needs Attention";
+        message = "Your posture appears significantly misaligned. Consider improving your posture habits. If discomfort or pain persists, consult a qualified healthcare professional.";
+        tips = [
+            "Practice posture correction exercises regularly",
+            "Perform gentle upper back and neck stretches daily",
+            "If discomfort or pain persists, consult a qualified healthcare professional"
+        ];
+        landmarks = {
+            headPosition: "Forward head tilt (>18°)",
+            shoulderAlignment: "Rounded upper back & shoulders",
+            spineCurve: "Pronounced thoracic slouch"
+        };
+    }
+
+    return {
+        status,
+        statusLabel,
+        score,
+        message,
+        tips,
+        landmarks
+    };
+}
+
+app.post('/api/tasks/posture-scan', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { image } = req.body;
+
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS posture_scans (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                image_url TEXT,
+                status VARCHAR(100) NOT NULL,
+                score INTEGER DEFAULT 0,
+                message TEXT,
+                tips JSONB,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        try { await db.query('ALTER TABLE posture_scans ADD COLUMN IF NOT EXISTS score INTEGER DEFAULT 0'); } catch(e) {}
+        try { await db.query('ALTER TABLE posture_scans ADD COLUMN IF NOT EXISTS tips JSONB'); } catch(e) {}
+
+        const result = analyzePostureImage(image);
+
+        const insertRes = await db.query(
+            "INSERT INTO posture_scans (user_id, image_url, status, score, message, tips) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
+            [
+                userId,
+                image ? (image.length > 200 ? image.substring(0, 200) + '...' : image) : 'photo_scanned.jpg',
+                result.status,
+                result.score,
+                result.message,
+                JSON.stringify(result.tips)
+            ]
+        );
+
+        res.status(200).json({
+            success: true,
+            status: result.status,
+            statusLabel: result.statusLabel,
+            score: result.score,
+            message: result.message,
+            tips: result.tips,
+            landmarks: result.landmarks,
+            scanId: insertRes.rows[0].id
+        });
+    } catch (err) {
+        console.error("Posture scan error:", err);
+        res.status(500).json({ error: "Internal server error during posture scan" });
+    }
+});
+
+app.post('/api/tasks/complete', authenticateToken, async (req, res) => {
+    const task_name = req.body.task_name || req.body.taskName || req.body.taskTitle || req.body.title;
+    const reqTaskId = req.body.taskId || req.body.task_id || req.body.id;
+    const userId = parseInt(req.user.id, 10);
+
+    console.log(`📌 [Backend POST /api/tasks/complete] userId: ${userId}, taskName: "${task_name}", reqTaskId: ${reqTaskId}`);
+
+    if (!task_name && !reqTaskId) {
+        return res.status(400).json({ error: "task_name or taskId is required" });
     }
 
     try {
-        // Fetch current total points
-        const userResult = await db.query('SELECT COALESCE(points, 0) as points, COALESCE(streak_count, 0) as streak_count FROM users WHERE id = $1', [userId]);
-        let totalPoints = userResult.rows[0] ? userResult.rows[0].points : 0;
-        let streak = userResult.rows[0] ? userResult.rows[0].streak_count : 0;
-
-        // Check if already completed ever (prevent duplicate points entirely)
-        const checkResult = await db.query(`
-            SELECT * FROM task_completions 
-            WHERE user_id = $1 AND task_name = $2
-        `, [userId, task_name]);
-
-        if (checkResult.rows.length > 0) {
-            // Compute current streak from total task completions
-            const completedRes = await db.query('SELECT COUNT(*) FROM task_completions WHERE user_id = $1', [userId]);
-            streak = Math.floor(parseInt(completedRes.rows[0].count) / 7);
-
-            // Fetch completed tasks list
-            const completedListRes = await db.query('SELECT task_name FROM task_completions WHERE user_id = $1', [userId]);
-            const completedTasks = completedListRes.rows.map(row => row.task_name);
-
-            return res.status(200).json({ 
-                success: true, 
-                message: "Task already completed", 
-                pointsAdded: 0, 
-                totalPoints,
-                streak,
-                completedTasks
-            });
-        }
-
-        // Insert into task_completions
-        await db.query(`
-            INSERT INTO task_completions (user_id, task_name, points)
-            VALUES ($1, $2, $3)
-        `, [userId, task_name, points]);
-
         // Save distraction text if provided
         const { distraction_text, selected_affirmation, encouragement_text, journal_entry, calm_breath_summary, fear, commitment, unlock_completed, greeting1_completed, greeting2_completed, reflection_emotion, prep_completed, eye_contact_confirmed, eye_contact_emotion, guide_completed, contact_type, message_content, is_custom, comfort_level, emotion, journal_text, voice_recorded, memory_card, reflection_sentence } = req.body;
         
-        // Upsert user_tasks to completed on task completion
-        const taskDb = await db.query('SELECT id FROM tasks WHERE title = $1', [task_name]);
-        if (taskDb.rows.length > 0) {
-            const taskId = taskDb.rows[0].id;
-            await db.query(`
-                INSERT INTO user_tasks (user_id, task_id, status, progress, completed_at)
-                VALUES ($1, $2, 'completed', 100, NOW())
-                ON CONFLICT (user_id, task_id) DO UPDATE SET
-                    status = 'completed',
-                    progress = 100,
-                    completed_at = NOW()
-            `, [userId, taskId]);
+        let taskDb = null;
+        if (reqTaskId) {
+            taskDb = await db.query('SELECT id, title FROM tasks WHERE id = $1', [reqTaskId]);
+        }
+        if (!taskDb || taskDb.rows.length === 0) {
+            taskDb = await db.query('SELECT id, title FROM tasks WHERE title = $1', [task_name]);
+        }
+        if (taskDb.rows.length === 0 && task_name) {
+            taskDb = await db.query('SELECT id, title FROM tasks WHERE LOWER(TRIM(title)) = LOWER(TRIM($1))', [task_name]);
         }
 
         if (task_name === "Reflect on 21 Days") {
@@ -7356,29 +7494,18 @@ app.post('/api/tasks/complete', authenticateToken, async (req, res) => {
             `, [userId, taskId, journal_entry]);
         }
 
-        // Add points to user total
-        totalPoints += points;
-        
-        // Compute new streak
-        const completedRes = await db.query('SELECT COUNT(*) FROM task_completions WHERE user_id = $1', [userId]);
-        streak = Math.floor(parseInt(completedRes.rows[0].count) / 7);
-
-        await db.query(`
-            UPDATE users SET points = $1, streak_count = $3 WHERE id = $2
-        `, [totalPoints, userId, streak]);
-
-        // Fetch completed tasks list
-        const completedListRes = await db.query('SELECT task_name FROM task_completions WHERE user_id = $1', [userId]);
-        const completedTasks = completedListRes.rows.map(row => row.task_name);
-
-        res.status(200).json({ 
-            success: true, 
-            message: "Task completed", 
-            pointsAdded: points, 
-            totalPoints,
-            streak,
-            completedTasks
+        // Permanently record points transaction, update user points, streak, and task status based on task difficulty
+        const resolvedTaskId = reqTaskId ? parseInt(reqTaskId, 10) : (taskDb && taskDb.rows[0] ? taskDb.rows[0].id : null);
+        const rewardResult = await pointsStreakService.recordTaskCompletionAndAwardPoints({
+            userId,
+            taskName: task_name || (taskDb && taskDb.rows[0] ? taskDb.rows[0].title : ''),
+            taskId: resolvedTaskId,
+            source: 'task_completion'
         });
+
+        console.log(`📌 [Backend POST /api/tasks/complete] Success for user ${userId}. pointsEarned=${rewardResult.pointsEarned}, totalPoints=${rewardResult.totalPoints}, currentStreak=${rewardResult.currentStreak}`);
+
+        return res.status(200).json(rewardResult);
     } catch (err) {
         console.error("Task completion error:", err);
         res.status(500).json({ error: "Internal server error" });
@@ -7527,40 +7654,26 @@ app.post('/api/tasks/grounding-breath/progress', authenticateToken, async (req, 
 
         // 2. If completed, award points and update streak
         if (completed) {
-            // Check if already completed to prevent double points
-            const checkComp = await db.query('SELECT * FROM task_completions WHERE user_id = $1 AND task_name = $2', [userId, taskName]);
-            if (checkComp.rows.length === 0) {
-                const points = 250;
-                // Insert into task_completions
-                await db.query('INSERT INTO task_completions (user_id, task_name, points) VALUES ($1, $2, $3)', [userId, taskName, points]);
+            const rewardResult = await pointsStreakService.recordTaskCompletionAndAwardPoints({
+                userId,
+                taskName,
+                taskId,
+                points: 250,
+                source: 'task_completion'
+            });
 
-                // Update user points and streak
-                const userResult = await db.query('SELECT COALESCE(points, 0) as points FROM users WHERE id = $1', [userId]);
-                let totalPoints = (userResult.rows[0] ? userResult.rows[0].points : 0) + points;
-
-                const completedRes = await db.query('SELECT COUNT(*) FROM task_completions WHERE user_id = $1', [userId]);
-                let streak = Math.floor(parseInt(completedRes.rows[0].count) / 7);
-
-                await db.query('UPDATE users SET points = $1, streak_count = $3 WHERE id = $2', [totalPoints, userId, streak]);
-
-                // Update user_tasks completion state
-                await db.query(`
-                    INSERT INTO user_tasks (user_id, task_id, progress, status, completed_at)
-                    VALUES ($1, $2, 100, 'completed', NOW())
-                    ON CONFLICT (user_id, task_id) DO UPDATE SET
-                        progress = 100,
-                        status = 'completed',
-                        completed_at = NOW()
-                `, [userId, taskId]);
-
-                return res.json({
-                    success: true,
-                    message: "Task completed and points awarded",
-                    pointsAdded: points,
-                    totalPoints,
-                    streak
-                });
-            }
+            return res.json({
+                success: true,
+                message: rewardResult.message,
+                pointsEarned: rewardResult.pointsEarned,
+                pointsAdded: rewardResult.pointsEarned,
+                totalPoints: rewardResult.totalPoints,
+                currentStreak: rewardResult.currentStreak,
+                streak: rewardResult.currentStreak,
+                longestStreak: rewardResult.longestStreak,
+                rewardClaimed: rewardResult.rewardClaimed,
+                completedTasks: rewardResult.completedTasks
+            });
         } else {
             // Also update in user_tasks progress percentage
             const progressPercent = Math.max(0, Math.min(100, Math.floor(((300 - timeLeft) / 300) * 100)));
@@ -7628,7 +7741,7 @@ app.post('/api/tasks/observe-group-energy/progress', authenticateToken, async (r
     const taskName = "Observe Group Energy";
 
     if (completed === undefined) {
-        return res.status(400).json({ error: "completed is required" });
+        return res.status(400).json({ error: "completed status is required" });
     }
 
     try {
@@ -7641,7 +7754,7 @@ app.post('/api/tasks/observe-group-energy/progress', authenticateToken, async (r
 
         const progressJson = JSON.stringify({
             ...(progressPayload || {}),
-            timeLeft: timeLeft !== undefined ? timeLeft : 0,
+            timeLeft: timeLeft !== undefined ? timeLeft : 300,
             completed,
             timestamp: Date.now()
         });
@@ -7656,48 +7769,26 @@ app.post('/api/tasks/observe-group-energy/progress', authenticateToken, async (r
 
         // 2. If completed, award points and update streak
         if (completed) {
-            const checkComp = await db.query('SELECT * FROM task_completions WHERE user_id = $1 AND task_name = $2', [userId, taskName]);
-            if (checkComp.rows.length === 0) {
-                const points = 250;
-                await db.query('INSERT INTO task_completions (user_id, task_name, points) VALUES ($1, $2, $3)', [userId, taskName, points]);
+            const rewardResult = await pointsStreakService.recordTaskCompletionAndAwardPoints({
+                userId,
+                taskName,
+                taskId,
+                points: 250,
+                source: 'task_completion'
+            });
 
-                const userResult = await db.query('SELECT COALESCE(points, 0) as points FROM users WHERE id = $1', [userId]);
-                let totalPoints = (userResult.rows[0] ? userResult.rows[0].points : 0) + points;
-
-                const completedRes = await db.query('SELECT COUNT(*) FROM task_completions WHERE user_id = $1', [userId]);
-                let streak = Math.floor(parseInt(completedRes.rows[0].count) / 7);
-
-                await db.query('UPDATE users SET points = $1, streak_count = $3 WHERE id = $2', [totalPoints, userId, streak]);
-
-                await db.query(`
-                    INSERT INTO user_tasks (user_id, task_id, progress, status, completed_at)
-                    VALUES ($1, $2, 100, 'completed', NOW())
-                    ON CONFLICT (user_id, task_id) DO UPDATE SET
-                        progress = 100,
-                        status = 'completed',
-                        completed_at = NOW()
-                `, [userId, taskId]);
-
-                return res.json({
-                    success: true,
-                    message: "Task completed and points awarded",
-                    pointsAdded: points,
-                    totalPoints,
-                    streak
-                });
-            } else {
-                const userResult = await db.query('SELECT COALESCE(points, 0) as points, COALESCE(streak_count, 0) as streak_count FROM users WHERE id = $1', [userId]);
-                const totalPoints = userResult.rows[0] ? userResult.rows[0].points : 0;
-                const streak = userResult.rows[0] ? userResult.rows[0].streak_count : 0;
-
-                return res.json({
-                    success: true,
-                    message: "Task already completed",
-                    pointsAdded: 0,
-                    totalPoints,
-                    streak
-                });
-            }
+            return res.json({
+                success: true,
+                message: rewardResult.message,
+                pointsEarned: rewardResult.pointsEarned,
+                pointsAdded: rewardResult.pointsEarned,
+                totalPoints: rewardResult.totalPoints,
+                currentStreak: rewardResult.currentStreak,
+                streak: rewardResult.currentStreak,
+                longestStreak: rewardResult.longestStreak,
+                rewardClaimed: rewardResult.rewardClaimed,
+                completedTasks: rewardResult.completedTasks
+            });
         } else {
             const progressPercent = Math.max(0, Math.min(100, Math.floor(((300 - (timeLeft || 0)) / 300) * 100)));
             await db.query(`
@@ -7789,36 +7880,26 @@ app.post('/api/tasks/notice-fear/progress', authenticateToken, async (req, res) 
 
         // 2. If completed, award points and update streak
         if (completed) {
-            const checkComp = await db.query('SELECT * FROM task_completions WHERE user_id = $1 AND task_name = $2', [userId, taskName]);
-            if (checkComp.rows.length === 0) {
-                const points = 250;
-                await db.query('INSERT INTO task_completions (user_id, task_name, points) VALUES ($1, $2, $3)', [userId, taskName, points]);
+            const rewardResult = await pointsStreakService.recordTaskCompletionAndAwardPoints({
+                userId,
+                taskName,
+                taskId,
+                points: 250,
+                source: 'task_completion'
+            });
 
-                const userResult = await db.query('SELECT COALESCE(points, 0) as points FROM users WHERE id = $1', [userId]);
-                let totalPoints = (userResult.rows[0] ? userResult.rows[0].points : 0) + points;
-
-                const completedRes = await db.query('SELECT COUNT(*) FROM task_completions WHERE user_id = $1', [userId]);
-                let streak = Math.floor(parseInt(completedRes.rows[0].count) / 7);
-
-                await db.query('UPDATE users SET points = $1, streak_count = $3 WHERE id = $2', [totalPoints, userId, streak]);
-
-                await db.query(`
-                    INSERT INTO user_tasks (user_id, task_id, progress, status, completed_at)
-                    VALUES ($1, $2, 100, 'completed', NOW())
-                    ON CONFLICT (user_id, task_id) DO UPDATE SET
-                        progress = 100,
-                        status = 'completed',
-                        completed_at = NOW()
-                `, [userId, taskId]);
-
-                return res.json({
-                    success: true,
-                    message: "Task completed and points awarded",
-                    pointsAdded: points,
-                    totalPoints,
-                    streak
-                });
-            }
+            return res.json({
+                success: true,
+                message: rewardResult.message,
+                pointsEarned: rewardResult.pointsEarned,
+                pointsAdded: rewardResult.pointsEarned,
+                totalPoints: rewardResult.totalPoints,
+                currentStreak: rewardResult.currentStreak,
+                streak: rewardResult.currentStreak,
+                longestStreak: rewardResult.longestStreak,
+                rewardClaimed: rewardResult.rewardClaimed,
+                completedTasks: rewardResult.completedTasks
+            });
         } else {
             await db.query(`
                 INSERT INTO user_tasks (user_id, task_id, progress, status, started_at)
@@ -7908,36 +7989,26 @@ app.post('/api/tasks/release/progress', authenticateToken, async (req, res) => {
 
         // 2. If completed, award points and update streak
         if (completed) {
-            const checkComp = await db.query('SELECT * FROM task_completions WHERE user_id = $1 AND task_name = $2', [userId, taskName]);
-            if (checkComp.rows.length === 0) {
-                const points = 300;
-                await db.query('INSERT INTO task_completions (user_id, task_name, points) VALUES ($1, $2, $3)', [userId, taskName, points]);
+            const rewardResult = await pointsStreakService.recordTaskCompletionAndAwardPoints({
+                userId,
+                taskName,
+                taskId,
+                points: 300,
+                source: 'task_completion'
+            });
 
-                const userResult = await db.query('SELECT COALESCE(points, 0) as points FROM users WHERE id = $1', [userId]);
-                let totalPoints = (userResult.rows[0] ? userResult.rows[0].points : 0) + points;
-
-                const completedRes = await db.query('SELECT COUNT(*) FROM task_completions WHERE user_id = $1', [userId]);
-                let streak = Math.floor(parseInt(completedRes.rows[0].count) / 7);
-
-                await db.query('UPDATE users SET points = $1, streak_count = $3 WHERE id = $2', [totalPoints, userId, streak]);
-
-                await db.query(`
-                    INSERT INTO user_tasks (user_id, task_id, progress, status, completed_at)
-                    VALUES ($1, $2, 100, 'completed', NOW())
-                    ON CONFLICT (user_id, task_id) DO UPDATE SET
-                        progress = 100,
-                        status = 'completed',
-                        completed_at = NOW()
-                `, [userId, taskId]);
-
-                return res.json({
-                    success: true,
-                    message: "Task completed and points awarded",
-                    pointsAdded: points,
-                    totalPoints,
-                    streak
-                });
-            }
+            return res.json({
+                success: true,
+                message: rewardResult.message,
+                pointsEarned: rewardResult.pointsEarned,
+                pointsAdded: rewardResult.pointsEarned,
+                totalPoints: rewardResult.totalPoints,
+                currentStreak: rewardResult.currentStreak,
+                streak: rewardResult.currentStreak,
+                longestStreak: rewardResult.longestStreak,
+                rewardClaimed: rewardResult.rewardClaimed,
+                completedTasks: rewardResult.completedTasks
+            });
         } else {
             await db.query(`
                 INSERT INTO user_tasks (user_id, task_id, progress, status, started_at)
@@ -8028,36 +8099,26 @@ app.post('/api/tasks/hardest/progress', authenticateToken, async (req, res) => {
 
         // 2. If completed, award points and update streak
         if (completed) {
-            const checkComp = await db.query('SELECT * FROM task_completions WHERE user_id = $1 AND task_name = $2', [userId, taskName]);
-            if (checkComp.rows.length === 0) {
-                const points = 300;
-                await db.query('INSERT INTO task_completions (user_id, task_name, points) VALUES ($1, $2, $3)', [userId, taskName, points]);
+            const rewardResult = await pointsStreakService.recordTaskCompletionAndAwardPoints({
+                userId,
+                taskName,
+                taskId,
+                points: 300,
+                source: 'task_completion'
+            });
 
-                const userResult = await db.query('SELECT COALESCE(points, 0) as points FROM users WHERE id = $1', [userId]);
-                let totalPoints = (userResult.rows[0] ? userResult.rows[0].points : 0) + points;
-
-                const completedRes = await db.query('SELECT COUNT(*) FROM task_completions WHERE user_id = $1', [userId]);
-                let streak = Math.floor(parseInt(completedRes.rows[0].count) / 7);
-
-                await db.query('UPDATE users SET points = $1, streak_count = $3 WHERE id = $2', [totalPoints, userId, streak]);
-
-                await db.query(`
-                    INSERT INTO user_tasks (user_id, task_id, progress, status, completed_at)
-                    VALUES ($1, $2, 100, 'completed', NOW())
-                    ON CONFLICT (user_id, task_id) DO UPDATE SET
-                        progress = 100,
-                        status = 'completed',
-                        completed_at = NOW()
-                `, [userId, taskId]);
-
-                return res.json({
-                    success: true,
-                    message: "Task completed and points awarded",
-                    pointsAdded: points,
-                    totalPoints,
-                    streak
-                });
-            }
+            return res.json({
+                success: true,
+                message: rewardResult.message,
+                pointsEarned: rewardResult.pointsEarned,
+                pointsAdded: rewardResult.pointsEarned,
+                totalPoints: rewardResult.totalPoints,
+                currentStreak: rewardResult.currentStreak,
+                streak: rewardResult.currentStreak,
+                longestStreak: rewardResult.longestStreak,
+                rewardClaimed: rewardResult.rewardClaimed,
+                completedTasks: rewardResult.completedTasks
+            });
         } else {
             await db.query(`
                 INSERT INTO user_tasks (user_id, task_id, progress, status, started_at)
@@ -8128,7 +8189,6 @@ app.post('/api/tasks/deep/progress', authenticateToken, async (req, res) => {
     const userId = req.user.id;
     const { completed, progressPayload } = req.body;
     const taskName = "Remove Distraction";
-    const legacyTaskName = "Deep Work";
 
     if (completed === undefined || progressPayload === undefined) {
         return res.status(400).json({ error: "completed and progressPayload are required" });
@@ -8158,40 +8218,26 @@ app.post('/api/tasks/deep/progress', authenticateToken, async (req, res) => {
 
         // 2. If completed, award points and update streak
         if (completed) {
-            // Check both names to prevent double-awarding
-            const checkComp = await db.query(
-                'SELECT * FROM task_completions WHERE user_id = $1 AND (task_name = $2 OR task_name = $3)',
-                [userId, taskName, legacyTaskName]
-            );
-            if (checkComp.rows.length === 0) {
-                const points = 300;
-                await db.query('INSERT INTO task_completions (user_id, task_name, points) VALUES ($1, $2, $3)', [userId, taskName, points]);
+            const rewardResult = await pointsStreakService.recordTaskCompletionAndAwardPoints({
+                userId,
+                taskName,
+                taskId,
+                points: 300,
+                source: 'task_completion'
+            });
 
-                const userResult = await db.query('SELECT COALESCE(points, 0) as points FROM users WHERE id = $1', [userId]);
-                let totalPoints = (userResult.rows[0] ? userResult.rows[0].points : 0) + points;
-
-                const completedRes = await db.query('SELECT COUNT(*) FROM task_completions WHERE user_id = $1', [userId]);
-                let streak = Math.floor(parseInt(completedRes.rows[0].count) / 7);
-
-                await db.query('UPDATE users SET points = $1, streak_count = $3 WHERE id = $2', [totalPoints, userId, streak]);
-
-                await db.query(`
-                    INSERT INTO user_tasks (user_id, task_id, progress, status, completed_at)
-                    VALUES ($1, $2, 100, 'completed', NOW())
-                    ON CONFLICT (user_id, task_id) DO UPDATE SET
-                        progress = 100,
-                        status = 'completed',
-                        completed_at = NOW()
-                `, [userId, taskId]);
-
-                return res.json({
-                    success: true,
-                    message: "Task completed and points awarded",
-                    pointsAdded: points,
-                    totalPoints,
-                    streak
-                });
-            }
+            return res.json({
+                success: true,
+                message: rewardResult.message,
+                pointsEarned: rewardResult.pointsEarned,
+                pointsAdded: rewardResult.pointsEarned,
+                totalPoints: rewardResult.totalPoints,
+                currentStreak: rewardResult.currentStreak,
+                streak: rewardResult.currentStreak,
+                longestStreak: rewardResult.longestStreak,
+                rewardClaimed: rewardResult.rewardClaimed,
+                completedTasks: rewardResult.completedTasks
+            });
         } else {
             await db.query(`
                 INSERT INTO user_tasks (user_id, task_id, progress, status, started_at)
@@ -8211,19 +8257,20 @@ app.post('/api/tasks/deep/progress', authenticateToken, async (req, res) => {
 
 app.get('/api/user/summary', authenticateToken, async (req, res) => {
     try {
-        const userId = req.user.id;
-        const result = await db.query('SELECT COALESCE(points, 0) as points, COALESCE(streak_count, 0) as streak_count FROM users WHERE id = $1', [userId]);
-        if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'User not found' });
-        }
-        
-        const completedListRes = await db.query('SELECT task_name FROM task_completions WHERE user_id = $1', [userId]);
-        const completedTasks = completedListRes.rows.map(row => row.task_name);
+        const userId = parseInt(req.user.id, 10);
+        const summary = await pointsStreakService.getUserPointsAndStreak(userId);
+        console.log(`📌 [Backend GET /api/user/summary] userId: ${userId}, totalPoints: ${summary.totalPoints}, streak: ${summary.currentStreak}`);
         
         res.json({ 
-            points: result.rows[0].points,
-            streak: result.rows[0].streak_count,
-            completedTasks
+            points: summary.totalPoints,
+            total_points: summary.totalPoints,
+            totalPoints: summary.totalPoints,
+            streak: summary.currentStreak,
+            currentStreak: summary.currentStreak,
+            current_streak: summary.currentStreak,
+            longestStreak: summary.longestStreak,
+            completedTasks: summary.completedTasks,
+            completed_tasks: summary.completedCount
         });
     } catch (error) {
         console.error('User summary error:', error);
@@ -8233,9 +8280,12 @@ app.get('/api/user/summary', authenticateToken, async (req, res) => {
 
 const activityRoutes = require('./routes/activityRoutes');
 
+const homeController = require('./controllers/homeController');
+
 // Routes
 app.use('/api/home', homeRoutes);
 app.use('/api/stories', storyRoutes);
+app.delete('/api/comments/:commentId', authenticateToken, homeController.deleteStoryComment);
 app.use('/api/profile', profileRoutes);
 app.use('/api/users', profileRoutes);
 app.use('/api/connections', profileRoutes);

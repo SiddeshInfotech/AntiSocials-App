@@ -133,24 +133,24 @@ export default function ObserveTaskScreen() {
     transform: [{ translateY: notifFloatY.value }],
   }));
 
-  // Floating Orbs / Jar Particles for Screen 4
-  const jarParticles = Array.from({ length: 8 }).map((_, i) => {
-    const pY = useSharedValue(Math.random() * 40 - 20);
-    const pX = useSharedValue(Math.random() * 30 - 15);
-    useEffect(() => {
-      pY.value = withRepeat(
-        withSequence(
-          withTiming(pY.value - 12, { duration: 2000 + i * 400, easing: Easing.inOut(Easing.ease) }),
-          withTiming(pY.value + 12, { duration: 2000 + i * 400, easing: Easing.inOut(Easing.ease) })
-        ),
-        -1,
-        true
-      );
-    }, []);
-    return useAnimatedStyle(() => ({
-      transform: [{ translateX: pX.value }, { translateY: pY.value }],
-    }));
-  });
+const JarOrbItem = ({ index }: { index: number }) => {
+  const pY = useSharedValue(Math.random() * 40 - 20);
+  const pX = useSharedValue(Math.random() * 30 - 15);
+  useEffect(() => {
+    pY.value = withRepeat(
+      withSequence(
+        withTiming(pY.value - 12, { duration: 2000 + index * 400, easing: Easing.inOut(Easing.ease) }),
+        withTiming(pY.value + 12, { duration: 2000 + index * 400, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
+  }, []);
+  const style = useAnimatedStyle(() => ({
+    transform: [{ translateX: pX.value }, { translateY: pY.value }],
+  }));
+  return <Animated.View style={[styles.jarOrbParticle, style]} />;
+};
 
   // Timer Tick Loop for Step 3
   useEffect(() => {
@@ -559,8 +559,8 @@ export default function ObserveTaskScreen() {
                       style={styles.glassJarInner}
                     >
                       {/* Floating Orbs */}
-                      {jarParticles.map((style, idx) => (
-                        <Animated.View key={idx} style={[styles.jarOrbParticle, style]} />
+                      {Array.from({ length: 8 }).map((_, idx) => (
+                        <JarOrbItem key={idx} index={idx} />
                       ))}
                     </LinearGradient>
                   </View>

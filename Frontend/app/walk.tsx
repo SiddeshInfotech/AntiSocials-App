@@ -56,34 +56,37 @@ const VIDEO_PATH = require('../assets/videos/walk_slowly_make_a_video_of_it.mp4'
 
 // --- Reusable Components ---
 
+const ParticleItem = ({ index }: { index: number }) => {
+  const x = useSharedValue(Math.random() * width);
+  const y = useSharedValue(Math.random() * height);
+  
+  useEffect(() => {
+    x.value = withRepeat(withTiming(x.value + (Math.random() * 60 - 30), { duration: 6000 + Math.random() * 4000 }), -1, true);
+    y.value = withRepeat(withTiming(y.value + (Math.random() * 60 - 30), { duration: 6500 + Math.random() * 3500 }), -1, true);
+  }, []);
+
+  const style = useAnimatedStyle(() => ({
+    transform: [{ translateX: x.value }, { translateY: y.value }],
+    opacity: 0.2,
+  }));
+
+  return (
+    <Animated.View 
+      style={[styles.particle, style, { 
+        backgroundColor: index % 2 === 0 ? COLORS.primary : COLORS.secondary,
+        width: 6,
+        height: 6,
+      }]} 
+    />
+  );
+};
+
 const FloatingBackground = () => {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {[...Array(20)].map((_, i) => {
-        const x = useSharedValue(Math.random() * width);
-        const y = useSharedValue(Math.random() * height);
-        
-        useEffect(() => {
-          x.value = withRepeat(withTiming(x.value + (Math.random() * 60 - 30), { duration: 6000 + Math.random() * 4000 }), -1, true);
-          y.value = withRepeat(withTiming(y.value + (Math.random() * 60 - 30), { duration: 6500 + Math.random() * 3500 }), -1, true);
-        }, []);
-
-        const style = useAnimatedStyle(() => ({
-          transform: [{ translateX: x.value }, { translateY: y.value }],
-          opacity: 0.2,
-        }));
-
-        return (
-          <Animated.View 
-            key={i} 
-            style={[styles.particle, style, { 
-              backgroundColor: i % 2 === 0 ? COLORS.primary : COLORS.secondary,
-              width: Math.random() * 6 + 4,
-              height: Math.random() * 6 + 4,
-            }]} 
-          />
-        );
-      })}
+      {Array.from({ length: 20 }).map((_, i) => (
+        <ParticleItem key={i} index={i} />
+      ))}
     </View>
   );
 };
@@ -156,7 +159,7 @@ export default function WalkSlowlyScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (!token) return;
-      const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+      const response = await apiFetch('/api/tasks/complete', {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -169,9 +172,9 @@ export default function WalkSlowlyScreen() {
       const data = await response.json();
       if (response.ok || data.success) {
         setCompleteData({
-          totalPoints: data.totalPoints,
-          streak: data.streak,
-          pointsAdded: data.pointsAdded
+          totalPoints: data.totalPoints ?? data.total_points ?? 100,
+          streak: data.currentStreak ?? data.current_streak ?? data.streak ?? 1,
+          pointsAdded: data.pointsEarned ?? data.points_earned ?? 100
         });
       }
     } catch (e) {

@@ -137,67 +137,86 @@ const triggerHaptic = (type: 'light' | 'medium' | 'success' | 'warning') => {
 // SUB-COMPONENTS
 // ==========================================
 
+const ParticleItem = ({
+  width,
+  height,
+  index,
+  activeColor,
+}: {
+  width: number;
+  height: number;
+  index: number;
+  activeColor?: string;
+}) => {
+  const posX = useSharedValue(Math.random() * width);
+  const posY = useSharedValue(height + Math.random() * 80);
+  const pScale = useSharedValue(Math.random() * 0.5 + 0.3);
+  const pOpacity = useSharedValue(Math.random() * 0.4 + 0.2);
+
+  useEffect(() => {
+    const duration = 12000 + Math.random() * 8000;
+    const delay = Math.random() * 4000;
+
+    posY.value = withRepeat(
+      withSequence(
+        withTiming(height + 20, { duration: delay }),
+        withTiming(-40, { duration, easing: Easing.linear })
+      ),
+      -1,
+      false
+    );
+
+    posX.value = withRepeat(
+      withSequence(
+        withTiming(posX.value + (Math.random() * 30 - 15), {
+          duration: 3500 + Math.random() * 2000,
+          easing: Easing.inOut(Easing.ease),
+        }),
+        withTiming(posX.value - (Math.random() * 30 - 15), {
+          duration: 3500 + Math.random() * 2000,
+          easing: Easing.inOut(Easing.ease),
+        })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  const style = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: posX.value },
+      { translateY: posY.value },
+      { scale: pScale.value },
+    ],
+    opacity: pOpacity.value,
+  }));
+
+  const color = activeColor || (index % 3 === 0 ? COLORS.blue : index % 3 === 1 ? COLORS.purple : COLORS.amber);
+
+  return (
+    <Animated.View
+      style={[
+        styles.ambientParticle,
+        style,
+        { backgroundColor: color },
+      ]}
+    />
+  );
+};
+
 // Ambient Floating Particles
 const FloatingParticles = ({ width, height, count = 22, activeColor }: { width: number; height: number; count?: number; activeColor?: string }) => {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {[...Array(count)].map((_, i) => {
-        const posX = useSharedValue(Math.random() * width);
-        const posY = useSharedValue(height + Math.random() * 80);
-        const pScale = useSharedValue(Math.random() * 0.5 + 0.3);
-        const pOpacity = useSharedValue(Math.random() * 0.4 + 0.2);
-
-        useEffect(() => {
-          const duration = 12000 + Math.random() * 8000;
-          const delay = Math.random() * 4000;
-
-          posY.value = withRepeat(
-            withSequence(
-              withTiming(height + 20, { duration: delay }),
-              withTiming(-40, { duration, easing: Easing.linear })
-            ),
-            -1,
-            false
-          );
-
-          posX.value = withRepeat(
-            withSequence(
-              withTiming(posX.value + (Math.random() * 30 - 15), {
-                duration: 3500 + Math.random() * 2000,
-                easing: Easing.inOut(Easing.ease),
-              }),
-              withTiming(posX.value - (Math.random() * 30 - 15), {
-                duration: 3500 + Math.random() * 2000,
-                easing: Easing.inOut(Easing.ease),
-              })
-            ),
-            -1,
-            true
-          );
-        }, []);
-
-        const style = useAnimatedStyle(() => ({
-          transform: [
-            { translateX: posX.value },
-            { translateY: posY.value },
-            { scale: pScale.value },
-          ],
-          opacity: pOpacity.value,
-        }));
-
-        const color = activeColor || (i % 3 === 0 ? COLORS.blue : i % 3 === 1 ? COLORS.purple : COLORS.amber);
-
-        return (
-          <Animated.View
-            key={i}
-            style={[
-              styles.ambientParticle,
-              style,
-              { backgroundColor: color, shadowColor: color },
-            ]}
-          />
-        );
-      })}
+      {Array.from({ length: count }).map((_, i) => (
+        <ParticleItem
+          key={i}
+          index={i}
+          width={width}
+          height={height}
+          activeColor={activeColor}
+        />
+      ))}
     </View>
   );
 };

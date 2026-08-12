@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch } from '../constants/Api';
 
 /**
  * Redirects to the unified task-success screen.
@@ -12,11 +12,11 @@ export default function HelpCompleteScreen() {
 
   useEffect(() => {
     const completeTask = async () => {
-      let pointsData = { pointsAdded: '200', totalPoints: '0', streak: '0' };
+      let pointsData = { pointsEarned: '300', totalPoints: '300', streak: '1' };
       try {
         const token = await SecureStore.getItemAsync('token');
         if (token) {
-          const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+          const response = await apiFetch('/api/tasks/complete', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -26,10 +26,11 @@ export default function HelpCompleteScreen() {
           });
           const data = await response.json();
           if (response.ok || data.success) {
+            const pts = (data.pointsEarned ?? data.points_earned ?? data.pointsAdded ?? 300);
             pointsData = { 
-              pointsAdded: data.pointsAdded?.toString() || "200", 
-              totalPoints: data.totalPoints?.toString() || "0",
-              streak: data.streak?.toString() || "0"
+              pointsEarned: pts > 0 ? pts.toString() : "300", 
+              totalPoints: (data.totalPoints ?? data.total_points ?? 300).toString(),
+              streak: (data.currentStreak ?? data.current_streak ?? data.streak ?? 1).toString()
             };
           }
         }
@@ -40,9 +41,12 @@ export default function HelpCompleteScreen() {
       router.replace({
         pathname: '/task-success',
         params: {
-          points: pointsData.pointsAdded,
+          pointsEarned: pointsData.pointsEarned,
+          points: pointsData.pointsEarned,
           totalPoints: pointsData.totalPoints,
-          streak: pointsData.streak
+          streak: pointsData.streak,
+          difficulty: 'medium',
+          taskName: 'Help someone offline'
         }
       } as any);
     };

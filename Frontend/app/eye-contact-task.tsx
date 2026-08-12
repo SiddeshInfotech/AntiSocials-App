@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as SecureStore from 'expo-secure-store';
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch, API_BASE_URL } from '../constants/Api';
 import { Feather, Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
@@ -241,7 +241,7 @@ export default function EyeContactTaskScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
-        await fetch(`${API_BASE_URL}/api/tasks/start`, {
+        await apiFetch('/api/tasks/start', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({ task_name: 'Make Eye Contact Once' })
@@ -264,7 +264,7 @@ export default function EyeContactTaskScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
-        await fetch(`${API_BASE_URL}/api/tasks/save-eye-contact-confirmation`, {
+        await apiFetch('/api/tasks/save-eye-contact-confirmation', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({
@@ -286,7 +286,7 @@ export default function EyeContactTaskScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
-        await fetch(`${API_BASE_URL}/api/tasks/save-eye-contact-emotion`, {
+        await apiFetch('/api/tasks/save-eye-contact-emotion', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({
@@ -314,7 +314,7 @@ export default function EyeContactTaskScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
-        const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+        const response = await apiFetch('/api/tasks/complete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({
@@ -445,7 +445,7 @@ export default function EyeContactTaskScreen() {
                     <Text style={styles.mediumBadgeText}>⭐ Medium</Text>
                   </View>
                   <View style={[styles.badge, { backgroundColor: 'rgba(180, 83, 9, 0.12)' }]}>
-                    <Text style={[styles.badgeText, { color: '#B45309' }]}>+200 Pts</Text>
+                    <Text style={[styles.badgeText, { color: '#B45309' }]}>+300 Pts</Text>
                   </View>
                   <View style={[styles.badge, { backgroundColor: 'rgba(79, 70, 229, 0.12)' }]}>
                     <Text style={[styles.badgeText, { color: '#4F46E5' }]}>3 Min</Text>

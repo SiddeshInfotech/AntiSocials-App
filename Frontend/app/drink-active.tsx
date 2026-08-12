@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import * as SecureStore from 'expo-secure-store';
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch } from '../constants/Api';
 
 import Animated, {
   useSharedValue,
@@ -153,29 +153,44 @@ export default function DrinkActive() {
         <TouchableOpacity
           style={styles.button}
           onPress={async () => {
-            let pointsData = { pointsAdded: '0', totalPoints: '0', streak: '0' };
+            let pointsData = { pointsEarned: '100', totalPoints: '100', streak: '1', rewardClaimed: 'true' };
             try {
               const token = await SecureStore.getItemAsync('token');
               if (token) {
-                const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+                const response = await apiFetch('/api/tasks/complete', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                   body: JSON.stringify({ task_name: 'Drink a glass of water mindfully' })
                 });
                 const data = await response.json();
+                console.log('📌 [DrinkActive] complete task API response:', data);
                 if (response.ok || data.success) {
+                  const pts = (data.pointsEarned !== undefined && data.pointsEarned !== null)
+                    ? data.pointsEarned
+                    : (data.points_earned !== undefined ? data.points_earned : (data.pointsAdded !== undefined ? data.pointsAdded : (data.rewardClaimed === false ? 0 : 100)));
+                  const total = (data.totalPoints ?? data.total_points ?? 100);
+                  const stk = (data.currentStreak ?? data.current_streak ?? data.streak ?? 1);
                   pointsData = { 
-                    pointsAdded: data.pointsAdded?.toString() || "0", 
-                    totalPoints: data.totalPoints?.toString() || "0",
-                    streak: data.streak?.toString() || "0"
+                    pointsEarned: String(pts), 
+                    totalPoints: String(total),
+                    streak: String(stk),
+                    rewardClaimed: data.rewardClaimed !== false ? 'true' : 'false'
                   };
                 }
               }
-            } catch(e) { console.error(e); }
+            } catch(e) { console.error('❌ [DrinkActive] Complete task error:', e); }
 
             router.replace({ 
               pathname: '/task-success', 
-              params: { points: pointsData.pointsAdded, totalPoints: pointsData.totalPoints, streak: pointsData.streak } 
+              params: { 
+                pointsEarned: pointsData.pointsEarned, 
+                points: pointsData.pointsEarned, 
+                totalPoints: pointsData.totalPoints, 
+                streak: pointsData.streak,
+                difficulty: 'easy',
+                taskName: 'Drink a glass of water mindfully',
+                rewardClaimed: pointsData.rewardClaimed
+              } 
             } as any);
           }}
         >

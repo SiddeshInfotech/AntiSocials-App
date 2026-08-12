@@ -61,7 +61,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Lead a Short Interaction (2–3 Minutes)",
       subtitle: "Gently take the initiative & guide a 2-3 minute interaction",
-      points: "+300 points",
+      points: "+600 points",
       route: "/lead-short-interaction-task",
     },
     {
@@ -69,7 +69,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Welcome a New Participant",
       subtitle: "Help a newcomer feel comfortable & ignite the community light",
-      points: "+300 points",
+      points: "+600 points",
       route: "/welcome-newcomer-task",
     },
     {
@@ -77,7 +77,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Stay 45+ Minutes",
       subtitle: "Gather around the campfire circle & stay present for 45 minutes",
-      points: "+300 points",
+      points: "+600 points",
       route: "/stay-45m-task",
     },
     {
@@ -85,7 +85,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Help Organize Small Part",
       subtitle: "Fulfill one small responsibility at an event & complete the puzzle",
-      points: "+300 points",
+      points: "+600 points",
       route: "/help-organize-task",
     },
     {
@@ -93,7 +93,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Join Local Group (Sports / Hobby)",
       subtitle: "Join a real sports or hobby group & verify with AI photo + GPS",
-      points: "+300 points",
+      points: "+600 points",
       route: "/join-group-activity-task",
     },
     {
@@ -101,7 +101,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "medium",
       title: "Photo Proof (Context-Based)",
       subtitle: "Capture a real social moment & save it to your Journey Album",
-      points: "+200 points",
+      points: "+300 points",
       route: "/photo-proof-task",
     },
     {
@@ -109,7 +109,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Join a Group Event (Verified)",
       subtitle: "Discover live nearby community events & verify 15m presence",
-      points: "+300 points",
+      points: "+600 points",
       route: "/join-event-verified-task",
     },
     {
@@ -125,7 +125,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "medium",
       title: "Grounding Breath",
       subtitle: "5m guided grounding breathing with immersive video",
-      points: "+250 points",
+      points: "+300 points",
       route: "/groundingBreath",
     },
     {
@@ -133,7 +133,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "medium",
       title: "Observe Group Energy",
       subtitle: "Learn to quietly observe the emotional atmosphere around you",
-      points: "+250 points",
+      points: "+300 points",
       route: "/groupEnergy",
     },
     {
@@ -141,7 +141,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Notice Fear",
       subtitle: "Observe and acknowledge fear as a quiet visitor",
-      points: "+250 points",
+      points: "+600 points",
       route: "/fear",
     },
     {
@@ -157,7 +157,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Start Hardest Task",
       subtitle: "Begin with the task you have been avoiding",
-      points: "+300 points",
+      points: "+600 points",
       route: "/hardest",
     },
     {
@@ -173,7 +173,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "easy",
       title: "Observe One Emotion for 5 Minutes",
       subtitle: "Calming 5m timer with cute puppy companion",
-      points: "+10 Coins",
+      points: "+100 points",
       route: "/observe-emotion",
     },
     {
@@ -181,7 +181,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "easy",
       title: "Drink a glass of water mindfully",
       subtitle: "60s timer + confirm",
-      points: "+150 points",
+      points: "+100 points",
       route: "/drink-task",
     },
     {
@@ -189,7 +189,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "easy",
       title: "Eye Rest",
       subtitle: "Give your eyes a short break from screens.",
-      points: "+10 points",
+      points: "+100 points",
       route: "/eye-rest-task",
     },
     {
@@ -197,7 +197,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "medium",
       title: "Sit without phone for 2 minutes",
       subtitle: "Lock-screen mode",
-      points: "+200 points",
+      points: "+300 points",
       route: "/start-task",
     },
     {
@@ -205,7 +205,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "medium",
       title: "Focus on one task (10 min)",
       subtitle: "For the next 10 minutes, focus on only one task.",
-      points: "+20 points",
+      points: "+300 points",
       route: "/focus-task",
     },
     {
@@ -213,7 +213,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "easy",
       title: "Turn off notifications (30 min)",
       subtitle: "Turn off your phone notifications for the next 30 minutes.",
-      points: "+10 points",
+      points: "+100 points",
       route: "/notifications-task",
     },
     {
@@ -221,7 +221,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "easy",
       title: "Observe urge to check phone",
       subtitle: "Simply notice whenever you feel the urge to check your phone.",
-      points: "+10 points",
+      points: "+100 points",
       route: "/observe-task",
     },
     {
@@ -229,7 +229,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "easy",
       title: "Write one distraction",
       subtitle: "Write down the biggest distraction that pulled you away today.",
-      points: "+10 points",
+      points: "+100 points",
       route: "/distraction-task",
     },
     {
@@ -237,7 +237,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "easy",
       title: "Eat one bite consciously",
       subtitle: "Before rushing through your meal, take one bite slowly and mindfully.",
-      points: "+10 points",
+      points: "+100 points",
       route: "/eat-task",
     },
     {
@@ -245,7 +245,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "easy",
       title: "Notice heartbeat",
       subtitle: "Pause for a moment and gently notice your heartbeat.",
-      points: "+10 points",
+      points: "+100 points",
       route: "/heartbeat-task",
     },
     {
@@ -253,7 +253,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "easy",
       title: "Posture check",
       subtitle: "Take a moment to check your posture and align your body.",
-      points: "+10 points",
+      points: "+100 points",
       route: "/posture-task",
     },
     {
@@ -261,7 +261,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "medium",
       title: "Stretch neck & shoulders",
       subtitle: "Animation + timer",
-      points: "+250 points",
+      points: "+300 points",
       route: "/start-exercise",
     },
     {
@@ -269,7 +269,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "medium",
       title: "Calm Breath",
       subtitle: "Slow your mind with a guided breathing rhythm.",
-      points: "+20 points",
+      points: "+300 points",
       route: "/calm-breath-task",
     },
     {
@@ -277,7 +277,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "medium",
       title: "Stay for at Least 15 Minutes",
       subtitle: "Remain comfortably present in a social space",
-      points: "+200 points",
+      points: "+300 points",
       route: "/stay-15m-task",
     },
     {
@@ -285,7 +285,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "medium",
       title: "Observe Group Dynamics",
       subtitle: "Understand natural communication & group rhythm",
-      points: "+200 points",
+      points: "+300 points",
       route: "/social-observer-task",
     },
     {
@@ -293,7 +293,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "medium",
       title: "Location Check-in",
       subtitle: "Physically visit & check in at a social place",
-      points: "+200 points",
+      points: "+300 points",
       route: "/location-checkin-task",
     },
     {
@@ -301,7 +301,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Introduce Yourself (Name + 1 Line)",
       subtitle: "Introduce yourself naturally with name & 1 line",
-      points: "+300 points",
+      points: "+600 points",
       route: "/name-badge-task",
     },
     {
@@ -309,7 +309,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Join a Small Group Activity",
       subtitle: "Comfortably join an existing small group",
-      points: "+300 points",
+      points: "+600 points",
       route: "/join-group-task",
     },
     {
@@ -317,7 +317,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Observe and Regulate Emotions",
       subtitle: "Notice feelings & allow emotional waves to settle",
-      points: "+300 points",
+      points: "+600 points",
       route: "/emotion-tide-task",
     },
     {
@@ -325,7 +325,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Final Reflection (Stage 2)",
       subtitle: "Re-enter the social world. Grand Finale of Stage 2",
-      points: "+300 points",
+      points: "+600 points",
       route: "/stage2-final-task",
     },
     {
@@ -333,7 +333,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Share Something Real About Yourself",
       subtitle: "Reveal one authentic part of who you are",
-      points: "+300 points",
+      points: "+600 points",
       route: "/authenticity-task",
     },
     {
@@ -341,7 +341,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Express Genuine Curiosity",
       subtitle: "Develop genuine interest in another person's world",
-      points: "+300 points",
+      points: "+600 points",
       route: "/curiosity-task",
     },
     {
@@ -349,7 +349,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Initiate Conversation Naturally",
       subtitle: "Recognize & welcome organic conversation moments",
-      points: "+300 points",
+      points: "+600 points",
       route: "/initiate-naturally-task",
     },
     {
@@ -357,7 +357,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "No Escape Behavior (Phone Avoidance)",
       subtitle: "5 Min Temptation Lab psychological challenge",
-      points: "+300 points",
+      points: "+600 points",
       route: "/no-escape-task",
     },
     {
@@ -365,7 +365,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Initiate Conversation in Unfamiliar Setting",
       subtitle: "Confidently start one genuine conversation in an unfamiliar environment.",
-      points: "+300 points",
+      points: "+600 points",
       route: "/unfamiliar-setting-task",
     },
     {
@@ -373,7 +373,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Ask Meaningful Question",
       subtitle: "Ask one thoughtful open-ended question that unlocks a deeper story.",
-      points: "+300 points",
+      points: "+600 points",
       route: "/ask-meaningful-question-task",
     },
     {
@@ -381,7 +381,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Ask Someone About Their Day",
       subtitle: "Genuinely ask someone about their day & listen with empathy.",
-      points: "+300 points",
+      points: "+600 points",
       route: "/ask-about-day-task",
     },
     {
@@ -389,7 +389,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Observe Inner Fear",
       subtitle: "Stop running from fear & observe it with quiet awareness.",
-      points: "+300 points",
+      points: "+600 points",
       route: "/observe-fear-task",
     },
     {
@@ -397,7 +397,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Share Something Personal",
       subtitle: "Gently share one small genuine personal story with someone you trust.",
-      points: "+300 points",
+      points: "+600 points",
       route: "/share-personal-task",
     },
     {
@@ -405,7 +405,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Handle Awkward Silence",
       subtitle: "Experience natural silence in conversation without trying to escape it.",
-      points: "+300 points",
+      points: "+600 points",
       route: "/handle-silence-task",
     },
     {
@@ -413,7 +413,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Share Honest Opinion",
       subtitle: "Express your genuine perspective respectfully and authentically.",
-      points: "+300 points",
+      points: "+600 points",
       route: "/share-honest-opinion-task",
     },
     {
@@ -421,7 +421,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Hold Conversation (5 Minutes)",
       subtitle: "Comfortably maintain a meaningful conversation for 5 minutes.",
-      points: "+300 points",
+      points: "+600 points",
       route: "/hold-conversation-5min-task",
     },
     {
@@ -429,7 +429,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Talk to 2 New People",
       subtitle: "Step outside your comfort zone and connect with 2 new people.",
-      points: "+300 points",
+      points: "+600 points",
       route: "/talk-to-2-new-people-task",
     },
     {
@@ -437,7 +437,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Initiate Short Conversation",
       subtitle: "Start & naturally continue a short conversation (30–90s).",
-      points: "+300 points",
+      points: "+600 points",
       route: "/initiate-short-conversation-task",
     },
     {
@@ -445,7 +445,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Compliment Someone",
       subtitle: "Discover hidden value in people & express genuine appreciation.",
-      points: "+300 points",
+      points: "+600 points",
       route: "/compliment-someone-task",
     },
     {
@@ -453,7 +453,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Courage Unlock",
       subtitle: "Face a fear and unlock a stronger version of yourself.",
-      points: "+300 points",
+      points: "+600 points",
       route: "/courage-unlock-task",
     },
     {
@@ -461,7 +461,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Reflect on 21 Days",
       subtitle: "Pause and look back on your growth across 21 days.",
-      points: "+300 points",
+      points: "+600 points",
       route: "/reflection-milestone-task",
     },
     {
@@ -469,7 +469,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Write 3 Internal Changes",
       subtitle: "Discover how you've changed from within.",
-      points: "+300 points",
+      points: "+600 points",
       route: "/evolution-task",
     },
     {
@@ -477,7 +477,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Thank Yourself",
       subtitle: "Take a quiet moment to recognize your effort.",
-      points: "+300 points",
+      points: "+600 points",
       route: "/thank-yourself-task",
     },
     {
@@ -485,7 +485,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Share Insight",
       subtitle: "Choose one lesson learned and share it.",
-      points: "+300 points",
+      points: "+600 points",
       route: "/share-insight-task",
     },
     {
@@ -493,7 +493,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Commit to Habit",
       subtitle: "Make a serious promise to your future self.",
-      points: "+300 points",
+      points: "+600 points",
       route: "/commitment-task",
     },
     {
@@ -501,7 +501,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Life Path Unlock",
       subtitle: "Unlock the next chapter of your growth journey.",
-      points: "+300 points",
+      points: "+600 points",
       route: "/finale-task",
     },
     {
@@ -509,7 +509,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "easy",
       title: "Look outside for 2 minutes",
       subtitle: "Timer",
-      points: "+150 points",
+      points: "+100 points",
       route: "/outside-task",
     },
     {
@@ -517,7 +517,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "medium",
       title: "Gratitude for Body",
       subtitle: "Premium body appreciation journey",
-      points: "+500 points",
+      points: "+300 points",
       route: "/gratitude",
     },
     {
@@ -534,7 +534,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "easy",
       title: "Confirm Presence",
       subtitle: "Pause for a moment and notice where you are.",
-      points: "+10 points",
+      points: "+100 points",
       route: "/confirm-presence-task",
     },
     {
@@ -542,7 +542,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "medium",
       title: "Silent Sitting",
       subtitle: "Find a quiet place and sit comfortably.",
-      points: "+20 points",
+      points: "+300 points",
       route: "/stillness",
     },
     {
@@ -550,7 +550,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "medium",
       title: "Reflect on Week",
       subtitle: "Review your week and plan ahead.",
-      points: "+500 points",
+      points: "+300 points",
       route: "/reflect",
     },
     {
@@ -558,7 +558,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "easy",
       title: "Write 3 Learnings",
       subtitle: "Reflect on today's lessons and grow your Wisdom Tree",
-      points: "+300 points",
+      points: "+100 points",
       route: "/learning2",
     },
     {
@@ -566,7 +566,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "medium",
       title: "No Media",
       subtitle: "Take a one-hour break from all forms of digital media.",
-      points: "+20 points",
+      points: "+300 points",
       route: "/no-media-task",
     },
     {
@@ -582,7 +582,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "medium",
       title: "Call an old friend",
       subtitle: "Reconnect with someone meaningful",
-      points: "+400 points",
+      points: "+300 points",
       route: "/call-friend",
     },
     {
@@ -590,7 +590,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "medium",
       title: "Say Hello to 2 People",
       subtitle: "Greet 2 people & reflect",
-      points: "+200 points",
+      points: "+300 points",
       route: "/say-hello-task",
     },
     {
@@ -598,7 +598,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "medium",
       title: "Say Hello to 3 People",
       subtitle: "Greet 3 people & reflect",
-      points: "+200 points",
+      points: "+300 points",
       route: "/say-hello-to-3-people-task",
     },
     {
@@ -606,7 +606,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "medium",
       title: "Send a Thoughtful Message",
       subtitle: "Write a heartfelt message & reflect",
-      points: "+200 points",
+      points: "+300 points",
       route: "/thoughtful-message-task",
     },
     {
@@ -614,7 +614,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "medium",
       title: "Walk Outside for 10 Minutes",
       subtitle: "Stepping outside walk & reflection",
-      points: "+200 points",
+      points: "+300 points",
       route: "/walk-outside-task",
     },
     {
@@ -622,7 +622,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "medium",
       title: "Make Eye Contact Once",
       subtitle: "Connect with eyes & reflect",
-      points: "+200 points",
+      points: "+300 points",
       route: "/eye-contact-task",
     },
     {
@@ -630,7 +630,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "medium",
       title: "Eat One Meal Without Phone",
       subtitle: "Mindful eating experience",
-      points: "+200 points",
+      points: "+300 points",
       route: "/eat-meal-task",
     },
     {
@@ -638,7 +638,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "medium",
       title: "Message Someone You Know",
       subtitle: "Send a heartfelt message",
-      points: "+200 points",
+      points: "+300 points",
       route: "/message-task",
     },
     {
@@ -646,7 +646,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "medium",
       title: "Sit Near People",
       subtitle: "Be present in a shared space",
-      points: "+200 points",
+      points: "+300 points",
       route: "/sit-near-people-task",
     },
     {
@@ -654,7 +654,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "medium",
       title: "Reflection: How Did It Feel?",
       subtitle: "Observe and reflect on experience",
-      points: "+200 points",
+      points: "+300 points",
       route: "/reflection-feel-task",
     },
     {
@@ -662,7 +662,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "medium",
       title: "Spend 20 minutes offline with someone",
       subtitle: "Be present with a real person",
-      points: "+500 points",
+      points: "+300 points",
       route: "/ask",
     },
     {
@@ -670,7 +670,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Today's Connection",
       subtitle: "A premium 6-step cinematic conversation journey",
-      points: "+500 points",
+      points: "+600 points",
       route: "/ask",
     },
     {
@@ -678,7 +678,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "medium",
       title: "Encourage Self-Talk",
       subtitle: "Choose positive words and encourage yourself.",
-      points: "+200 points",
+      points: "+300 points",
       route: "/self-talk-task",
     },
     {
@@ -686,7 +686,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "medium",
       title: "Write Courage Moment",
       subtitle: "Write about a moment you showed courage and reflect.",
-      points: "+200 points",
+      points: "+300 points",
       route: "/courage-task",
     },
     {
@@ -694,7 +694,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Ask Someone a Simple Question",
       subtitle: "Ask a simple question & reflect",
-      points: "+300 points",
+      points: "+600 points",
       route: "/ask-question-task",
     },
     {
@@ -702,7 +702,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Initiate 2 Conversations",
       subtitle: "Start 2 real conversations with 2 people",
-      points: "+300 points",
+      points: "+600 points",
       route: "/initiate-conversations-task",
     },
     {
@@ -710,7 +710,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Stay in Social Space (15 Minutes)",
       subtitle: "Remain present in public space for 15 mins",
-      points: "+300 points",
+      points: "+600 points",
       route: "/stay-in-social-space-task",
     },
     {
@@ -718,7 +718,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Sit with Someone for 5 Minutes",
       subtitle: "Share quiet space together & reflect",
-      points: "+300 points",
+      points: "+600 points",
       route: "/presence-task",
     },
     {
@@ -726,15 +726,15 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "medium",
       title: "Walk Slowly",
       subtitle: "Mindful 10m walking journey with calming video",
-      points: "+400 points",
+      points: "+300 points",
       route: "/walk",
     },
     {
       emoji: "🧘",
-      difficulty: "beginner",
+      difficulty: "easy",
       title: "Morning Stretch",
       subtitle: "Wake your body gently with 5 mindful exercises",
-      points: "+500 points",
+      points: "+100 points",
       route: "/stretch",
     },
     {
@@ -742,7 +742,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "medium",
       title: "Replace One Negative Thought",
       subtitle: "Transform a limiting belief into a powerful mindset",
-      points: "+600 points",
+      points: "+300 points",
       route: "/negativeThought",
     },
     {
@@ -750,7 +750,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "medium",
       title: "Observe Thoughts",
       subtitle: "Relax, observe your thoughts, and find mental calm",
-      points: "+500 points",
+      points: "+300 points",
       route: "/positiveThought",
     },
     {
@@ -758,7 +758,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "medium",
       title: "Silence Mind",
       subtitle: "Watch every thought drift away like a leaf in the wind",
-      points: "+500 points",
+      points: "+300 points",
       route: "/silent",
     },
     {
@@ -766,7 +766,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "medium",
       title: "Write Recurring Thought",
       subtitle: "Pen down persistent thoughts to uncover supportive AI insights",
-      points: "+500 points",
+      points: "+300 points",
       route: "/recurringThought",
     },
     {
@@ -774,7 +774,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "medium",
       title: "Label a Thought",
       subtitle: "Name and categorise your thoughts to establish mindful spacing",
-      points: "+500 points",
+      points: "+300 points",
       route: "/label",
     },
     {
@@ -782,7 +782,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "medium",
       title: "Brain vs Camera",
       subtitle: "Separate objective observation facts from narrative brain stories",
-      points: "+500 points",
+      points: "+300 points",
       route: "/imagnimation",
     },
     {
@@ -798,7 +798,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Meet one friend in real life",
       subtitle: "A walk, a coffee — in person counts.",
-      points: "+700 points",
+      points: "+600 points",
       route: "/meet-task",
     },
     {
@@ -806,7 +806,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Help someone offline",
       subtitle: "Uplift",
-      points: "+200 points",
+      points: "+600 points",
       route: "/help-intro",
     },
     {
@@ -814,7 +814,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Volunteer for 1 hour",
       subtitle: "Dedicate",
-      points: "+200 points",
+      points: "+600 points",
       route: "/volunteer-interest",
     },
     {
@@ -822,7 +822,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Do One Uncomfortable Thing",
       subtitle: "Growth happens outside your comfort zone.",
-      points: "+30 points",
+      points: "+600 points",
       route: "/uncomfortable-task",
     },
     {
@@ -830,7 +830,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Sit with Discomfort",
       subtitle: "Instead of reaching for your phone, sit with whatever you're feeling.",
-      points: "+300 points",
+      points: "+600 points",
       route: "/discomfort-task",
     },
     {
@@ -838,23 +838,23 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       difficulty: "hard",
       title: "Observe Fear Response",
       subtitle: "Fear is a natural emotion. Instead of reacting immediately, learn to observe it.",
-      points: "+300 points",
+      points: "+600 points",
       route: "/fear-task",
     },
     {
       emoji: "🌍",
-      difficulty: "ultra",
+      difficulty: "hard",
       title: "Organise a cleanup drive",
       subtitle: "Local Impact",
-      points: "+1000 points",
+      points: "+600 points",
       route: "/cleanup-task",
     },
     {
       emoji: "🚗",
-      difficulty: "ultra",
+      difficulty: "hard",
       title: "Plan one day group trip",
       subtitle: "Adventure Time",
-      points: "+1200 points",
+      points: "+600 points",
       route: "/group-trip",
     },
   ];
@@ -1084,7 +1084,28 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
       </View>
       <View style={styles.tasksListContainer}>
         {visibleTasks.map((task, idx) => {
-          const isCompleted = completedTasks.includes(task.title);
+          const isCompleted = Array.isArray(completedTasks) && completedTasks.some(
+            (t) => {
+              if (!t) return false;
+              const ct = String(t).toLowerCase().trim();
+              const tt = String(task.title).toLowerCase().trim();
+              return ct === tt ||
+                (ct.includes("drink") && tt.includes("drink")) ||
+                (ct.includes("water") && tt.includes("water")) ||
+                (ct.includes("grounding") && tt.includes("grounding")) ||
+                (ct.includes("breathe") && tt.includes("breathe") && !tt.includes("grounding") && !ct.includes("grounding")) ||
+                (ct.includes("stretch") && tt.includes("stretch")) ||
+                (ct.includes("smile") && tt.includes("smile")) ||
+                (ct.includes("silent") && tt.includes("silent")) ||
+                (ct.includes("reflect") && tt.includes("reflect")) ||
+                (ct.includes("courage") && tt.includes("courage")) ||
+                (ct.includes("fear") && tt.includes("fear")) ||
+                (ct.includes("distraction") && tt.includes("distraction")) ||
+                (ct.includes("eye") && tt.includes("eye")) ||
+                (ct.includes("rest") && tt.includes("rest")) ||
+                (ct.includes("walk") && tt.includes("walk"));
+            }
+          );
           const level = (task.difficulty || "").toString().toLowerCase().trim();
           const isHard = level === "hard";
           const isMedium = level === "medium";
@@ -1155,52 +1176,23 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
                   end={{ x: 1, y: 1 }}
                   style={[styles.taskCard, styles.mediumTaskCard]}
                 >
-                  <Text style={styles.taskEmoji}>{task.emoji}</Text>
-                  <View style={styles.taskCardContent}>
-                    <View style={styles.cardHeaderRow}>
-                      <View style={[styles.difficultyPill, styles.mediumDifficultyPill]}>
-                        <Text style={[styles.difficultyText, styles.mediumDifficultyText]}>
-                          ⚡ {task.difficulty.toUpperCase()}
-                        </Text>
-                      </View>
-                      <View style={styles.mediumBadgeRight}>
-                        <Feather name="award" size={11} color="#ca8a04" />
-                        <Text style={styles.mediumPointsText}>{task.points}</Text>
-                      </View>
-                    </View>
-                    <Text style={styles.taskTitle}>{task.title}</Text>
-                    <Text style={styles.taskSubtitle}>{task.subtitle}</Text>
-                    <View style={styles.taskBottomRow}>
-                      <Text style={styles.mediumDurationText}>
-                        🕒 {task.title.includes("10 min") || task.title === "Do One Uncomfortable Thing" ? "10 min" : task.subtitle.includes("hour") || task.title.includes("hour") ? "1 hour" : "Flexible"}
-                      </Text>
-                    </View>
-                  </View>
-                </LinearGradient>
-              ) : (
-                <View style={[styles.taskCard, isCompleted && { opacity: 0.6, backgroundColor: '#f9fafb' }]}>
-                  <Text style={styles.taskEmoji}>{task.emoji}</Text>
-                  <View style={styles.taskCardContent}>
-                    <View
-                      style={[
-                        styles.difficultyPill,
-                        { backgroundColor: badgeBgColor },
+                        isCompleted ? { backgroundColor: '#dcfce7' } : { backgroundColor: badgeBgColor },
                       ]}
                     >
                       <Text
                         style={[
                           styles.difficultyText,
-                          { color: badgeTextColor },
+                          isCompleted ? { color: '#16a34a' } : { color: badgeTextColor },
                         ]}
                       >
-                        {task.difficulty}
+                        {isCompleted ? "COMPLETED" : task.difficulty}
                       </Text>
                     </View>
-                    <Text style={[styles.taskTitle, isCompleted && { textDecorationLine: 'line-through', color: '#9ca3af' }]}>{task.title}</Text>
+                    <Text style={[styles.taskTitle, isCompleted && { color: '#15803d', fontWeight: 'bold' }]}>{task.title}</Text>
                     <Text style={styles.taskSubtitle}>{task.subtitle}</Text>
                     <View style={styles.taskBottomRow}>
                       <Text style={[styles.taskPoints, isCompleted && { color: '#16a34a', fontWeight: 'bold' }]}>
-                        {isCompleted ? "✓ Completed" : task.points}
+                        {isCompleted ? "✅ Completed" : task.points}
                       </Text>
                       {!task.route && !isCompleted && (
                         <View style={styles.comingSoonBadge}>

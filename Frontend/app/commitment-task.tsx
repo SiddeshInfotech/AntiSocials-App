@@ -23,7 +23,7 @@ import * as Haptics from 'expo-haptics';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Path } from 'react-native-svg';
 import { StatusBar } from 'expo-status-bar';
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch, API_BASE_URL } from '../constants/Api';
 
 const { width, height } = Dimensions.get('window');
 const TIMER_DURATION = 10 * 60; // 10 minutes (600 seconds)
@@ -203,7 +203,7 @@ export default function CommitmentTaskScreen() {
     setIsLoading(true);
     try {
       const token = await SecureStore.getItemAsync('token');
-      const res = await fetch(`${API_BASE_URL}/api/tasks/commitment/save-habit`, {
+      const res = await apiFetch('/api/tasks/commitment/save-habit', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -253,7 +253,7 @@ export default function CommitmentTaskScreen() {
     setIsLoading(true);
     try {
       const token = await SecureStore.getItemAsync('token');
-      const res = await fetch(`${API_BASE_URL}/api/tasks/commitment/save-contract`, {
+      const res = await apiFetch('/api/tasks/commitment/save-contract', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -290,7 +290,7 @@ export default function CommitmentTaskScreen() {
     setIsLoading(true);
     try {
       const token = await SecureStore.getItemAsync('token');
-      const res = await fetch(`${API_BASE_URL}/api/tasks/commitment/save-milestone`, {
+      const res = await apiFetch('/api/tasks/commitment/save-milestone', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -399,7 +399,7 @@ export default function CommitmentTaskScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
-        const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+        const response = await apiFetch('/api/tasks/complete', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -432,7 +432,7 @@ export default function CommitmentTaskScreen() {
     setIsLoading(true);
     try {
       const token = await SecureStore.getItemAsync('token');
-      await fetch(`${API_BASE_URL}/api/tasks/start`, {
+      await apiFetch('/api/tasks/start', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1002,7 +1002,7 @@ export default function CommitmentTaskScreen() {
                     style={styles.actionButton}
                   >
                     <Text style={styles.actionBtnText}>
-                      {isLoading ? 'LOCKING IN VAULT...' : 'COMPLETE TASK (+300 PTS)'}
+                      {isLoading ? 'LOCKING IN VAULT...' : 'COMPLETE TASK (+600 PTS)'}
                     </Text>
                   </LinearGradient>
                 </TouchableOpacity>

@@ -17,7 +17,7 @@ import * as SecureStore from 'expo-secure-store';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch, API_BASE_URL } from '../constants/Api';
 
 const { width, height } = Dimensions.get('window');
 const TOTAL_DURATION = 180; // 3 minutes = 180 seconds
@@ -237,7 +237,7 @@ export default function NameBadgeTaskScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
-        await fetch(`${API_BASE_URL}/api/tasks/name-badge/save-progress`, {
+        await apiFetch('/api/tasks/name-badge/save-progress', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -262,7 +262,7 @@ export default function NameBadgeTaskScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
-        const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+        const response = await apiFetch('/api/tasks/complete', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -669,7 +669,7 @@ export default function NameBadgeTaskScreen() {
                   style={styles.claimBtnGradient}
                 >
                   <Text style={styles.claimBtnText}>
-                    {isLoading ? 'CLAIMING...' : 'CLAIM REWARD (+300 PTS)'}
+                    {isLoading ? 'CLAIMING...' : 'CLAIM REWARD (+600 PTS)'}
                   </Text>
                 </LinearGradient>
               </TouchableOpacity>

@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as SecureStore from 'expo-secure-store';
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch, API_BASE_URL } from '../constants/Api';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
@@ -230,7 +230,7 @@ export default function EatMealTaskScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
-        await fetch(`${API_BASE_URL}/api/tasks/start`, {
+        await apiFetch('/api/tasks/start', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({ task_name: 'Eat One Meal Without Phone' })
@@ -277,7 +277,7 @@ export default function EatMealTaskScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
-        await fetch(`${API_BASE_URL}/api/tasks/save-eat-prep`, {
+        await apiFetch('/api/tasks/save-eat-prep', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({
@@ -318,7 +318,7 @@ export default function EatMealTaskScreen() {
       try {
         const token = await SecureStore.getItemAsync('token');
         if (token) {
-          await fetch(`${API_BASE_URL}/api/tasks/save-eat-guide`, {
+          await apiFetch('/api/tasks/save-eat-guide', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
             body: JSON.stringify({
@@ -344,7 +344,7 @@ export default function EatMealTaskScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
-        const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+        const response = await apiFetch('/api/tasks/complete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({
@@ -478,7 +478,7 @@ export default function EatMealTaskScreen() {
                     <Text style={styles.mediumBadgeText}>⭐ Medium</Text>
                   </View>
                   <View style={[styles.badge, { backgroundColor: 'rgba(234, 88, 12, 0.12)' }]}>
-                    <Text style={[styles.badgeText, { color: '#EA580C' }]}>+200 Pts</Text>
+                    <Text style={[styles.badgeText, { color: '#EA580C' }]}>+300 Pts</Text>
                   </View>
                   <View style={[styles.badge, { backgroundColor: 'rgba(79, 70, 229, 0.12)' }]}>
                     <Text style={[styles.badgeText, { color: '#4F46E5' }]}>20 Min</Text>

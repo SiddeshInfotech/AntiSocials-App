@@ -33,7 +33,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch, API_BASE_URL } from '../constants/Api';
 import { Alert } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
@@ -60,35 +60,38 @@ const ASSETS = {
 
 // --- Reusable Premium Components ---
 
+const ParticleItem = ({ index }: { index: number }) => {
+  const x = useSharedValue(Math.random() * width);
+  const y = useSharedValue(Math.random() * height);
+  const opacity = useSharedValue(Math.random() * 0.4 + 0.1);
+  
+  useEffect(() => {
+    x.value = withRepeat(withTiming(x.value + (Math.random() * 40 - 20), { duration: 5000 + Math.random() * 5000 }), -1, true);
+    y.value = withRepeat(withTiming(y.value + (Math.random() * 40 - 20), { duration: 5000 + Math.random() * 5000 }), -1, true);
+  }, []);
+
+  const style = useAnimatedStyle(() => ({
+    transform: [{ translateX: x.value }, { translateY: y.value }],
+    opacity: opacity.value,
+  }));
+
+  return (
+    <Animated.View 
+      style={[styles.particle, style, { 
+        backgroundColor: index % 2 === 0 ? COLORS.accent : COLORS.primary,
+        width: 3,
+        height: 3,
+      }]} 
+    />
+  );
+};
+
 const FloatingParticles = () => {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {[...Array(40)].map((_, i) => {
-        const x = useSharedValue(Math.random() * width);
-        const y = useSharedValue(Math.random() * height);
-        const opacity = useSharedValue(Math.random() * 0.4 + 0.1);
-        
-        useEffect(() => {
-          x.value = withRepeat(withTiming(x.value + (Math.random() * 40 - 20), { duration: 5000 + Math.random() * 5000 }), -1, true);
-          y.value = withRepeat(withTiming(y.value + (Math.random() * 40 - 20), { duration: 5000 + Math.random() * 5000 }), -1, true);
-        }, []);
-
-        const style = useAnimatedStyle(() => ({
-          transform: [{ translateX: x.value }, { translateY: y.value }],
-          opacity: opacity.value,
-        }));
-
-        return (
-          <Animated.View 
-            key={i} 
-            style={[styles.particle, style, { 
-              backgroundColor: Math.random() > 0.5 ? COLORS.accent : COLORS.primary,
-              width: Math.random() * 3 + 1,
-              height: Math.random() * 3 + 1,
-            }]} 
-          />
-        );
-      })}
+      {Array.from({ length: 40 }).map((_, i) => (
+        <ParticleItem key={i} index={i} />
+      ))}
     </View>
   );
 };
@@ -420,7 +423,7 @@ export default function GratitudeScreen() {
     
     try {
       const token = await SecureStore.getItemAsync('token');
-      const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+      const response = await apiFetch('/api/tasks/complete', {
         method: 'POST', 
         headers: {
           'Content-Type': 'application/json',

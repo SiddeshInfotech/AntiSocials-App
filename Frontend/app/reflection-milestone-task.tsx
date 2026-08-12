@@ -22,7 +22,7 @@ import * as Haptics from 'expo-haptics';
 import { Audio } from 'expo-av';
 import { Feather, Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch, API_BASE_URL } from '../constants/Api';
 
 const { width, height } = Dimensions.get('window');
 const TIMER_DURATION = 15 * 60; // 15 minutes (900 seconds)
@@ -369,7 +369,7 @@ export default function ReflectionMilestoneTaskScreen() {
         type: type,
       } as any);
 
-      const res = await fetch(`${API_BASE_URL}/api/tasks/reflection/upload-voice`, {
+      const res = await apiFetch('/api/tasks/reflection/upload-voice', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -411,7 +411,7 @@ export default function ReflectionMilestoneTaskScreen() {
         voice_url: vaultVoiceUrls[idx],
       }));
 
-      const res = await fetch(`${API_BASE_URL}/api/tasks/reflection/save-answers`, {
+      const res = await apiFetch('/api/tasks/reflection/save-answers', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -464,7 +464,7 @@ export default function ReflectionMilestoneTaskScreen() {
       setIsLoading(true);
       try {
         const token = await SecureStore.getItemAsync('token');
-        const res = await fetch(`${API_BASE_URL}/api/tasks/reflection/save-letter`, {
+        const res = await apiFetch('/api/tasks/reflection/save-letter', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -533,7 +533,7 @@ export default function ReflectionMilestoneTaskScreen() {
     setIsLoading(true);
     try {
       const token = await SecureStore.getItemAsync('token');
-      const res = await fetch(`${API_BASE_URL}/api/tasks/reflection/save-qualities`, {
+      const res = await apiFetch('/api/tasks/reflection/save-qualities', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -640,7 +640,7 @@ export default function ReflectionMilestoneTaskScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
-        const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+        const response = await apiFetch('/api/tasks/complete', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -676,7 +676,7 @@ export default function ReflectionMilestoneTaskScreen() {
     setIsLoading(true);
     try {
       const token = await SecureStore.getItemAsync('token');
-      const response = await fetch(`${API_BASE_URL}/api/tasks/start`, {
+      const response = await apiFetch('/api/tasks/start', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
