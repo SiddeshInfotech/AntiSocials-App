@@ -1,9 +1,15 @@
 const db = require('../db');
+const pointsStreakService = require('../services/pointsStreakService');
 
 exports.getProfile = async (req, res) => {
     try {
-        const userId = req.user.id;
+        const userId = parseInt(req.user.id, 10);
         
+        // Fetch stats first
+        const summary = await pointsStreakService.getUserPointsAndStreak(userId);
+        const tasksCompleted = summary.completedCount;
+        const taskPoints = summary.totalPoints;
+
         // Fetch user data
         const userResult = await db.query(
             'SELECT id, username, email, phone_number, profession, about, image_url, created_at, points, pincode, city, state, latitude, longitude FROM users WHERE id = $1', 
@@ -13,23 +19,18 @@ exports.getProfile = async (req, res) => {
         if (userResult.rows.length === 0) {
             return res.status(404).json({ error: 'User not found' });
         }
-        const user = userResult.rows[0];
+        const user = {
+            ...userResult.rows[0],
+            points: taskPoints,
+            streak_count: summary.currentStreak
+        };
 
         // Fetch stats
         const activitiesResult = await db.query('SELECT COUNT(*) FROM activity_participants WHERE user_id = $1', [userId]);
         const activitiesJoined = parseInt(activitiesResult.rows[0].count, 10);
 
-        const tasksResult = await db.query("SELECT COUNT(*) FROM user_tasks WHERE user_id = $1 AND status = 'completed'", [userId]);
-        const tasksCompleted = parseInt(tasksResult.rows[0].count, 10);
-
         const connectionsResult = await db.query('SELECT COUNT(*) FROM user_connections WHERE user_id = $1 OR friend_id = $1', [userId]).catch(() => ({ rows: [{ count: 0 }] }));
         const connections = parseInt(connectionsResult.rows[0]?.count || 0, 10);
-
-        let taskPoints = user.points;
-        if (taskPoints == null) {
-            const pointsResult = await db.query('SELECT COALESCE(SUM(points), 0) as total FROM points_history WHERE user_id = $1', [userId]);
-            taskPoints = parseInt(pointsResult.rows[0].total, 10);
-        }
 
         const storiesResult = await db.query("SELECT COUNT(*) FROM stories WHERE user_id = $1", [userId]);
         const storiesCount = parseInt(storiesResult.rows[0].count, 10);
@@ -39,6 +40,10 @@ exports.getProfile = async (req, res) => {
             tasksCompleted,
             connections,
             taskPoints,
+            totalPoints: taskPoints,
+            total_points: taskPoints,
+            streak: summary.currentStreak,
+            longestStreak: summary.longestStreak,
             storiesCount,
             postsCount: 0 // Placeholder if posts exist in future
         };
@@ -108,18 +113,13 @@ exports.getStats = async (req, res) => {
         const activitiesResult = await db.query('SELECT COUNT(*) FROM activity_participants WHERE user_id = $1', [userId]);
         const activitiesJoined = parseInt(activitiesResult.rows[0].count, 10);
 
-        const tasksResult = await db.query("SELECT COUNT(*) FROM user_tasks WHERE user_id = $1 AND status = 'completed'", [userId]);
-        const tasksCompleted = parseInt(tasksResult.rows[0].count, 10);
+        const summary = await pointsStreakService.getUserPointsAndStreak(userId);
+        const tasksCompleted = summary.completedCount;
 
         const connectionsResult = await db.query('SELECT COUNT(*) FROM user_connections WHERE user_id = $1 OR friend_id = $1', [userId]).catch(() => ({ rows: [{ count: 0 }] }));
         const connections = parseInt(connectionsResult.rows[0]?.count || 0, 10);
 
-        const userResult = await db.query('SELECT points FROM users WHERE id = $1', [userId]);
-        let taskPoints = userResult.rows[0]?.points;
-        if (taskPoints == null) {
-            const pointsResult = await db.query('SELECT COALESCE(SUM(points), 0) as total FROM points_history WHERE user_id = $1', [userId]);
-            taskPoints = parseInt(pointsResult.rows[0].total, 10);
-        }
+        const taskPoints = summary.totalPoints;
 
         const storiesResult = await db.query("SELECT COUNT(*) FROM stories WHERE user_id = $1", [userId]);
         const storiesCount = parseInt(storiesResult.rows[0].count, 10);
@@ -129,6 +129,8 @@ exports.getStats = async (req, res) => {
             tasksCompleted,
             connections,
             taskPoints,
+            streak: summary.currentStreak,
+            longestStreak: summary.longestStreak,
             storiesCount,
             postsCount: 0
         });

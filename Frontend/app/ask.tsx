@@ -32,7 +32,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch, API_BASE_URL } from '../constants/Api';
 import { Alert } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
@@ -115,7 +115,7 @@ export default function AskScreen() {
     
     try {
       const token = await SecureStore.getItemAsync('token');
-      const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+      const response = await apiFetch('/api/tasks/complete', {
         method: 'POST', 
         headers: {
           'Content-Type': 'application/json',

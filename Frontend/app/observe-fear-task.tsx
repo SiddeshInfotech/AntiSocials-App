@@ -14,7 +14,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as SecureStore from 'expo-secure-store';
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch, API_BASE_URL } from '../constants/Api';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
@@ -226,7 +226,7 @@ export default function ObserveFearTaskScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
-        const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+        const response = await apiFetch('/api/tasks/complete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({
@@ -267,7 +267,7 @@ export default function ObserveFearTaskScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
-        await fetch(`${API_BASE_URL}/api/tasks/shadow-room/save-progress`, {
+        await apiFetch('/api/tasks/shadow-room/save-progress', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({
@@ -347,7 +347,7 @@ export default function ObserveFearTaskScreen() {
         <View style={styles.headerTitleBox}>
           <Text style={styles.headerTitle}>Observe Inner Fear</Text>
           <View style={styles.headerTag}>
-            <Text style={styles.headerTagText}>🌑 300 Pts • Hard</Text>
+            <Text style={styles.headerTagText}>🌑 600 Pts • Hard</Text>
           </View>
         </View>
 

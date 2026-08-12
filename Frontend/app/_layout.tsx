@@ -14,7 +14,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <Stack>
+          <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="welcome" options={{ headerShown: false }} />
             <Stack.Screen name="index" options={{ headerShown: false }} />
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -47,8 +47,11 @@ export default function RootLayout() {
             <Stack.Screen name="volunteer-interest" options={{ headerShown: false }} />
             <Stack.Screen name="volunteer-task" options={{ headerShown: false }} />
             <Stack.Screen name="breath-task" options={{ headerShown: false }} />
+            <Stack.Screen name="posture-task" options={{ headerShown: false }} />
+            <Stack.Screen name="posture-check" options={{ headerShown: false }} />
             <Stack.Screen name="groundingBreath" options={{ headerShown: false }} />
             <Stack.Screen name="groupEnergy" options={{ headerShown: false }} />
+            <Stack.Screen name="observeGroupEnergy" options={{ headerShown: false }} />
             <Stack.Screen name="fear" options={{ headerShown: false }} />
             <Stack.Screen name="release" options={{ headerShown: false }} />
             <Stack.Screen name="hardest" options={{ headerShown: false }} />
@@ -59,6 +62,7 @@ export default function RootLayout() {
             <Stack.Screen name="eye-rest-task" options={{ headerShown: false }} />
             <Stack.Screen name="uncomfortable-task" options={{ headerShown: false }} />
             <Stack.Screen name="discomfort-task" options={{ headerShown: false }} />
+            <Stack.Screen name="focus-task" options={{ headerShown: false }} />
             <Stack.Screen name="fear-task" options={{ headerShown: false }} />
             <Stack.Screen name="self-talk-task" options={{ headerShown: false }} />
             <Stack.Screen name="courage-task" options={{ headerShown: false }} />
@@ -102,6 +106,7 @@ export default function RootLayout() {
             <Stack.Screen name="note" options={{ headerShown: false }} />
             <Stack.Screen name="label" options={{ headerShown: false }} />
             <Stack.Screen name="imagnimation" options={{ headerShown: false }} />
+            <Stack.Screen name="distraction-task" options={{ headerShown: false }} />
           </Stack>
           <StatusBar style="dark" />
         </ThemeProvider>

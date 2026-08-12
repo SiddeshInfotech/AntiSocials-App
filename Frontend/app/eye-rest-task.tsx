@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as SecureStore from 'expo-secure-store';
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch, API_BASE_URL } from '../constants/Api';
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 
@@ -139,21 +139,30 @@ export default function EyeRestTaskScreen() {
   const completeTaskBackend = async () => {
     if (isLoading) return;
     setIsLoading(true);
-    let pointsData = { pointsAdded: '0', totalPoints: '0', streak: '0' };
+    let pointsData = { 
+      pointsEarned: '100', 
+      pointsAdded: '100', 
+      totalPoints: '0', 
+      streak: '0',
+      rewardClaimed: 'true'
+    };
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
-        const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+        const response = await apiFetch('/api/tasks/complete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({ task_name: 'Eye Rest' })
         });
         const data = await response.json();
         if (response.ok || data.success) {
+          const earned = (data.pointsEarned !== undefined ? data.pointsEarned : (data.pointsAdded !== undefined ? data.pointsAdded : (data.points_earned !== undefined ? data.points_earned : 100))).toString();
           pointsData = { 
-            pointsAdded: data.pointsAdded?.toString() || "10", 
-            totalPoints: data.totalPoints?.toString() || "0",
-            streak: data.streak?.toString() || "0"
+            pointsEarned: earned,
+            pointsAdded: earned, 
+            totalPoints: (data.totalPoints ?? data.total_points ?? 0).toString(),
+            streak: (data.currentStreak ?? data.streak ?? 0).toString(),
+            rewardClaimed: data.rewardClaimed !== undefined ? String(data.rewardClaimed) : 'true'
           };
         } else {
           Alert.alert("Error", data.error || "Failed to submit task completion");
@@ -171,9 +180,16 @@ export default function EyeRestTaskScreen() {
     router.replace({ 
       pathname: '/task-success', 
       params: { 
-        points: pointsData.pointsAdded, 
+        points: pointsData.pointsEarned || pointsData.pointsAdded, 
+        pointsEarned: pointsData.pointsEarned,
+        pointsAdded: pointsData.pointsAdded,
         totalPoints: pointsData.totalPoints, 
-        streak: pointsData.streak 
+        streak: pointsData.streak,
+        taskName: 'Eye Rest',
+        task_name: 'Eye Rest',
+        difficulty: 'Easy',
+        message: 'You reset your focus.',
+        rewardClaimed: pointsData.rewardClaimed
       } 
     } as any);
   };
@@ -295,7 +311,7 @@ export default function EyeRestTaskScreen() {
                 disabled={isLoading}
               >
                 <Text style={styles.finishButtonText}>
-                  {isLoading ? "Awarding Points..." : "Claim +10 Points"}
+                  {isLoading ? "Awarding Points..." : "Claim +100 Points"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -326,7 +342,7 @@ export default function EyeRestTaskScreen() {
               </View>
               <View style={[styles.badge, styles.badgePoints]}>
                 <Feather name="award" size={14} color="#16a34a" />
-                <Text style={[styles.badgeText, styles.textPoints]}>+10 Pts</Text>
+                <Text style={[styles.badgeText, styles.textPoints]}>+100 Pts</Text>
               </View>
             </View>
 

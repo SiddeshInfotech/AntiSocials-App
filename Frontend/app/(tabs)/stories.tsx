@@ -5,18 +5,25 @@ import { StatusBar } from "expo-status-bar";
 import { useIsFocused } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 import StoryCard, { StoryType } from "../../components/StoryCard";
+import StoryCommentModal from "../../components/StoryCommentModal";
 import * as SecureStore from "expo-secure-store";
-import { API_BASE_URL } from "../../constants/Api";
+import { apiFetch } from "../../constants/Api";
 import { resolveImageUrl } from "../../constants/ImageUtils";
 
 const formatTimeAgo = (dateStr: string) => {
+  if (!dateStr) return "Just now";
   const diff = Date.now() - new Date(dateStr).getTime();
   const hours = Math.floor(diff / (1000 * 60 * 60));
   if (hours < 1) {
     const mins = Math.floor(diff / (1000 * 60));
+    if (mins < 1) return "Just now";
     return `${mins}m ago`;
   }
-  return `${hours}h ago`;
+  if (hours < 24) {
+    return `${hours}h ago`;
+  }
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
 };
 
 export default function StoriesFeed() {
@@ -25,16 +32,31 @@ export default function StoriesFeed() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Comment Modal state
+  const [activeCommentStory, setActiveCommentStory] = useState<StoryType | null>(null);
+  const [commentModalVisible, setCommentModalVisible] = useState<boolean>(false);
+
   const fetchStories = async () => {
     try {
       const token = await SecureStore.getItemAsync("token");
       if (!token) return;
 
-      const response = await fetch(`${API_BASE_URL}/api/stories`, {
+      const response = await apiFetch("/api/stories", {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await response.json();
-      if (response.ok) {
+
+      const text = await response.text();
+      console.log(`[Stories GET /api/stories] Status: ${response.status}`);
+
+      let data: any = {};
+      try {
+        data = JSON.parse(text);
+      } catch (parseErr) {
+        console.error("[Stories JSON Parse Error] Received non-JSON:", text.slice(0, 200));
+        return;
+      }
+
+      if (response.ok && data.stories) {
         const formattedStories: StoryType[] = (data.stories || []).map((s: any) => ({
           id: s.id.toString(),
           user: {
@@ -44,7 +66,12 @@ export default function StoriesFeed() {
           time: formatTimeAgo(s.created_at),
           tag: "Story",
           image: resolveImageUrl(s.media_url),
-          likes: s.view_count || 0,
+          likes: s.likes_count ?? s.view_count ?? 0,
+          likes_count: s.likes_count ?? 0,
+          comments_count: s.comments_count ?? 0,
+          shares_count: s.shares_count ?? 0,
+          isLiked: !!s.is_liked_by_user,
+          is_liked_by_user: !!s.is_liked_by_user,
           caption: s.caption || s.text_content || "",
         }));
         setStories(formattedStories);
@@ -66,6 +93,47 @@ export default function StoriesFeed() {
   const onRefresh = () => {
     setRefreshing(true);
     fetchStories();
+  };
+
+  // Optimistic like handler
+  const handleLikeToggle = (storyId: string, isLiked: boolean, newCount: number) => {
+    setStories((prev) =>
+      prev.map((s) =>
+        s.id === storyId
+          ? {
+              ...s,
+              isLiked,
+              is_liked_by_user: isLiked,
+              likes: newCount,
+              likes_count: newCount,
+            }
+          : s
+      )
+    );
+  };
+
+  // Open comments modal
+  const handleOpenComments = (story: StoryType) => {
+    setActiveCommentStory(story);
+    setCommentModalVisible(true);
+  };
+
+  // Comment count update from modal
+  const handleCommentsCountChange = (storyId: string, newCount: number) => {
+    setStories((prev) =>
+      prev.map((s) =>
+        s.id === storyId ? { ...s, comments_count: newCount } : s
+      )
+    );
+  };
+
+  // Share count update
+  const handleShare = (story: StoryType, newShareCount: number) => {
+    setStories((prev) =>
+      prev.map((s) =>
+        s.id === story.id ? { ...s, shares_count: newShareCount } : s
+      )
+    );
   };
 
   const renderHeader = () => (
@@ -93,7 +161,14 @@ export default function StoriesFeed() {
       <FlatList
         data={stories}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <StoryCard story={item} />}
+        renderItem={({ item }) => (
+          <StoryCard
+            story={item}
+            onLikeToggle={handleLikeToggle}
+            onOpenComments={handleOpenComments}
+            onShare={handleShare}
+          />
+        )}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={renderHeader}
@@ -107,6 +182,19 @@ export default function StoriesFeed() {
             </View>
           ) : null
         }
+      />
+
+      {/* Story Comments Bottom Sheet Modal */}
+      <StoryCommentModal
+        visible={commentModalVisible}
+        storyId={activeCommentStory?.id || null}
+        storyCaption={activeCommentStory?.caption}
+        storyAuthor={activeCommentStory?.user.name}
+        onClose={() => {
+          setCommentModalVisible(false);
+          setActiveCommentStory(null);
+        }}
+        onCommentsCountChange={handleCommentsCountChange}
       />
     </SafeAreaView>
   );
@@ -153,12 +241,13 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     padding: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   emptyText: {
-    color: '#9CA3AF',
+    color: "#9CA3AF",
     fontSize: 16,
-  }
+  },
 });
+
 

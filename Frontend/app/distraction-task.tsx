@@ -1,112 +1,142 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Easing, Dimensions, Pressable, Alert, TextInput, KeyboardAvoidingView, Platform, ScrollView, AppState } from 'react-native';
-import { useRouter } from 'expo-router';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import * as SecureStore from 'expo-secure-store';
-import { API_BASE_URL } from '../constants/Api';
-import { Feather } from '@expo/vector-icons';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  StyleSheet,
+  View,
+  Text,
+  TouchableOpacity,
+  Pressable,
+  TextInput,
+  useWindowDimensions,
+  Platform,
+  Alert,
+  ActivityIndicator,
+  ScrollView,
+  KeyboardAvoidingView,
+} from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withRepeat,
+  withSequence,
+  Easing,
+  FadeIn,
+  FadeOut,
+  ZoomIn,
+} from 'react-native-reanimated';
+import Svg, { Circle, Line, Path } from 'react-native-svg';
+import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import * as Haptics from 'expo-haptics';
+import * as SecureStore from 'expo-secure-store';
+import { API_BASE_URL, apiFetch } from '../constants/Api';
 
-const { width, height } = Dimensions.get('window');
-const TASK_DURATION = 120; // 2 minutes (120 seconds)
+const TASK_DURATION = 60; // 60 seconds observation timer
+
+// Observation options for Screen 2
+const OBSERVATION_OPTIONS = [
+  { id: 'notice', label: 'Notice', icon: 'settings' }, // Ring of dots icon
+  { id: 'observe', label: 'Observe', icon: 'eye' }, // Eye icon
+  { id: 'let_it_be', label: 'Let it be', icon: 'circle' }, // Outline circle icon
+];
 
 export default function DistractionTaskScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  
-  const [isActive, setIsActive] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(TASK_DURATION);
-  const [isCompleted, setIsCompleted] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [distractionText, setDistractionText] = useState("");
+  const { width } = useWindowDimensions();
 
-  // Animations
-  const uiFadeAnim = useRef(new Animated.Value(1)).current;
-  const timerFadeAnim = useRef(new Animated.Value(0)).current;
-  const timerGlowAnim = useRef(new Animated.Value(0.6)).current;
-  const breathAnim = useRef(new Animated.Value(1)).current;
-  const bgShiftAnim = useRef(new Animated.Value(0)).current;
-  
-  // Mascot Floating & Gentle Breathing
-  const mascotFloatAnim = useRef(new Animated.Value(0)).current;
-  const mascotScaleAnim = useRef(new Animated.Value(0.95)).current;
+  // Step state: 1: Intro | 2: Write Your Distraction | 3: Completed
+  const [step, setStep] = useState<1 | 2 | 3>(1);
 
-  // AppState recovery tracking
-  const appState = useRef(AppState.currentState);
+  // Input states
+  const [distractionText, setDistractionText] = useState<string>('');
+  const [selectedOption, setSelectedOption] = useState<string>('observe');
+
+  // Timer states
+  const [isActive, setIsActive] = useState<boolean>(false);
+  const [timeLeft, setTimeLeft] = useState<number>(TASK_DURATION);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  const lastPress = useRef<number>(0);
   const endTimeRef = useRef<number>(0);
 
-  // AppState change listener to handle backgrounding/resuming
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', (nextAppState) => {
-      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
-        // Adjust remaining time based on timestamp
-        if (isActive && !isPaused) {
-          const remaining = Math.max(0, Math.round((endTimeRef.current - Date.now()) / 1000));
-          setTimeLeft(remaining);
-        }
-      }
-      appState.current = nextAppState;
-    });
-
-    return () => {
-      subscription.remove();
-    };
-  }, [isActive, isPaused]);
-
-  // Initial animations
-  useEffect(() => {
-    // Background Breathing
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(breathAnim, { toValue: 1.04, duration: 5000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        Animated.timing(breathAnim, { toValue: 1, duration: 5000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-      ])
-    ).start();
-
-    // Background shift
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(bgShiftAnim, { toValue: 1, duration: 12000, easing: Easing.inOut(Easing.linear), useNativeDriver: true }),
-        Animated.timing(bgShiftAnim, { toValue: 0, duration: 12000, easing: Easing.inOut(Easing.linear), useNativeDriver: true }),
-      ])
-    ).start();
-
-    // Mascot animations (Gentle floating / breathing)
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(mascotFloatAnim, { toValue: -5, duration: 4000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-        Animated.timing(mascotFloatAnim, { toValue: 0, duration: 4000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      ])
-    ).start();
-
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(mascotScaleAnim, { toValue: 1.02, duration: 4000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-        Animated.timing(mascotScaleAnim, { toValue: 0.96, duration: 4000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      ])
-    ).start();
-
-    // Timer Glow Effect
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(timerGlowAnim, { toValue: 1, duration: 2500, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        Animated.timing(timerGlowAnim, { toValue: 0.6, duration: 2500, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-      ])
-    ).start();
+  // Haptic Feedback helper
+  const triggerHaptic = useCallback((type: 'light' | 'medium' | 'success' | 'warning' = 'light') => {
+    if (Platform.OS === 'web') return;
+    try {
+      if (type === 'light') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      else if (type === 'medium') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      else if (type === 'success') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      else if (type === 'warning') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    } catch (e) {}
   }, []);
 
-  // Timer Run Loop
+  // Screen 1 Breathing Circle Animation
+  const breathingScale = useSharedValue(1);
+  const breathingOpacity = useSharedValue(0.7);
+  const orbitingRotation = useSharedValue(0);
+
+  useEffect(() => {
+    breathingScale.value = withRepeat(
+      withSequence(
+        withTiming(1.15, { duration: 3500, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0.92, { duration: 3500, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
+
+    breathingOpacity.value = withRepeat(
+      withSequence(
+        withTiming(0.95, { duration: 3500, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0.5, { duration: 3500, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
+
+    orbitingRotation.value = withRepeat(
+      withTiming(360, { duration: 16000, easing: Easing.linear }),
+      -1,
+      false
+    );
+  }, []);
+
+  const animatedBreathingStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: breathingScale.value }],
+    opacity: breathingOpacity.value,
+  }));
+
+  const animatedOrbitStyle = useAnimatedStyle(() => ({
+    transform: [{ rotateZ: `${orbitingRotation.value}deg` }],
+  }));
+
+  // Screen 3 Sunburst Rays Rotation
+  const sunburstRotation = useSharedValue(0);
+  useEffect(() => {
+    sunburstRotation.value = withRepeat(
+      withTiming(360, { duration: 30000, easing: Easing.linear }),
+      -1,
+      false
+    );
+  }, []);
+
+  const animatedSunburstStyle = useAnimatedStyle(() => ({
+    transform: [{ rotateZ: `${sunburstRotation.value}deg` }],
+  }));
+
+  // 60-Second Timer Tick Loop
   useEffect(() => {
     let timer: ReturnType<typeof setInterval>;
-    if (isActive && !isPaused && timeLeft > 0) {
+    if (step === 2 && isActive && timeLeft > 0) {
       endTimeRef.current = Date.now() + timeLeft * 1000;
       timer = setInterval(() => {
         setTimeLeft((prev) => {
           if (prev <= 1) {
-            setIsCompleted(true);
             setIsActive(false);
+            triggerHaptic('success');
             return 0;
           }
           return prev - 1;
@@ -116,289 +146,382 @@ export default function DistractionTaskScreen() {
     return () => {
       if (timer) clearInterval(timer);
     };
-  }, [isActive, isPaused]);
+  }, [step, isActive, timeLeft]);
 
-  const startTask = () => {
+  const handleStartJourney = () => {
+    triggerHaptic('medium');
+    setStep(2);
     setIsActive(true);
-    // Crossfade details page into timer page
-    Animated.parallel([
-      Animated.timing(uiFadeAnim, {
-        toValue: 0,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.timing(timerFadeAnim, {
-        toValue: 1,
-        duration: 1200,
-        useNativeDriver: true,
-      })
-    ]).start();
   };
 
-  const completeTaskBackend = async () => {
+  const handleNoticeClick = () => {
     if (!distractionText.trim()) {
-      Alert.alert("Response Required", "Please write down your distraction to finish the task.");
+      Alert.alert("Input Required", "Please write down your distraction first.");
       return;
     }
-    
-    if (isLoading) return;
-    setIsLoading(true);
-    let pointsData = { pointsAdded: '0', totalPoints: '0', streak: '0' };
-    try {
-      const token = await SecureStore.getItemAsync('token');
-      if (token) {
-        const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({ 
-            task_name: 'Write one distraction',
-            distraction_text: distractionText.trim()
-          })
-        });
-        const data = await response.json();
-        if (response.ok || data.success) {
-          pointsData = { 
-            pointsAdded: data.pointsAdded?.toString() || "10", 
-            totalPoints: data.totalPoints?.toString() || "0",
-            streak: data.streak?.toString() || "0"
-          };
-        } else {
-          Alert.alert("Error", data.error || "Failed to submit task completion");
-        }
-      } else {
-        Alert.alert("Authorization Error", "No authorization token found. Please log in again.");
-      }
-    } catch(e) { 
-      console.error(e);
-      Alert.alert("Connection Error", "Network request failed. Please check your network connection.");
-    } finally {
-      setIsLoading(false);
-    }
-
-    router.replace({ 
-      pathname: '/task-success', 
-      params: { 
-        points: pointsData.pointsAdded, 
-        totalPoints: pointsData.totalPoints, 
-        streak: pointsData.streak 
-      } 
-    } as any);
+    triggerHaptic('medium');
+    setStep(3);
   };
 
-  const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
-  };
-
-  // Developer testing helper (double click timer to skip to end)
-  const lastPress = useRef(0);
   const handleDevSkip = () => {
     if (__DEV__) {
       const time = Date.now();
       const delta = time - lastPress.current;
       lastPress.current = time;
-      if (delta < 300) {
-        setTimeLeft(3); // Fast forward to 3 seconds remaining
+      if (delta < 350) {
+        triggerHaptic('warning');
+        if (step === 2) setTimeLeft(3);
+        else if (step < 3) setStep((step + 1) as any);
       }
     }
   };
 
+  // Complete Task Backend Integration (REUSING EXISTING ARCHITECTURE)
+  const completeTaskBackend = async () => {
+    if (isLoading) return;
+    setIsLoading(true);
+    triggerHaptic('medium');
+
+    let pointsData = { pointsAdded: '10', totalPoints: '0', streak: '0' };
+    try {
+      const token = await SecureStore.getItemAsync('token');
+      if (token) {
+        const response = await apiFetch('/api/tasks/complete', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            task_name: 'Write one distraction',
+            distraction_text: distractionText.trim(),
+            observation_option: selectedOption,
+          }),
+        });
+        const data = await response.json();
+        if (response.ok || data.success) {
+          pointsData = {
+            pointsAdded: data.pointsAdded?.toString() || '10',
+            totalPoints: data.totalPoints?.toString() || '0',
+            streak: data.streak?.toString() || '0',
+          };
+        }
+      }
+    } catch (e) {
+      console.error('Backend completion error:', e);
+    } finally {
+      setIsLoading(false);
+    }
+
+    router.replace('/(tabs)');
+  };
+
+  const formatTimerDigits = (seconds: number) => {
+    const s = seconds % 60;
+    return `00:${s < 10 ? '0' : ''}${s}`;
+  };
+
+  // Circular Timer calculations for Screen 2
+  const radius = 34;
+  const circumference = 2 * Math.PI * radius;
+  const progressRatio = timeLeft / TASK_DURATION;
+  const strokeDashoffset = circumference * (1 - progressRatio);
+
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
 
-      {/* Alive Breathing Warm/Calming Gradient Background */}
-      <Animated.View style={[StyleSheet.absoluteFillObject, { transform: [{ scale: breathAnim }] }]}>
-        <LinearGradient
-          colors={['#fdfaf7', '#fdf7f2', '#fffdfa']}
-          locations={[0, 0.5, 1]}
-          style={StyleSheet.absoluteFillObject}
-        />
-      </Animated.View>
+      {/* Pure Black Background */}
+      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#000000' }]} />
 
-      <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: bgShiftAnim }]}>
-        <LinearGradient
-          colors={['#faf6f0', '#f7f0e8', '#fdfcf7']}
-          locations={[0, 0.5, 1]}
-          style={StyleSheet.absoluteFillObject}
-        />
-      </Animated.View>
+      {/* Screen Wrapper */}
+      <SafeAreaView style={styles.screenWrapper} edges={['top', 'bottom']}>
+        {/* ========================================================
+            TOP HEADER WITH PROGRESS BAR (1 / 3, 2 / 3, 3 / 3)
+           ======================================================== */}
+        <View style={styles.topHeaderContainer}>
+          <View style={styles.headerBarRow}>
+            <TouchableOpacity
+              style={styles.backCircleBtn}
+              onPress={() => {
+                if (step === 1) router.back();
+                else setStep((step - 1) as any);
+              }}
+              activeOpacity={0.7}
+            >
+              <Feather name="arrow-left" size={18} color="#FFFFFF" />
+            </TouchableOpacity>
 
-      {/* Edge vignette effect */}
-      <View style={styles.vignetteOverlay} pointerEvents="none" />
+            <Text style={styles.stepProgressText}>{step} / 3</Text>
+            <View style={{ width: 36 }} />
+          </View>
 
-      {/* Main Content Safe Area */}
-      <SafeAreaView style={styles.foregroundLayer} edges={['top', 'bottom']}>
-        <KeyboardAvoidingView 
-          style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-        >
-          <ScrollView 
-            contentContainerStyle={styles.scrollContainer}
-            keyboardShouldPersistTaps="handled"
-          >
-            
-            {/* --- Timer View (Active Phase) --- */}
-            <Animated.View 
-            style={[styles.timerCenter, { opacity: timerFadeAnim, display: isActive || isCompleted ? 'flex' : 'none' }]} 
-            pointerEvents={isActive || isCompleted ? 'auto' : 'none'}
-          >
-            {!isCompleted && (
-              <View style={styles.timerContentWrapper}>
-                <Animated.View style={[styles.mascotPulseCircle, { transform: [{ translateY: mascotFloatAnim }, { scale: mascotScaleAnim }] }]}>
-                  <Text style={styles.giantEmoji}>📝</Text>
-                </Animated.View>
+          {/* 3-Segment Progress Bar */}
+          <View style={styles.segmentProgressBarRow}>
+            <View style={[styles.barSegment, step >= 1 ? styles.barActive : styles.barDim]} />
+            <View style={[styles.barSegment, step >= 2 ? styles.barActive : styles.barDim]} />
+            <View style={[styles.barSegment, step >= 3 ? styles.barActive : styles.barDim]} />
+          </View>
+        </View>
 
-                <Pressable onPress={handleDevSkip}>
-                  <Animated.Text style={[styles.timerText, { opacity: timerGlowAnim }]}>
-                    {formatTime(timeLeft)}
-                  </Animated.Text>
-                </Pressable>
+        {/* ========================================================
+            SCREEN 1 — INTRODUCTION
+           ======================================================== */}
+        {step === 1 && (
+          <Animated.View entering={FadeIn.duration(500)} exiting={FadeOut.duration(300)} style={styles.flexContentWrapper}>
+            <View style={styles.screen1TextWrapper}>
+              <Text style={styles.screen1MainTitle}>One Distraction</Text>
+              <View style={styles.titleDividerLine} />
 
-                <Text style={styles.focusSubtitle}>
-                  {isPaused ? "Timer Paused" : "Writing down your distraction..."}
+              <Text style={styles.screen1Subtitle}>
+                In every moment, something tries{"\n"}to pull you away.
+              </Text>
+
+              <Text style={styles.screen1HighlightText}>
+                Today, just notice <Text style={{ fontWeight: '700' }}>one.</Text>
+              </Text>
+
+              <Text style={styles.screen1FooterText}>
+                No judgement.{"\n"}Just awareness.
+              </Text>
+            </View>
+
+            {/* Abstract Awareness Visual */}
+            <View style={styles.heroAbstractContainer}>
+              {/* Flowing Vector Waves background */}
+              <Svg width={280} height={200} viewBox="0 0 280 200" style={StyleSheet.absoluteFillObject}>
+                <Path
+                  d="M0,100 C70,160 140,40 280,100 M0,120 C70,180 140,60 280,120 M0,80 C70,140 140,20 280,80"
+                  stroke="rgba(255, 255, 255, 0.08)"
+                  strokeWidth={1}
+                  fill="none"
+                />
+              </Svg>
+
+              {/* Orbiting Ring with Node Dots */}
+              <Animated.View style={[styles.orbitingRingWrapper, animatedOrbitStyle]}>
+                <Svg width={180} height={180} viewBox="0 0 180 180">
+                  <Circle cx={90} cy={90} r={80} stroke="rgba(255, 255, 255, 0.25)" strokeWidth={1} fill="none" />
+                  <Circle cx={90} cy={10} r={5} stroke="#FFFFFF" strokeWidth={1.5} fill="#000000" />
+                  <Circle cx={170} cy={90} r={5} stroke="#FFFFFF" strokeWidth={1.5} fill="#000000" />
+                  <Circle cx={90} cy={170} r={5} stroke="#FFFFFF" strokeWidth={1.5} fill="#000000" />
+                  <Circle cx={10} cy={90} r={5} stroke="#FFFFFF" strokeWidth={1.5} fill="#000000" />
+                </Svg>
+              </Animated.View>
+
+              {/* Center Breathing Glowing Circle */}
+              <Animated.View style={[styles.breathingCircleCore, animatedBreathingStyle]}>
+                <View style={styles.innerDotCore} />
+              </Animated.View>
+            </View>
+
+            {/* Bottom Action */}
+            <View style={styles.bottomBarArea}>
+              <TouchableOpacity style={styles.primaryWhitePillBtn} onPress={handleStartJourney} activeOpacity={0.88}>
+                <Text style={styles.primaryWhiteBtnText}>Let's Begin</Text>
+              </TouchableOpacity>
+              <View style={styles.pageDotsRow}>
+                <View style={[styles.pageDot, styles.dotActive]} />
+                <View style={styles.pageDot} />
+                <View style={styles.pageDot} />
+              </View>
+            </View>
+          </Animated.View>
+        )}
+
+        {/* ========================================================
+            SCREEN 2 — WRITE YOUR DISTRACTION
+           ======================================================== */}
+        {step === 2 && (
+          <Animated.View entering={FadeIn.duration(500)} exiting={FadeOut.duration(300)} style={styles.flexContentWrapper}>
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+              <ScrollView contentContainerStyle={styles.scrollContentInner} showsVerticalScrollIndicator={false}>
+                {/* Header Title & Question */}
+                <Text style={styles.screen2MainTitle}>One Distraction</Text>
+                <Text style={styles.screen2Question}>
+                  What pulled your attention{"\n"}away just now?
                 </Text>
 
-                <View style={styles.inputContainer}>
+                {/* Writing Glass Card */}
+                <View style={styles.writingGlassCard}>
+                  <View style={styles.editIconBadge}>
+                    <Feather name="edit-2" size={14} color="#FFFFFF" />
+                  </View>
                   <TextInput
-                    style={styles.textInput}
-                    placeholder="Type the distraction that pulled you away today..."
-                    placeholderTextColor="#9ca3af"
+                    style={styles.distractionTextInput}
+                    placeholder="Write it down..."
+                    placeholderTextColor="rgba(255, 255, 255, 0.4)"
                     multiline
-                    numberOfLines={4}
+                    maxLength={100}
                     value={distractionText}
                     onChangeText={setDistractionText}
-                    editable={!isPaused}
+                    autoFocus
                   />
+                  <Text style={styles.charLimitCounter}>{distractionText.length} / 100</Text>
                 </View>
 
-                <View style={styles.timerControlsRow}>
-                  <TouchableOpacity 
-                    style={[styles.controlButton, isPaused ? styles.resumeButton : styles.pauseButton]}
-                    onPress={() => setIsPaused(!isPaused)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={[styles.controlButtonText, isPaused && { color: '#ffffff' }]}>
-                      {isPaused ? "Resume" : "Pause"}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+                {/* Guidance Label */}
+                <Text style={styles.observationGuidanceText}>Take a moment to observe.</Text>
 
-                <TouchableOpacity 
-                  style={styles.abortButton}
-                  onPress={() => {
-                    Alert.alert(
-                      "Abort Task?",
-                      "Are you sure you want to stop? Your progress will be lost.",
-                      [
-                        { text: "Cancel", style: "cancel" },
-                        { 
-                          text: "Abort", 
-                          style: "destructive", 
-                          onPress: () => {
-                            router.back();
-                          } 
-                        }
-                      ]
+                {/* Minimal Icon Buttons */}
+                <View style={styles.observationButtonsRow}>
+                  {OBSERVATION_OPTIONS.map((item) => {
+                    const isSelected = selectedOption === item.id;
+                    return (
+                      <TouchableOpacity
+                        key={item.id}
+                        style={styles.optionColumn}
+                        onPress={() => {
+                          triggerHaptic('light');
+                          setSelectedOption(item.id);
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <View style={[styles.optionIconCircle, isSelected && styles.optionIconSelected]}>
+                          {item.id === 'notice' ? (
+                            <MaterialCommunityIcons name="dots-circle" size={20} color="#FFFFFF" />
+                          ) : item.id === 'observe' ? (
+                            <Feather name="eye" size={20} color="#FFFFFF" />
+                          ) : (
+                            <Feather name="circle" size={20} color="#FFFFFF" />
+                          )}
+                        </View>
+                        <Text style={[styles.optionLabel, isSelected && styles.optionLabelSelected]}>{item.label}</Text>
+                      </TouchableOpacity>
                     );
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.abortButtonText}>Abort Task</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+                  })}
+                </View>
 
-            {isCompleted && (
-              <View style={styles.successContainer}>
-                <Text style={styles.successEmoji}>📝</Text>
-                <Text style={styles.successText}>Awareness increased.</Text>
-                <Text style={styles.successMessage}>Simply acknowledging the distraction helps you become more mindful.</Text>
-                
-                {/* Text feedback check */}
-                {!distractionText.trim() && (
-                  <View style={styles.inputContainer}>
-                    <TextInput
-                      style={styles.textInput}
-                      placeholder="Type the distraction to complete task..."
-                      placeholderTextColor="#9ca3af"
-                      multiline
-                      numberOfLines={4}
-                      value={distractionText}
-                      onChangeText={setDistractionText}
-                    />
+                {/* Thin Divider with Lotus Icon */}
+                <View style={styles.dividerLotusRow}>
+                  <View style={styles.dividerLine} />
+                  <Text style={{ fontSize: 16, marginHorizontal: 12 }}>🪷</Text>
+                  <View style={styles.dividerLine} />
+                </View>
+
+                {/* 60-Second Timer Section */}
+                <View style={styles.timerSectionRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.observeForLabel}>Observe for</Text>
+                    <Text style={styles.secondsValueText}>60 seconds</Text>
                   </View>
-                )}
 
-                <TouchableOpacity 
-                  style={[styles.finishButton, !distractionText.trim() && { opacity: 0.5 }]} 
-                  onPress={completeTaskBackend}
-                  disabled={isLoading || !distractionText.trim()}
-                >
-                  <Text style={styles.finishButtonText}>
-                    {isLoading ? "Awarding Points..." : "Claim +10 Points"}
-                  </Text>
+                  <View style={styles.circularTimerWrapper}>
+                    <Svg width={80} height={80} viewBox="0 0 80 80">
+                      <Circle cx={40} cy={40} r={radius} stroke="rgba(255, 255, 255, 0.15)" strokeWidth={4} fill="transparent" />
+                      <Circle
+                        cx={40}
+                        cy={40}
+                        r={radius}
+                        stroke="#FFFFFF"
+                        strokeWidth={4}
+                        strokeDasharray={`${circumference} ${circumference}`}
+                        strokeDashoffset={strokeDashoffset}
+                        strokeLinecap="round"
+                        fill="transparent"
+                        transform="rotate(-90 40 40)"
+                      />
+                    </Svg>
+                    <Pressable onPress={handleDevSkip} style={styles.timerDigitsCenter}>
+                      <Text style={styles.timerDigitsText}>{formatTimerDigits(timeLeft)}</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              </ScrollView>
+
+              {/* Bottom Action */}
+              <View style={styles.bottomBarArea}>
+                <TouchableOpacity style={styles.primaryWhitePillBtn} onPress={handleNoticeClick} activeOpacity={0.88}>
+                  <Text style={styles.primaryWhiteBtnText}>I noticed it</Text>
                 </TouchableOpacity>
+                <Text style={styles.screen2FooterQuote}>No judgement, just awareness.</Text>
               </View>
-            )}
+            </KeyboardAvoidingView>
           </Animated.View>
+        )}
 
-          {/* --- Onboarding UI (Details Phase) --- */}
-          <Animated.View 
-            style={[styles.uiWrapper, { opacity: uiFadeAnim, display: !isActive && !isCompleted ? 'flex' : 'none' }]} 
-            pointerEvents={!isActive && !isCompleted ? 'auto' : 'none'}
-          >
-            <Animated.View style={[styles.detailsMascotContainer, { transform: [{ translateY: mascotFloatAnim }, { scale: mascotScaleAnim }] }]}>
-              <Text style={styles.heroEmoji}>📝</Text>
-            </Animated.View>
+        {/* ========================================================
+            SCREEN 3 — COMPLETION
+           ======================================================== */}
+        {step === 3 && (
+          <Animated.View entering={FadeIn.duration(600)} style={styles.flexContentWrapper}>
+            <View style={styles.completionCenterContent}>
+              {/* Sunburst Rays Checkmark Hero Visual */}
+              <View style={styles.sunburstHeroWrapper}>
+                <Animated.View style={[StyleSheet.absoluteFillObject, animatedSunburstStyle]}>
+                  <Svg width={180} height={180} viewBox="0 0 180 180">
+                    {Array.from({ length: 12 }).map((_, idx) => {
+                      const angle = (idx * 30 * Math.PI) / 180;
+                      const x1 = 90 + Math.cos(angle) * 62;
+                      const y1 = 90 + Math.sin(angle) * 62;
+                      const x2 = 90 + Math.cos(angle) * 78;
+                      const y2 = 90 + Math.sin(angle) * 78;
+                      return (
+                        <Line key={idx} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(255, 255, 255, 0.4)" strokeWidth={2} />
+                      );
+                    })}
+                  </Svg>
+                </Animated.View>
 
-            <View style={styles.glassPanel}>
-              <Text style={styles.title}>Write one distraction</Text>
-              
-              {/* Badges */}
-              <View style={styles.badgesRow}>
-                <View style={[styles.badge, styles.badgeDuration]}>
-                  <Feather name="clock" size={14} color="#3b82f6" />
-                  <Text style={[styles.badgeText, styles.textDuration]}>2 min</Text>
-                </View>
-                <View style={[styles.badge, styles.badgeDifficulty]}>
-                  <Feather name="bar-chart-2" size={14} color="#16a34a" />
-                  <Text style={[styles.badgeText, styles.textDifficulty]}>Easy</Text>
-                </View>
-                <View style={[styles.badge, styles.badgePoints]}>
-                  <Feather name="award" size={14} color="#16a34a" />
-                  <Text style={[styles.badgeText, styles.textPoints]}>+10 Pts</Text>
-                </View>
+                {/* Checkmark Core Circle */}
+                <Animated.View entering={ZoomIn.duration(600)} style={styles.checkCircleCore}>
+                  <Feather name="check" size={36} color="#FFFFFF" />
+                </Animated.View>
               </View>
 
-              {/* Description Lines */}
-              <View style={styles.descriptionList}>
-                <Text style={styles.descLine}>• Take a moment to write down the biggest distraction that pulled your attention away today.</Text>
-                <Text style={styles.descLine}>• Simply acknowledging the distraction helps you become more mindful and makes it easier to manage similar situations in the future.</Text>
-                <Text style={styles.descLine}>• There is no right or wrong answer—just be honest with yourself.</Text>
+              {/* Title & Message */}
+              <Text style={styles.wellNoticedTitle}>Well Noticed!</Text>
+              <Text style={styles.completionSubMessage}>
+                You stayed aware and observed{"\n"}your distraction.
+              </Text>
+
+              {/* Reward Card */}
+              <View style={styles.rewardGlassCard}>
+                <View style={styles.rewardHeaderRow}>
+                  <Ionicons name="sparkles-outline" size={14} color="#FFFFFF" style={{ marginRight: 6 }} />
+                  <Text style={styles.youEarnedLabel}>You earned</Text>
+                </View>
+                <Text style={styles.pointsValueText}>10 Points</Text>
+                <View style={styles.glowingUnderline} />
               </View>
 
-              <TouchableOpacity style={styles.startButton} onPress={startTask} activeOpacity={0.85}>
-                <LinearGradient
-                  colors={['#10b981', '#059669']}
-                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                  style={styles.gradientBtn}
-                >
-                  <Text style={styles.startButtonText}>Start Task</Text>
-                </LinearGradient>
+              {/* Reflection Quote Card */}
+              <View style={styles.quoteGlassCard}>
+                <Text style={styles.quoteMarks}>“</Text>
+                <Text style={styles.quoteBodyText}>
+                  Awareness is the first step{"\n"}to freedom.
+                </Text>
+                <Text style={styles.quoteMarksRight}>”</Text>
+              </View>
+            </View>
+
+            {/* Bottom Actions */}
+            <View style={styles.bottomBarArea}>
+              <TouchableOpacity
+                style={styles.primaryWhitePillBtn}
+                onPress={completeTaskBackend}
+                disabled={isLoading}
+                activeOpacity={0.88}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#000000" size="small" />
+                ) : (
+                  <Text style={styles.primaryWhiteBtnText}>Continue Your Journey</Text>
+                )}
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.backButton} onPress={() => router.back()} activeOpacity={0.7}>
-                <Text style={styles.backText}>Go Back</Text>
+              <TouchableOpacity
+                style={styles.secondaryHomeBtn}
+                onPress={completeTaskBackend}
+                disabled={isLoading}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.secondaryHomeText}>Back to Home</Text>
               </TouchableOpacity>
             </View>
           </Animated.View>
-
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        )}
+      </SafeAreaView>
     </View>
   );
 }
@@ -406,304 +529,436 @@ export default function DistractionTaskScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fdfcf7',
+    backgroundColor: '#000000',
   },
-  vignetteOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    borderWidth: 30,
-    borderColor: 'rgba(0,0,0,0.015)',
-    borderRadius: 70,
-  },
-  foregroundLayer: {
+  screenWrapper: {
     flex: 1,
-    zIndex: 2,
+    paddingHorizontal: 22,
+    justifyContent: 'space-between',
   },
-  scrollContainer: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingVertical: 20,
+  topHeaderContainer: {
+    paddingTop: 8,
+    paddingBottom: 16,
   },
-  backButton: {
-    padding: 12,
-    marginTop: 14,
-  },
-  backText: {
-    color: '#6b7280',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  abortButton: {
-    padding: 12,
-    marginTop: 20,
-  },
-  abortButtonText: {
-    color: '#ef4444',
-    fontSize: 15,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-  },
-  uiWrapper: {
-    width: '100%',
-    paddingHorizontal: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  detailsMascotContainer: {
-    marginBottom: 20,
-    backgroundColor: 'rgba(255,255,255,0.7)',
-    borderRadius: 80,
-    width: 140,
-    height: 140,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#b45309',
-    shadowOpacity: 0.1,
-    shadowRadius: 25,
-    shadowOffset: { width: 0, height: 10 },
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.9)',
-  },
-  heroEmoji: {
-    fontSize: 75,
-  },
-  glassPanel: {
-    width: '100%',
-    backgroundColor: 'rgba(255, 255, 255, 0.82)',
-    borderRadius: 30,
-    paddingHorizontal: 24,
-    paddingVertical: 30,
-    alignItems: 'center',
-    shadowColor: '#b45309',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.06,
-    shadowRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.9)',
-  },
-  title: {
-    fontSize: 25,
-    fontWeight: '800',
-    color: '#1f2937',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  badgesRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
-    marginBottom: 24,
-  },
-  badge: {
+  headerBarRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  backCircleBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 1,
-    gap: 4,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
   },
-  badgeDuration: {
-    backgroundColor: '#eff6ff',
-    borderColor: '#bfdbfe',
-  },
-  badgeDifficulty: {
-    backgroundColor: '#f0fdf4',
-    borderColor: '#bbf7d0',
-  },
-  badgePoints: {
-    backgroundColor: '#f0fdf4',
-    borderColor: '#bbf7d0',
-  },
-  badgeText: {
+  stepProgressText: {
+    color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '600',
+    letterSpacing: 1,
   },
-  textDuration: {
-    color: '#2563eb',
-  },
-  textDifficulty: {
-    color: '#16a34a',
-  },
-  textPoints: {
-    color: '#16a34a',
-  },
-  descriptionList: {
+  segmentProgressBarRow: {
+    flexDirection: 'row',
+    gap: 8,
     width: '100%',
-    marginBottom: 35,
-    gap: 12,
   },
-  descLine: {
+  barSegment: {
+    flex: 1,
+    height: 3,
+    borderRadius: 1.5,
+  },
+  barActive: {
+    backgroundColor: '#FFFFFF',
+  },
+  barDim: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+
+  flexContentWrapper: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+
+  // Screen 1: Intro
+  screen1TextWrapper: {
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  screen1MainTitle: {
+    fontSize: 32,
+    fontWeight: '300',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+    marginBottom: 10,
+  },
+  titleDividerLine: {
+    width: 24,
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    marginBottom: 20,
+  },
+  screen1Subtitle: {
     fontSize: 15,
-    color: '#4b5563',
+    color: 'rgba(255, 255, 255, 0.75)',
+    textAlign: 'center',
     lineHeight: 22,
-    fontWeight: '400',
+    marginBottom: 16,
   },
-  startButton: {
+  screen1HighlightText: {
+    fontSize: 15,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  screen1FooterText: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.6)',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  heroAbstractContainer: {
+    width: 280,
+    height: 200,
+    alignSelf: 'center',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginVertical: 'auto',
+  },
+  orbitingRingWrapper: {
+    position: 'absolute',
+    width: 180,
+    height: 180,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  breathingCircleCore: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#FFFFFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 15,
+  },
+  innerDotCore: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+  },
+
+  // Screen 2: Write Distraction
+  scrollContentInner: {
+    paddingBottom: 20,
+  },
+  screen2MainTitle: {
+    fontSize: 28,
+    fontWeight: '300',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  screen2Question: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.75)',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  writingGlassCard: {
+    width: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    padding: 16,
+    marginBottom: 20,
+  },
+  editIconBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  distractionTextInput: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    minHeight: 70,
+    textAlignVertical: 'top',
+  },
+  charLimitCounter: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.4)',
+    textAlign: 'right',
+    marginTop: 6,
+  },
+  observationGuidanceText: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.5)',
+    textAlign: 'center',
+    marginBottom: 14,
+  },
+  observationButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+    marginBottom: 20,
+  },
+  optionColumn: {
+    alignItems: 'center',
+    width: '30%',
+  },
+  optionIconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    marginBottom: 8,
+  },
+  optionIconSelected: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: '#FFFFFF',
+  },
+  optionLabel: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.6)',
+    textAlign: 'center',
+  },
+  optionLabelSelected: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  dividerLotusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  timerSectionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  observeForLabel: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.5)',
+    marginBottom: 4,
+  },
+  secondsValueText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  circularTimerWrapper: {
+    position: 'relative',
+    width: 80,
+    height: 80,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  timerDigitsCenter: {
+    position: 'absolute',
+  },
+  timerDigitsText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+  },
+  screen2FooterQuote: {
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.4)',
+    textAlign: 'center',
+    marginTop: 10,
+  },
+
+  // Screen 3: Completion
+  completionCenterContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 'auto',
+  },
+  sunburstHeroWrapper: {
+    position: 'relative',
+    width: 180,
+    height: 180,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  checkCircleCore: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    backgroundColor: '#000000',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#FFFFFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 15,
+  },
+  wellNoticedTitle: {
+    fontSize: 28,
+    fontWeight: '400',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  completionSubMessage: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.75)',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  rewardGlassCard: {
+    width: '100%',
+    maxWidth: 320,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    padding: 18,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  rewardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  youEarnedLabel: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontWeight: '600',
+  },
+  pointsValueText: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 8,
+  },
+  glowingUnderline: {
+    width: 100,
+    height: 2,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 1,
+    shadowColor: '#FFFFFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 6,
+  },
+  quoteGlassCard: {
+    width: '100%',
+    maxWidth: 320,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    padding: 16,
+    position: 'relative',
+    alignItems: 'center',
+  },
+  quoteMarks: {
+    fontSize: 22,
+    color: 'rgba(255, 255, 255, 0.4)',
+    position: 'absolute',
+    top: 8,
+    left: 12,
+  },
+  quoteMarksRight: {
+    fontSize: 22,
+    color: 'rgba(255, 255, 255, 0.4)',
+    position: 'absolute',
+    bottom: 4,
+    right: 12,
+  },
+  quoteBodyText: {
+    fontSize: 13,
+    fontStyle: 'italic',
+    color: 'rgba(255, 255, 255, 0.85)',
+    textAlign: 'center',
+    lineHeight: 18,
+    paddingHorizontal: 10,
+  },
+
+  // Bottom Actions
+  bottomBarArea: {
+    width: '100%',
+    paddingBottom: Platform.OS === 'ios' ? 10 : 20,
+  },
+  primaryWhitePillBtn: {
     width: '100%',
     height: 56,
     borderRadius: 28,
-    overflow: 'hidden',
-    shadowColor: '#10b981',
-    shadowOffset: { width: 0, height: 8 },
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#FFFFFF',
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
-    shadowRadius: 15,
-    elevation: 4,
-  },
-  gradientBtn: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  startButtonText: {
-    color: '#ffffff',
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  
-  // Timer States
-  timerCenter: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-  },
-  timerContentWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    paddingHorizontal: 24,
-  },
-  mascotPulseCircle: {
-    width: 170,
-    height: 170,
-    borderRadius: 85,
-    backgroundColor: 'rgba(255,255,255,0.75)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 30,
-    shadowColor: '#b45309',
-    shadowOpacity: 0.1,
-    shadowRadius: 30,
-    shadowOffset: { width: 0, height: 10 },
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.9)',
-  },
-  giantEmoji: {
-    fontSize: 90,
-  },
-  timerText: {
-    fontSize: 82,
-    fontWeight: '200',
-    color: '#374151',
-    letterSpacing: 2,
-    marginBottom: 10,
-    fontVariant: ['tabular-nums'],
-    textShadowColor: 'rgba(156, 163, 175, 0.1)',
-    textShadowOffset: { width: 0, height: 4 },
-    textShadowRadius: 15,
-  },
-  focusSubtitle: {
-    fontSize: 18,
-    color: '#4b5563',
-    fontWeight: '500',
-    marginBottom: 20,
-  },
-  inputContainer: {
-    width: '100%',
-    marginBottom: 30,
-  },
-  textInput: {
-    width: '100%',
-    height: 110,
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-    borderRadius: 18,
-    padding: 15,
-    fontSize: 16,
-    color: '#1f2937',
-    borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.08)',
-    textAlignVertical: 'top',
-  },
-  timerControlsRow: {
-    flexDirection: 'row',
-    gap: 16,
-    width: '80%',
-    justifyContent: 'center',
-  },
-  controlButton: {
-    paddingHorizontal: 40,
-    paddingVertical: 15,
-    borderRadius: 30,
-    width: 180,
-    alignItems: 'center',
-    shadowColor: '#10b981',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
     shadowRadius: 10,
-  },
-  pauseButton: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.2)',
-  },
-  resumeButton: {
-    backgroundColor: '#10b981',
-  },
-  controlButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#10b981',
-  },
-  
-  // Success state
-  successContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 28,
-    paddingVertical: 35,
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    borderRadius: 35,
-    width: width * 0.86,
-    shadowColor: '#10b981',
-    shadowOffset: { width: 0, height: 20 },
-    shadowOpacity: 0.12,
-    shadowRadius: 30,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.95)',
-  },
-  successEmoji: {
-    fontSize: 70,
-    marginBottom: 20,
-  },
-  successText: {
-    fontSize: 23,
-    fontWeight: '800',
-    color: '#1f2937',
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  successMessage: {
-    fontSize: 15,
-    color: '#4b5563',
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 35,
-    paddingHorizontal: 10,
-  },
-  finishButton: {
-    backgroundColor: '#10b981',
-    paddingVertical: 18,
-    borderRadius: 30,
-    width: '100%',
-    alignItems: 'center',
-    shadowColor: '#10b981',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 15,
     elevation: 4,
   },
-  finishButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 17,
+  primaryWhiteBtnText: {
+    color: '#000000',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  pageDotsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 14,
+  },
+  pageDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  dotActive: {
+    backgroundColor: '#FFFFFF',
+    width: 18,
+  },
+  secondaryHomeBtn: {
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  secondaryHomeText: {
+    color: 'rgba(255, 255, 255, 0.65)',
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

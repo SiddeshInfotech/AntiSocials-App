@@ -4,13 +4,18 @@ const authenticateToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
-    if (!token) return res.sendStatus(401);
+    if (!token) {
+        return res.status(401).json({ success: false, error: 'Unauthorized: No authentication token provided' });
+    }
 
     jwt.verify(token, process.env.JWT_SECRET || 'secret123', (err, user) => {
-        if (err) return res.sendStatus(403);
+        if (err) {
+            return res.status(403).json({ success: false, error: 'Forbidden: Invalid or expired authentication token' });
+        }
         req.user = user;
         next();
     });
 };
 
 module.exports = authenticateToken;
+

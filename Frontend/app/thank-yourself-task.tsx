@@ -22,7 +22,7 @@ import * as Haptics from 'expo-haptics';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import { StatusBar } from 'expo-status-bar';
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch, API_BASE_URL } from '../constants/Api';
 
 const { width, height } = Dimensions.get('window');
 const TIMER_DURATION = 10 * 60; // 10 minutes (600 seconds)
@@ -185,7 +185,7 @@ export default function ThankYourselfTaskScreen() {
     setIsLoading(true);
     try {
       const token = await SecureStore.getItemAsync('token');
-      const res = await fetch(`${API_BASE_URL}/api/tasks/thank-yourself/save-affirmations`, {
+      const res = await apiFetch('/api/tasks/thank-yourself/save-affirmations', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -268,7 +268,7 @@ export default function ThankYourselfTaskScreen() {
         name: `voice_${Date.now()}.m4a`,
       } as any);
 
-      const res = await fetch(`${API_BASE_URL}/api/tasks/thank-yourself/upload-voice`, {
+      const res = await apiFetch('/api/tasks/thank-yourself/upload-voice', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -302,7 +302,7 @@ export default function ThankYourselfTaskScreen() {
     setIsLoading(true);
     try {
       const token = await SecureStore.getItemAsync('token');
-      const res = await fetch(`${API_BASE_URL}/api/tasks/thank-yourself/save-letter`, {
+      const res = await apiFetch('/api/tasks/thank-yourself/save-letter', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -337,7 +337,7 @@ export default function ThankYourselfTaskScreen() {
     setIsLoading(true);
     try {
       const token = await SecureStore.getItemAsync('token');
-      const res = await fetch(`${API_BASE_URL}/api/tasks/thank-yourself/save-gallery`, {
+      const res = await apiFetch('/api/tasks/thank-yourself/save-gallery', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -472,7 +472,7 @@ export default function ThankYourselfTaskScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
-        const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+        const response = await apiFetch('/api/tasks/complete', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -508,7 +508,7 @@ export default function ThankYourselfTaskScreen() {
     setIsLoading(true);
     try {
       const token = await SecureStore.getItemAsync('token');
-      await fetch(`${API_BASE_URL}/api/tasks/start`, {
+      await apiFetch('/api/tasks/start', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1076,7 +1076,7 @@ export default function ThankYourselfTaskScreen() {
                     style={styles.actionButton}
                   >
                     <Text style={styles.actionBtnText}>
-                      {isLoading ? 'SAVING APPRECIATION...' : 'COMPLETE TASK (+300 PTS)'}
+                      {isLoading ? 'SAVING APPRECIATION...' : 'COMPLETE TASK (+600 PTS)'}
                     </Text>
                   </LinearGradient>
                 </TouchableOpacity>

@@ -189,7 +189,7 @@ export default function ProfileScreen() {
                 color="#EA580C"
                 style={styles.streakIcon}
               />
-              <Text style={styles.streakValue}>26</Text>
+              <Text style={styles.streakValue}>{statsData?.streak ?? 0}</Text>
               <Text style={styles.streakLabel}>Current</Text>
             </View>
             <View style={[styles.streakBox, { borderColor: "#FEF08A" }]}>
@@ -199,7 +199,7 @@ export default function ProfileScreen() {
                 color="#D97706"
                 style={styles.streakIcon}
               />
-              <Text style={styles.streakValue}>61</Text>
+              <Text style={styles.streakValue}>{statsData?.longestStreak ?? statsData?.streak ?? 0}</Text>
               <Text style={styles.streakLabel}>Best Ever</Text>
             </View>
             <View style={[styles.streakBox, { borderColor: "#BBF7D0" }]}>
@@ -209,7 +209,7 @@ export default function ProfileScreen() {
                 color="#16A34A"
                 style={styles.streakIcon}
               />
-              <Text style={styles.streakValue}>92%</Text>
+              <Text style={styles.streakValue}>{(statsData?.streak && statsData.streak > 0) ? `${Math.min(100, Math.round((statsData.streak / 30) * 100))}%` : '0%'}</Text>
               <Text style={styles.streakLabel}>Monthly</Text>
             </View>
           </View>

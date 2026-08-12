@@ -21,7 +21,7 @@ import * as Location from 'expo-location';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch, API_BASE_URL } from '../constants/Api';
 
 const { width, height } = Dimensions.get('window');
 const TOTAL_STAY_DURATION = 900; // 15 Minutes = 900 Seconds
@@ -384,7 +384,7 @@ export default function JoinEventVerifiedTaskScreen() {
     // Save arrival state to backend
     try {
       const token = await SecureStore.getItemAsync('token');
-      await fetch(`${API_BASE_URL}/api/tasks/save-community-event-progress`, {
+      await apiFetch('/api/tasks/save-community-event-progress', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -457,7 +457,7 @@ export default function JoinEventVerifiedTaskScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
-        const res = await fetch(`${API_BASE_URL}/api/tasks/save-community-event-progress`, {
+        const res = await apiFetch('/api/tasks/save-community-event-progress', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -481,7 +481,7 @@ export default function JoinEventVerifiedTaskScreen() {
         }
 
         // Also hit complete endpoint for standard points refresh
-        const compRes = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+        const compRes = await apiFetch('/api/tasks/complete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ task_name: 'Join a Group Event (Verified)' }),
@@ -594,7 +594,7 @@ export default function JoinEventVerifiedTaskScreen() {
           </View>
 
           <View style={styles.pointsPill}>
-            <Text style={styles.pointsText}>+300 Pts</Text>
+            <Text style={styles.pointsText}>+600 Pts</Text>
           </View>
         </View>
 

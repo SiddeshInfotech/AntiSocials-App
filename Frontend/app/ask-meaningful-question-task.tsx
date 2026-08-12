@@ -14,7 +14,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as SecureStore from 'expo-secure-store';
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch, API_BASE_URL } from '../constants/Api';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import * as Haptics from 'expo-haptics';
@@ -105,7 +105,7 @@ export default function AskMeaningfulQuestionTaskScreen() {
     try {
       const token = await SecureStore.getItemAsync('userToken');
       if (token) {
-        await fetch(`${API_BASE_URL}/api/tasks/start`, {
+        await apiFetch('/api/tasks/start', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ task_name: 'Ask Meaningful Question' })
@@ -120,7 +120,7 @@ export default function AskMeaningfulQuestionTaskScreen() {
     try {
       const token = await SecureStore.getItemAsync('userToken');
       if (token) {
-        await fetch(`${API_BASE_URL}/api/tasks/keymaker/save-progress`, {
+        await apiFetch('/api/tasks/keymaker/save-progress', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ task_name: 'Ask Meaningful Question', ...data })
@@ -208,7 +208,7 @@ export default function AskMeaningfulQuestionTaskScreen() {
     try {
       const token = await SecureStore.getItemAsync('userToken');
       if (token) {
-        const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+        const response = await apiFetch('/api/tasks/complete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ task_name: 'Ask Meaningful Question' })

@@ -5,7 +5,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient';
 import * as SecureStore from 'expo-secure-store';
 import * as Haptics from 'expo-haptics';
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch, API_BASE_URL } from '../constants/Api';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 
@@ -250,7 +250,7 @@ export default function CalmBreathTaskScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
-        const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+        const response = await apiFetch('/api/tasks/complete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({
@@ -367,7 +367,7 @@ export default function CalmBreathTaskScreen() {
                     <Text style={styles.badgeText}>⭐ Medium</Text>
                   </View>
                   <View style={[styles.badge, { backgroundColor: 'rgba(52, 211, 153, 0.15)' }]}>
-                    <Text style={[styles.badgeText, { color: '#34D399' }]}>+20 Pts</Text>
+                    <Text style={[styles.badgeText, { color: '#34D399' }]}>+300 Pts</Text>
                   </View>
                   <View style={[styles.badge, { backgroundColor: 'rgba(56, 189, 248, 0.15)' }]}>
                     <Text style={[styles.badgeText, { color: '#38BDF8' }]}>2 Min</Text>

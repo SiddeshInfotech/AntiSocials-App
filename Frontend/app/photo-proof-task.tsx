@@ -20,7 +20,7 @@ import * as Location from 'expo-location';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch, API_BASE_URL } from '../constants/Api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -253,7 +253,7 @@ export default function PhotoProofTaskScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token && selectedImage) {
-        const res = await fetch(`${API_BASE_URL}/api/tasks/verify-photo-proof`, {
+        const res = await apiFetch('/api/tasks/verify-photo-proof', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -272,7 +272,7 @@ export default function PhotoProofTaskScreen() {
         }
 
         // Also hit complete endpoint for standard points refresh
-        const compRes = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+        const compRes = await apiFetch('/api/tasks/complete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ task_name: 'Photo Proof (Context-Based)' }),
@@ -333,7 +333,7 @@ export default function PhotoProofTaskScreen() {
           </View>
 
           <View style={styles.pointsPill}>
-            <Text style={styles.pointsText}>+200 Pts</Text>
+            <Text style={styles.pointsText}>+300 Pts</Text>
           </View>
         </View>
 

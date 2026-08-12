@@ -79,59 +79,62 @@ interface CourageMemory {
 
 // --- Background Components ---
 
+const ParticleItem = ({ index }: { index: number }) => {
+  const x = useSharedValue(Math.random() * width);
+  const y = useSharedValue(Math.random() * height);
+  const scale = useSharedValue(Math.random() * 0.8 + 0.4);
+  const opacity = useSharedValue(Math.random() * 0.4 + 0.15);
+
+  useEffect(() => {
+    x.value = withRepeat(
+      withTiming(x.value + (Math.random() * 60 - 30), {
+        duration: 6000 + Math.random() * 4000,
+        easing: Easing.inOut(Easing.ease),
+      }),
+      -1,
+      true
+    );
+    y.value = withRepeat(
+      withTiming(y.value - (50 + Math.random() * 50), {
+        duration: 8000 + Math.random() * 4000,
+        easing: Easing.inOut(Easing.ease),
+      }),
+      -1,
+      true
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: x.value },
+      { translateY: y.value },
+      { scale: scale.value },
+    ],
+    opacity: opacity.value,
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        styles.particle,
+        animatedStyle,
+        {
+          backgroundColor: index % 3 === 0 ? COLORS.accent : index % 2 === 0 ? COLORS.primary : COLORS.secondary,
+          width: index % 4 === 0 ? 5 : 3,
+          height: index % 4 === 0 ? 5 : 3,
+          borderRadius: 3,
+        },
+      ]}
+    />
+  );
+};
+
 const FloatingParticles = () => {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {[...Array(25)].map((_, i) => {
-        const x = useSharedValue(Math.random() * width);
-        const y = useSharedValue(Math.random() * height);
-        const scale = useSharedValue(Math.random() * 0.8 + 0.4);
-        const opacity = useSharedValue(Math.random() * 0.4 + 0.15);
-
-        useEffect(() => {
-          x.value = withRepeat(
-            withTiming(x.value + (Math.random() * 60 - 30), {
-              duration: 6000 + Math.random() * 4000,
-              easing: Easing.inOut(Easing.ease),
-            }),
-            -1,
-            true
-          );
-          y.value = withRepeat(
-            withTiming(y.value - (50 + Math.random() * 50), {
-              duration: 8000 + Math.random() * 4000,
-              easing: Easing.inOut(Easing.ease),
-            }),
-            -1,
-            true
-          );
-        }, []);
-
-        const animatedStyle = useAnimatedStyle(() => ({
-          transform: [
-            { translateX: x.value },
-            { translateY: y.value },
-            { scale: scale.value },
-          ],
-          opacity: opacity.value,
-        }));
-
-        return (
-          <Animated.View
-            key={i}
-            style={[
-              styles.particle,
-              animatedStyle,
-              {
-                backgroundColor: i % 3 === 0 ? COLORS.accent : i % 2 === 0 ? COLORS.primary : COLORS.secondary,
-                width: i % 4 === 0 ? 5 : 3,
-                height: i % 4 === 0 ? 5 : 3,
-                borderRadius: 3,
-              },
-            ]}
-          />
-        );
-      })}
+      {Array.from({ length: 25 }).map((_, i) => (
+        <ParticleItem key={i} index={i} />
+      ))}
     </View>
   );
 };

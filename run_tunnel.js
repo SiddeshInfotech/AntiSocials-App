@@ -53,13 +53,13 @@ exec('taskkill /F /IM ssh.exe', (err) => {
             urlFound = true;
             log(`🎉 Found Pinggy Public HTTPS URL: ${url}`);
             
-            // Update Api.ts
-            const apiContent = `// Centralized API configuration to avoid hardcoding IP addresses in multiple files\n// Automatically updated by run_tunnel.js\nexport const API_BASE_URL = "${url}";\n`;
+            // Update Frontend/.env and Api.ts safely
+            const envFile = path.join(__dirname, 'Frontend', '.env');
             try {
-                fs.writeFileSync(apiFile, apiContent, 'utf8');
-                log(`✏️ Updated Frontend/constants/Api.ts to use: ${url}`);
+                fs.writeFileSync(envFile, `EXPO_PUBLIC_API_BASE_URL=${url}\n`, 'utf8');
+                log(`✏️ Updated Frontend/.env to EXPO_PUBLIC_API_BASE_URL=${url}`);
             } catch (writeErr) {
-                log(`❌ Failed to update Api.ts: ${writeErr.message}`);
+                log(`❌ Failed to update Frontend/.env: ${writeErr.message}`);
             }
         }
     });

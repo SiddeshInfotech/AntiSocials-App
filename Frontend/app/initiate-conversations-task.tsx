@@ -170,7 +170,7 @@ export default function InitiateConversationsTaskScreen() {
       const token = await SecureStore.getItemAsync('token');
       if (!token) return;
 
-      const res = await fetch(`${API_BASE_URL}/api/tasks`, {
+      const res = await apiFetch('/api/tasks', {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) return;
@@ -184,7 +184,7 @@ export default function InitiateConversationsTaskScreen() {
 
           // Fetch stored detailed response
           if (thisTask.id) {
-            const respRes = await fetch(`${API_BASE_URL}/api/tasks/initiate-conversations-response/${thisTask.id}`, {
+            const respRes = await apiFetch('/api/tasks/initiate-conversations-response/${thisTask.id}', {
               headers: { Authorization: `Bearer ${token}` },
             });
             if (respRes.ok) {
@@ -441,7 +441,7 @@ export default function InitiateConversationsTaskScreen() {
       const token = await SecureStore.getItemAsync('token');
       if (!token) return;
 
-      const res = await fetch(`${API_BASE_URL}/api/tasks`, {
+      const res = await apiFetch('/api/tasks', {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) return;
@@ -449,7 +449,7 @@ export default function InitiateConversationsTaskScreen() {
       if (data && data.tasks) {
         const thisTask = data.tasks.find((t: any) => t.title === 'Initiate 2 Conversations');
         if (thisTask) {
-          await fetch(`${API_BASE_URL}/api/tasks/${thisTask.id}/start`, {
+          await apiFetch('/api/tasks/${thisTask.id}/start', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           });
@@ -493,7 +493,7 @@ export default function InitiateConversationsTaskScreen() {
         timer_completion: true,
       });
 
-      const res = await fetch(`${API_BASE_URL}/api/tasks`, {
+      const res = await apiFetch('/api/tasks', {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -505,7 +505,7 @@ export default function InitiateConversationsTaskScreen() {
         }
 
         if (taskId) {
-          const compRes = await fetch(`${API_BASE_URL}/api/tasks/${taskId}/complete`, {
+          const compRes = await apiFetch('/api/tasks/${taskId}/complete', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           });
@@ -539,7 +539,7 @@ export default function InitiateConversationsTaskScreen() {
       const token = await SecureStore.getItemAsync('token');
       if (!token) return;
 
-      await fetch(`${API_BASE_URL}/api/tasks/save-initiate-conversations-progress`, {
+      await apiFetch('/api/tasks/save-initiate-conversations-progress', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

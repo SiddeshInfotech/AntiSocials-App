@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as SecureStore from 'expo-secure-store';
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch, API_BASE_URL } from '../constants/Api';
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 
@@ -117,7 +117,7 @@ export default function SelfTalkTaskScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
-        const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+        const response = await apiFetch('/api/tasks/complete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({ 
@@ -262,7 +262,7 @@ export default function SelfTalkTaskScreen() {
                   </View>
                   <View style={[styles.badge, styles.badgePoints]}>
                     <Feather name="award" size={14} color="#fbbf24" />
-                    <Text style={[styles.badgeText, styles.textPoints]}>+200 Pts</Text>
+                    <Text style={[styles.badgeText, styles.textPoints]}>+300 Pts</Text>
                   </View>
                 </View>
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   StyleSheet,
   View,
@@ -8,7 +8,8 @@ import {
   ScrollView,
   useWindowDimensions,
   Platform,
-  Modal,
+  ActivityIndicator,
+  ViewStyle,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -18,53 +19,225 @@ import Animated, {
   withTiming,
   withRepeat,
   withSequence,
+  withSpring,
   Easing,
   FadeIn,
   FadeInDown,
   FadeInUp,
+  FadeOut,
   runOnJS,
 } from 'react-native-reanimated';
-import { Feather, Ionicons } from '@expo/vector-icons';
+import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import * as SecureStore from 'expo-secure-store';
 import { apiFetch } from '../constants/Api';
 
+// ==========================================
+// TYPES & CONSTANTS
+// ==========================================
+
+export interface EnergyOption {
+  id: string;
+  label: string;
+  emoji: string;
+  color: string;
+  glowColor: string;
+  gradient: [string, string];
+  description: string;
+}
+
+export const ENERGY_OPTIONS: EnergyOption[] = [
+  {
+    id: 'positive',
+    label: 'Positive',
+    emoji: '😊',
+    color: '#F59E0B',
+    glowColor: 'rgba(245, 158, 11, 0.5)',
+    gradient: ['#F59E0B', '#FBBF24'],
+    description: 'Warm, uplifting, and cheerful atmosphere.',
+  },
+  {
+    id: 'calm',
+    label: 'Calm',
+    emoji: '😌',
+    color: '#06B6D4',
+    glowColor: 'rgba(6, 182, 212, 0.5)',
+    gradient: ['#06B6D4', '#38BDF8'],
+    description: 'Peaceful, relaxed, and grounding vibe.',
+  },
+  {
+    id: 'excited',
+    label: 'Excited',
+    emoji: '🔥',
+    color: '#F97316',
+    glowColor: 'rgba(249, 115, 22, 0.5)',
+    gradient: ['#F97316', '#FB923C'],
+    description: 'High energy, vibrant, and enthusiastic momentum.',
+  },
+  {
+    id: 'connected',
+    label: 'Connected',
+    emoji: '🤝',
+    color: '#8B5CF6',
+    glowColor: 'rgba(139, 92, 246, 0.5)',
+    gradient: ['#8B5CF6', '#C084FC'],
+    description: 'Deep harmony, trust, and togetherness.',
+  },
+  {
+    id: 'supportive',
+    label: 'Supportive',
+    emoji: '🌱',
+    color: '#10B981',
+    glowColor: 'rgba(16, 185, 129, 0.5)',
+    gradient: ['#10B981', '#34D399'],
+    description: 'Kind, caring, and encouraging presence.',
+  },
+  {
+    id: 'tense',
+    label: 'Tense',
+    emoji: '🌧',
+    color: '#6366F1',
+    glowColor: 'rgba(99, 102, 241, 0.5)',
+    gradient: ['#6366F1', '#818CF8'],
+    description: 'Cautious, quiet, or guarded environment.',
+  },
+  {
+    id: 'mixed',
+    label: 'Mixed',
+    emoji: '🌊',
+    color: '#EC4899',
+    glowColor: 'rgba(236, 72, 153, 0.5)',
+    gradient: ['#EC4899', '#F472B6'],
+    description: 'Shifting emotions, varied dynamic flow.',
+  },
+];
+
+const SUGGESTION_CHIPS = [
+  "The conversation felt supportive.",
+  "Everyone seemed comfortable.",
+  "The energy became more positive.",
+  "People were listening closely to each other.",
+  "The mood was calm and relaxed.",
+];
+
 const COLORS = {
+  bgDark: '#080914',
   purple: '#8B5CF6',
   indigo: '#6366F1',
-  deepBlack: '#090A14',
-  glowPurple: 'rgba(139, 92, 246, 0.45)',
-  textWhite: '#FFFFFF',
-  textDim: '#9CA3AF',
-  glassBg: 'rgba(255, 255, 255, 0.06)',
-  glassBorder: 'rgba(255, 255, 255, 0.12)',
-  bgWhite: '#FFFFFF',
-  textBlack: '#0F172A',
-  textBlackSub: '#475569',
   cyan: '#06B6D4',
   amber: '#F59E0B',
-  white: '#FFFFFF',
+  emerald: '#10B981',
+  rose: '#F43F5E',
+  textWhite: '#FFFFFF',
+  textDim: 'rgba(255, 255, 255, 0.65)',
+  glassBg: 'rgba(255, 255, 255, 0.07)',
+  glassBorder: 'rgba(255, 255, 255, 0.15)',
 };
 
-const triggerHaptic = (type: 'light' | 'medium' | 'success') => {
+const triggerHaptic = (type: 'light' | 'medium' | 'success' | 'warning') => {
   if (Platform.OS === 'web') return;
   try {
-    if (type === 'light') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    } else if (type === 'medium') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    } else if (type === 'success') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    }
-  } catch (err) {
-    console.warn('Haptics not supported:', err);
+    if (type === 'light') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    else if (type === 'medium') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    else if (type === 'success') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    else if (type === 'warning') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+  } catch (e) {
+    // Haptics fallback
   }
 };
 
-// Particles spawned when typing
+// ==========================================
+// ANIMATED SUB-COMPONENTS
+// ==========================================
+
+const ParticleItem = ({
+  width,
+  height,
+  index,
+  activeColor,
+}: {
+  width: number;
+  height: number;
+  index: number;
+  activeColor?: string;
+}) => {
+  const posX = useSharedValue(Math.random() * width);
+  const posY = useSharedValue(height + Math.random() * 80);
+  const pScale = useSharedValue(Math.random() * 0.5 + 0.3);
+  const pOpacity = useSharedValue(Math.random() * 0.35 + 0.15);
+
+  useEffect(() => {
+    const duration = 10000 + Math.random() * 8000;
+    const delay = Math.random() * 4000;
+
+    posY.value = withRepeat(
+      withSequence(
+        withTiming(height + 20, { duration: delay }),
+        withTiming(-40, { duration, easing: Easing.linear })
+      ),
+      -1,
+      false
+    );
+
+    posX.value = withRepeat(
+      withSequence(
+        withTiming(posX.value + (Math.random() * 40 - 20), {
+          duration: 3500 + Math.random() * 2000,
+          easing: Easing.inOut(Easing.ease),
+        }),
+        withTiming(posX.value - (Math.random() * 40 - 20), {
+          duration: 3500 + Math.random() * 2000,
+          easing: Easing.inOut(Easing.ease),
+        })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  const style = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: posX.value },
+      { translateY: posY.value },
+      { scale: pScale.value },
+    ],
+    opacity: pOpacity.value,
+  }));
+
+  const colorChoice = activeColor || (index % 3 === 0 ? COLORS.purple : index % 3 === 1 ? COLORS.cyan : COLORS.amber);
+
+  return (
+    <Animated.View
+      style={[
+        styles.ambientParticle,
+        style,
+        { backgroundColor: colorChoice, shadowColor: colorChoice },
+      ]}
+    />
+  );
+};
+
+// Ambient Floating Particles
+const FloatingParticles = ({ width, height, count = 22, activeColor }: { width: number; height: number; count?: number; activeColor?: string }) => {
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      {Array.from({ length: count }).map((_, i) => (
+        <ParticleItem
+          key={i}
+          index={i}
+          width={width}
+          height={height}
+          activeColor={activeColor}
+        />
+      ))}
+    </View>
+  );
+};
+
+// Particles spawned while typing text
 interface TypingParticle {
   id: string;
   xOffset: number;
@@ -72,1657 +245,1285 @@ interface TypingParticle {
   color: string;
 }
 
-const TypingParticleItem = React.memo(({ 
-  id, 
-  xOffset, 
-  yStart, 
-  color, 
-  onComplete 
-}: { 
-  id: string; 
-  xOffset: number; 
-  yStart: number; 
-  color: string; 
+const TypingParticleItem = React.memo(function TypingParticleItem({
+  id,
+  xOffset,
+  yStart,
+  color,
+  onComplete,
+}: {
+  id: string;
+  xOffset: number;
+  yStart: number;
+  color: string;
   onComplete: (id: string) => void;
-}) => {
+}) {
   const progress = useSharedValue(0);
 
   useEffect(() => {
-    progress.value = withTiming(1, { duration: 1000, easing: Easing.out(Easing.quad) }, (finished) => {
-      if (finished) {
-        runOnJS(onComplete)(id);
-      }
+    progress.value = withTiming(1, { duration: 900, easing: Easing.out(Easing.quad) }, (finished) => {
+      if (finished) runOnJS(onComplete)(id);
     });
   }, []);
 
-  const style = useAnimatedStyle(() => {
-    const translateY = (1 - progress.value) * yStart - 180 * progress.value;
-    const translateX = (1 - progress.value) * xOffset;
-    const scale = 1 - progress.value * 0.4;
-    const opacity = 1 - progress.value;
-
-    return {
-      transform: [
-        { translateX },
-        { translateY },
-        { scale }
-      ],
-      opacity
-    };
-  });
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: (1 - progress.value) * xOffset },
+      { translateY: (1 - progress.value) * yStart - 140 * progress.value },
+      { scale: 1 - progress.value * 0.5 },
+    ],
+    opacity: 1 - progress.value,
+  }));
 
   return (
-    <Animated.View 
+    <Animated.View
       style={[
         styles.typingParticle,
-        style,
-        {
-          backgroundColor: color,
-          shadowColor: color,
-        }
+        animatedStyle,
+        { backgroundColor: color, shadowColor: color },
       ]}
     />
   );
 });
 
-// Embers rising slowly in the background
-const AmbientParticles = ({ 
-  count = 15,
-  width,
-  height
-}: { 
-  count?: number;
-  width: number;
-  height: number;
-}) => {
+// Glowing Group Energy Node Circle (Center Graphic)
+const GroupEnergyNodeCircle = ({ activeEnergy }: { activeEnergy: EnergyOption | null }) => {
+  const pulseAnim = useSharedValue(1);
+  const waveRotate = useSharedValue(0);
+
+  useEffect(() => {
+    pulseAnim.value = withRepeat(
+      withSequence(
+        withTiming(1.1, { duration: 2400, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0.95, { duration: 2400, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
+
+    waveRotate.value = withRepeat(
+      withTiming(360, { duration: 16000, easing: Easing.linear }),
+      -1,
+      false
+    );
+  }, []);
+
+  const themeColor = activeEnergy ? activeEnergy.color : COLORS.purple;
+  const themeGlow = activeEnergy ? activeEnergy.glowColor : 'rgba(139, 92, 246, 0.35)';
+
+  const animatedRingStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulseAnim.value }],
+    shadowColor: themeColor,
+  }));
+
+  const animatedWaveStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${waveRotate.value}deg` }],
+  }));
+
+  // Avatar positions around the circle (5 nodes)
+  const nodePositions: ViewStyle[] = [
+    { top: 12, left: '50%', transform: [{ translateX: -16 }] },
+    { top: 55, right: 12 },
+    { bottom: 22, right: 30 },
+    { bottom: 22, left: 30 },
+    { top: 55, left: 12 },
+  ];
+
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {[...Array(count)].map((_, i) => {
-        const pX = useSharedValue(Math.random() * width);
-        const pY = useSharedValue(height + Math.random() * 80);
-        const scaleBase = Math.random() * 0.35 + 0.2;
-        const opacityBase = Math.random() * 0.25 + 0.1;
+    <View style={styles.groupCircleWrapper}>
+      <Animated.View style={[styles.energyRingBackground, animatedRingStyle, { borderColor: themeColor, shadowColor: themeColor }]} />
+      <Animated.View style={[styles.energyWaveArc, animatedWaveStyle, { borderColor: themeGlow }]} />
 
-        useEffect(() => {
-          const duration = 12000 + Math.random() * 8000;
-          const delay = Math.random() * 4000;
+      <View style={[styles.centerEnergyOrb, { backgroundColor: themeColor, shadowColor: themeColor }]}>
+        <Text style={styles.centerOrbEmoji}>{activeEnergy ? activeEnergy.emoji : '🌐'}</Text>
+      </View>
 
-          pY.value = withRepeat(
-            withSequence(
-              withTiming(height + 20, { duration: delay }),
-              withTiming(-30, { duration, easing: Easing.linear })
-            ),
-            -1,
-            false
-          );
-
-          pX.value = withRepeat(
-            withSequence(
-              withTiming(pX.value + (Math.random() * 30 - 15), {
-                duration: 3000 + Math.random() * 2000,
-                easing: Easing.inOut(Easing.ease),
-              }),
-              withTiming(pX.value - (Math.random() * 30 - 15), {
-                duration: 3000 + Math.random() * 2000,
-                easing: Easing.inOut(Easing.ease),
-              })
-            ),
-            -1,
-            true
-          );
-        }, []);
-
-        const style = useAnimatedStyle(() => ({
-          transform: [
-            { translateX: pX.value },
-            { translateY: pY.value },
-            { scale: scaleBase },
-          ],
-          opacity: opacityBase,
-        }));
-
-        return (
-          <Animated.View
-            key={i}
-            style={[
-              styles.ambientParticle,
-              style,
-              { backgroundColor: COLORS.purple },
-            ]}
-          />
-        );
-      })}
+      {nodePositions.map((pos, idx) => (
+        <View key={idx} style={[styles.avatarNode, pos, { borderColor: themeColor }]}>
+          <Ionicons name="person" size={13} color={themeColor} />
+        </View>
+      ))}
     </View>
   );
 };
 
+// Energy Spreading Waves Canvas for Screen 4
+const EnergyWaveCanvas = ({ energy }: { energy: EnergyOption }) => {
+  const wave1Scale = useSharedValue(0.6);
+  const wave2Scale = useSharedValue(0.4);
+  const waveOpacity = useSharedValue(0.7);
+
+  useEffect(() => {
+    wave1Scale.value = withRepeat(
+      withSequence(
+        withTiming(1.6, { duration: 3200, easing: Easing.out(Easing.cubic) }),
+        withTiming(0.6, { duration: 0 })
+      ),
+      -1,
+      false
+    );
+
+    wave2Scale.value = withRepeat(
+      withSequence(
+        withTiming(2.2, { duration: 4200, easing: Easing.out(Easing.quad) }),
+        withTiming(0.4, { duration: 0 })
+      ),
+      -1,
+      false
+    );
+
+    waveOpacity.value = withRepeat(
+      withSequence(
+        withTiming(0.2, { duration: 2500, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0.7, { duration: 2500, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  const wave1Style = useAnimatedStyle(() => ({
+    transform: [{ scale: wave1Scale.value }],
+    opacity: waveOpacity.value,
+  }));
+
+  const wave2Style = useAnimatedStyle(() => ({
+    transform: [{ scale: wave2Scale.value }],
+    opacity: waveOpacity.value * 0.6,
+  }));
+
+  return (
+    <View style={styles.waveCanvasContainer} pointerEvents="none">
+      <Animated.View style={[styles.waveCircle, wave2Style, { borderColor: energy.color }]} />
+      <Animated.View style={[styles.waveCircle, wave1Style, { borderColor: energy.color, backgroundColor: energy.glowColor }]} />
+    </View>
+  );
+};
+
+// ==========================================
+// MAIN COMPONENT
+// ==========================================
+
 export default function ObserveGroupEnergyScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
 
-  // Selected screen index for interactive zoomed preview modal (null means grid view)
-  const [zoomedIndex, setZoomedIndex] = useState<number | null>(null);
-
-  // States inside interactive mockup simulation flow (replicated in the previewer)
-  const [simStep, setSimStep] = useState<number>(1);
-  const [fearText, setFearText] = useState('');
-  const [intensity, setIntensity] = useState(4);
-  const [bodySpot, setBodySpot] = useState('Chest');
-  const [textureChip, setTextureChip] = useState('Heavy');
-  const [shapeSelect, setShapeSelect] = useState('Cloud');
-  const [reflectionChecks, setReflectionChecks] = useState<Record<string, boolean>>({
-    real: true,
-    stayed: true,
-    noChange: true,
-  });
+  // Navigation / Progress State
+  const [screenStep, setScreenStep] = useState<number>(1);
+  const [selectedEnergyId, setSelectedEnergyId] = useState<string | null>(null);
+  const [observationText, setObservationText] = useState<string>('');
   const [typingParticles, setTypingParticles] = useState<TypingParticle[]>([]);
-  const [customReminder, setCustomReminder] = useState<string[]>([]);
-  const [showAddReminder, setShowAddReminder] = useState(false);
-  const [newReminderInput, setNewReminderInput] = useState('');
-  const [completionSavedData, setCompletionSavedData] = useState<{ totalPoints: number; streak: number } | null>(null);
 
-  // Background cloud drifting shared values
-  const cloudTranslateX = useSharedValue(0);
-  const cloudOpacity = useSharedValue(0.7);
+  // Backend / Sync State
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [completionData, setCompletionData] = useState<{ totalPoints: number; streak: number } | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Main background orb pulsing
-  const orbPulse = useSharedValue(1.0);
-  const orbGlow = useSharedValue(0.4);
+  const activeEnergy = useMemo(() => {
+    return ENERGY_OPTIONS.find((e) => e.id === selectedEnergyId) || null;
+  }, [selectedEnergyId]);
 
+  // Load existing task progress on mount
   useEffect(() => {
-    orbPulse.value = withRepeat(
-      withSequence(
-        withTiming(1.18, { duration: 4000, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0.95, { duration: 4000, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1,
-      true
-    );
+    let isMounted = true;
+    const fetchProgress = async () => {
+      try {
+        const token = await SecureStore.getItemAsync('token');
+        if (!token) {
+          if (isMounted) setIsLoading(false);
+          return;
+        }
 
-    orbGlow.value = withRepeat(
-      withSequence(
-        withTiming(0.75, { duration: 4000, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0.35, { duration: 4000, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1,
-      true
-    );
+        const res = await apiFetch('/api/tasks/observe-group-energy/progress', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted && data.progress) {
+            if (data.progress.selectedEnergy) {
+              setSelectedEnergyId(data.progress.selectedEnergy);
+            }
+            if (data.progress.observationText) {
+              setObservationText(data.progress.observationText);
+            }
+            if (data.completed) {
+              setScreenStep(5);
+            } else if (data.progress.screenStep && data.progress.screenStep > 1) {
+              setScreenStep(data.progress.screenStep);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[ObserveGroupEnergy] Error fetching progress:', err);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+
+    fetchProgress();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  // Screen 8 drifting cloud animation loop
-  useEffect(() => {
-    cloudTranslateX.value = withRepeat(
-      withSequence(
-        withTiming(0, { duration: 0 }),
-        withTiming(260, { duration: 8000, easing: Easing.linear })
-      ),
-      -1,
-      false
-    );
-
-    cloudOpacity.value = withRepeat(
-      withSequence(
-        withTiming(0.7, { duration: 0 }),
-        withTiming(0.0, { duration: 8000, easing: Easing.linear })
-      ),
-      -1,
-      false
-    );
-  }, []);
-
-  const handleRemoveParticle = (id: string) => {
-    setTypingParticles((prev) => prev.filter((p) => p.id !== id));
-  };
-
-  const handleSimTyping = (text: string) => {
-    setFearText(text);
-    if (text.length > fearText.length) {
-      const id = Math.random().toString(36).substring(7);
-      const xOffset = Math.random() * 120 - 60;
-      const yStart = 90 + Math.random() * 20;
-      setTypingParticles((prev) => [...prev, { id, xOffset, yStart, color: COLORS.purple }]);
-    }
-  };
-
-  const handleSaveCompletion = async () => {
+  // Save progress helper
+  const saveProgressToBackend = async (step: number, markCompleted: boolean = false) => {
     try {
+      setErrorMessage(null);
       const token = await SecureStore.getItemAsync('token');
-      if (!token) return;
+      if (!token) return null;
 
-      const response = await apiFetch('/api/tasks/observe-group-energy/progress', {
+      const payload = {
+        selectedEnergy: selectedEnergyId,
+        observationText,
+        screenStep: step,
+      };
+
+      const res = await apiFetch('/api/tasks/observe-group-energy/progress', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          completed: true,
-          progressPayload: {
-            fearText,
-            intensity,
-            bodySpot,
-            textureChip,
-            shapeSelect,
-            reflectionChecks
-          }
-        })
+          completed: markCompleted,
+          progressPayload: payload,
+        }),
       });
 
-      const data = await response.json();
-      if (response.ok || data.success) {
-        setCompletionSavedData({
-          totalPoints: data.totalPoints,
-          streak: data.streak
-        });
+      if (res.ok) {
+        const data = await res.json();
+        if (markCompleted && data.success) {
+          setCompletionData({
+            totalPoints: data.totalPoints,
+            streak: data.streak,
+          });
+        }
+        return data;
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        setErrorMessage(errData.error || 'Failed to save progress. Please retry.');
       }
-    } catch (e) {
-      console.error('Error saving completion:', e);
+    } catch (err) {
+      console.error('[ObserveGroupEnergy] Save error:', err);
+      setErrorMessage('Network error. Check connection and retry.');
+    }
+    return null;
+  };
+
+  // Screen Handlers
+  const handleBeginObservation = () => {
+    triggerHaptic('medium');
+    setScreenStep(2);
+    saveProgressToBackend(2, false);
+  };
+
+  const handleSelectEnergy = (id: string) => {
+    triggerHaptic('light');
+    setSelectedEnergyId(id);
+  };
+
+  const handleContinueFromScan = () => {
+    if (!selectedEnergyId) return;
+    triggerHaptic('medium');
+    setScreenStep(3);
+    saveProgressToBackend(3, false);
+  };
+
+  const handleTypingText = (text: string) => {
+    setObservationText(text);
+    if (text.length > observationText.length && activeEnergy) {
+      const id = Math.random().toString(36).substring(7);
+      const xOffset = Math.random() * 120 - 60;
+      const yStart = 60 + Math.random() * 30;
+      setTypingParticles((prev) => [
+        ...prev.slice(-10),
+        { id, xOffset, yStart, color: activeEnergy.color },
+      ]);
     }
   };
 
-  const handleFinishTask = () => {
+  const handleRemoveParticle = useCallback((id: string) => {
+    setTypingParticles((prev) => prev.filter((p) => p.id !== id));
+  }, []);
+
+  const handleChipTap = (chipText: string) => {
+    triggerHaptic('light');
+    setObservationText((prev) => (prev ? `${prev} ${chipText}` : chipText));
+  };
+
+  const handleSaveObservation = () => {
+    if (!observationText.trim()) return;
+    triggerHaptic('medium');
+    setScreenStep(4);
+    saveProgressToBackend(4, false);
+  };
+
+  const handleContinueToCompletion = async () => {
+    triggerHaptic('success');
+    setIsSubmitting(true);
+    const data = await saveProgressToBackend(5, true);
+    setIsSubmitting(false);
+    setScreenStep(5);
+  };
+
+  const handleFinishAndReturn = () => {
     triggerHaptic('success');
     router.replace({
       pathname: '/(tabs)',
       params: {
-        updatedPoints: completionSavedData?.totalPoints?.toString() || '',
-        updatedStreak: completionSavedData?.streak?.toString() || '',
+        updatedPoints: completionData?.totalPoints?.toString() || '',
+        updatedStreak: completionData?.streak?.toString() || '',
       },
     } as any);
   };
 
-  // Format date helper
-  const formattedDate = useMemo(() => {
-    const options: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' };
-    return new Date().toLocaleDateString('en-US', options);
-  }, []);
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <StatusBar style="light" />
+        <ActivityIndicator size="large" color={COLORS.purple} />
+        <Text style={styles.loadingText}>Opening Group Energy Observation...</Text>
+      </View>
+    );
+  }
 
-  // 12 Screens rendering component dispatcher
-  const renderScreenContent = (index: number, isZoomedView: boolean) => {
-    const titleSize = isZoomedView ? 24 : 16;
-    const bodySize = isZoomedView ? 14 : 10;
-    const buttonHeight = isZoomedView ? 46 : 30;
-    const paddingVal = isZoomedView ? 18 : 12;
+  return (
+    <View style={styles.container}>
+      <StatusBar style="light" />
+      <LinearGradient colors={['#080914', '#0F1026', '#080914']} style={StyleSheet.absoluteFill} />
 
-    switch (index) {
-      case 1:
-        return (
-          <View style={[styles.screenInner, { padding: paddingVal }]}>
-            <LinearGradient colors={['rgba(139, 92, 246, 0.15)', 'transparent']} style={styles.smokeOverlayTop} />
-            <AmbientParticles count={8} width={isZoomedView ? 300 : 220} height={isZoomedView ? 580 : 430} />
-            
-            <View style={styles.screenCenter}>
-              <Text style={[styles.fearTitle, { fontSize: titleSize * 1.3, marginBottom: 8 }]}>Notice Fear</Text>
-              <Text style={[styles.fearSubtitle, { fontSize: bodySize, lineHeight: bodySize * 1.5 }]}>
-                Fear is only a visitor.{'\n'}You don't have to become it.
-              </Text>
-            </View>
+      {/* Dynamic Ambient Background Canvas */}
+      <FloatingParticles width={width} height={height} activeColor={activeEnergy?.color} />
 
-            <View style={styles.mountainSilhouette}>
-              <Feather name="triangle" size={isZoomedView ? 80 : 50} color="rgba(255, 255, 255, 0.04)" style={styles.mountainShape} />
-            </View>
-
-            <TouchableOpacity 
-              onPress={() => isZoomedView && setSimStep(2)} 
-              activeOpacity={0.8}
-              style={[
-                styles.simGlassBtn, 
-                { 
-                  height: buttonHeight, 
-                  borderRadius: buttonHeight / 2,
-                  shadowColor: COLORS.purple,
-                  shadowOffset: { width: 0, height: 4 },
-                  shadowOpacity: 0.5,
-                  shadowRadius: 10,
-                  elevation: 5,
+      <SafeAreaView style={styles.safeArea}>
+        {/* TOP NAVBAR (Screens 1 to 4) */}
+        {screenStep < 5 && (
+          <View style={styles.navHeader}>
+            <TouchableOpacity
+              onPress={() => {
+                triggerHaptic('light');
+                if (screenStep > 1) {
+                  setScreenStep((prev) => prev - 1);
+                } else {
+                  router.back();
                 }
-              ]}
+              }}
+              style={styles.navBackBtn}
+              activeOpacity={0.7}
             >
-              <BlurView intensity={25} tint="dark" style={styles.simGlassBtnBlur}>
-                <Text style={[styles.simBtnText, { fontSize: bodySize + 1 }]}>Begin Observation →</Text>
-              </BlurView>
-            </TouchableOpacity>
-          </View>
-        );
-
-      case 2:
-        const orbScaleStyle = useAnimatedStyle(() => ({
-          transform: [{ scale: orbPulse.value }],
-          shadowOpacity: orbGlow.value * 0.8,
-          shadowRadius: orbGlow.value * 25 + 5,
-        }));
-        return (
-          <View style={[styles.screenInner, { padding: paddingVal }]}>
-            <TouchableOpacity 
-              onPress={() => isZoomedView && setSimStep(1)} 
-              style={styles.simBackBtn}
-              disabled={!isZoomedView}
-            >
-              <Feather name="arrow-left" size={isZoomedView ? 18 : 12} color={COLORS.textWhite} />
+              <Feather name={screenStep === 1 ? 'x' : 'arrow-left'} size={20} color={COLORS.textWhite} />
             </TouchableOpacity>
 
-            <View style={styles.screenCenter}>
-              <Animated.View style={[styles.simFearOrb, orbScaleStyle, { width: isZoomedView ? 110 : 80, height: isZoomedView ? 110 : 80, borderRadius: isZoomedView ? 55 : 40 }]}>
-                <View style={styles.simOrbCore} />
-              </Animated.View>
-
-              <Text style={[styles.fearTitle, { fontSize: titleSize, marginTop: 24, marginBottom: 8 }]}>What is your fear?</Text>
-              
-              <TouchableOpacity onPress={() => isZoomedView && setSimStep(3)} disabled={!isZoomedView}>
-                <Text style={[styles.tapOrbText, { fontSize: bodySize }]}>Tap the orb to begin</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.dotsRow}>
-              {[...Array(4)].map((_, idx) => (
-                <View key={idx} style={[styles.dotItem, idx === 1 && styles.dotActive]} />
-              ))}
-            </View>
-          </View>
-        );
-
-      case 3:
-        return (
-          <View style={[styles.screenInner, { padding: paddingVal }]}>
-            <TouchableOpacity onPress={() => isZoomedView && setSimStep(2)} style={styles.simBackBtn} disabled={!isZoomedView}>
-              <Feather name="arrow-left" size={isZoomedView ? 18 : 12} color={COLORS.textWhite} />
-            </TouchableOpacity>
-
-            <View style={styles.screenTopAlign}>
-              <Text style={[styles.fearTitle, { fontSize: titleSize, alignSelf: 'flex-start', marginTop: 12 }]}>I'm afraid that...</Text>
-              
-              <View style={[styles.simInputBoxGlass, { height: isZoomedView ? 160 : 110, marginTop: 16 }]}>
-                <TextInput
-                  style={[styles.simTextInput, { fontSize: bodySize + 1 }]}
-                  placeholder="Type your fear here..."
-                  placeholderTextColor="rgba(255, 255, 255, 0.35)"
-                  multiline
-                  value={fearText}
-                  onChangeText={handleSimTyping}
-                  editable={isZoomedView}
-                  maxLength={200}
-                />
-              </View>
-            </View>
-
-            <View style={{ width: '100%' }}>
-              <TouchableOpacity 
-                onPress={() => isZoomedView && setSimStep(4)} 
-                activeOpacity={0.8}
-                disabled={!isZoomedView || !fearText.trim()}
-                style={[styles.simPrimaryBtn, { height: buttonHeight, borderRadius: buttonHeight / 2, opacity: (!fearText.trim()) ? 0.5 : 1 }]}
-              >
-                <LinearGradient colors={[COLORS.purple, COLORS.indigo]} style={styles.simGradient}>
-                  <Text style={[styles.simBtnText, { fontSize: bodySize + 1 }]}>Continue →</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-              
-              <View style={[styles.dotsRow, { marginTop: 14 }]}>
-                {[...Array(4)].map((_, idx) => (
-                  <View key={idx} style={[styles.dotItem, idx === 2 && styles.dotActive]} />
-                ))}
-              </View>
-            </View>
-          </View>
-        );
-
-      case 4:
-        return (
-          <View style={[styles.screenInner, { padding: paddingVal }]}>
-            <TouchableOpacity onPress={() => isZoomedView && setSimStep(3)} style={styles.simBackBtn} disabled={!isZoomedView}>
-              <Feather name="arrow-left" size={isZoomedView ? 18 : 12} color={COLORS.textWhite} />
-            </TouchableOpacity>
-
-            <View style={styles.screenCenter}>
-              <Text style={[styles.fearTitle, { fontSize: titleSize, marginBottom: 20 }]}>How strong does it feel?</Text>
-              
-              <View style={[styles.intensityRing, { width: isZoomedView ? 130 : 90, height: isZoomedView ? 130 : 90, borderRadius: isZoomedView ? 65 : 45 }]}>
-                <Text style={{ color: COLORS.textWhite, fontSize: titleSize * 1.5, fontWeight: '800' }}>{intensity}</Text>
-                <Text style={{ color: COLORS.purple, fontSize: bodySize - 2, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 }}>Strong</Text>
-              </View>
-
-              <View style={[styles.sliderRow, { marginTop: 24 }]}>
-                {[1, 2, 3, 4, 5].map((num) => {
-                  const isActive = intensity === num;
-                  return (
-                    <TouchableOpacity
-                      key={num}
-                      onPress={() => isZoomedView && setIntensity(num)}
-                      disabled={!isZoomedView}
-                      style={[
-                        styles.sliderNumBtn,
-                        isActive && styles.sliderNumActive,
-                        {
-                          width: isActive ? (isZoomedView ? 52 : 36) : (isZoomedView ? 34 : 22),
-                          height: isZoomedView ? 34 : 22,
-                          borderRadius: 12,
-                        }
-                      ]}
-                    >
-                      <Text style={[styles.sliderNumText, { fontSize: bodySize - 1 }, isActive && { fontWeight: '700' }]}>{num}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-
-            <View style={{ width: '100%', alignItems: 'center' }}>
-              <TouchableOpacity onPress={() => isZoomedView && setSimStep(5)} disabled={!isZoomedView} style={{ width: '100%' }}>
-                <Text style={[styles.sliderSubtext, { fontSize: bodySize }]}>Notice it. Don't judge it.</Text>
-              </TouchableOpacity>
-              
-              <View style={[styles.dotsRow, { marginTop: 16 }]}>
-                {[...Array(4)].map((_, idx) => (
-                  <View key={idx} style={[styles.dotItem, idx === 3 && styles.dotActive]} />
-                ))}
-              </View>
-            </View>
-          </View>
-        );
-
-      case 5:
-        return (
-          <View style={[styles.screenInner, { padding: paddingVal }]}>
-            <TouchableOpacity onPress={() => isZoomedView && setSimStep(4)} style={styles.simBackBtn} disabled={!isZoomedView}>
-              <Feather name="arrow-left" size={isZoomedView ? 18 : 12} color={COLORS.textWhite} />
-            </TouchableOpacity>
-
-            <View style={styles.screenCenter}>
-              <Text style={[styles.fearTitle, { fontSize: titleSize, marginBottom: 12 }]}>Where do you feel it?</Text>
-              
-              <View style={[styles.bodyMapWrapper, { height: isZoomedView ? 190 : 130 }]}>
-                <Ionicons name="body-outline" size={isZoomedView ? 120 : 80} color="rgba(255, 255, 255, 0.15)" />
-                <View style={[styles.hotspotNode, { top: '15%', left: '46%' }, bodySpot === 'Head' && styles.hotspotActive]} />
-                <View style={[styles.hotspotNode, { top: '35%', left: '46%' }, bodySpot === 'Chest' && styles.hotspotActive]} />
-                <View style={[styles.hotspotNode, { top: '50%', left: '46%' }, bodySpot === 'Stomach' && styles.hotspotActive]} />
-                <View style={[styles.hotspotNode, { top: '75%', left: '42%' }, bodySpot === 'Legs' && styles.hotspotActive]} />
-              </View>
-
-              <View style={styles.bodyChipsRow}>
-                {['Head', 'Chest', 'Stomach', 'Legs'].map((spot) => {
-                  const isActive = bodySpot === spot;
-                  return (
-                    <TouchableOpacity
-                      key={spot}
-                      onPress={() => isZoomedView && setBodySpot(spot)}
-                      disabled={!isZoomedView}
-                      style={[
-                        styles.bodyChip,
-                        isActive && styles.bodyChipActive,
-                        { paddingHorizontal: isZoomedView ? 12 : 8, paddingVertical: isZoomedView ? 6 : 4, borderRadius: 12 }
-                      ]}
-                    >
-                      <Text style={[styles.bodyChipText, { fontSize: bodySize - 2 }, isActive && { color: '#FFF' }]}>{spot}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-
-            <View style={{ width: '100%', alignItems: 'center' }}>
-              <TouchableOpacity onPress={() => isZoomedView && setSimStep(6)} disabled={!isZoomedView} style={{ width: '100%' }}>
-                <Text style={[styles.sliderSubtext, { fontSize: bodySize }]}>Tap where fear appears</Text>
-              </TouchableOpacity>
-              
-              <View style={[styles.dotsRow, { marginTop: 16 }]}>
-                {[...Array(4)].map((_, idx) => (
-                  <View key={idx} style={[styles.dotItem, idx === 0 && styles.dotActive]} />
-                ))}
-              </View>
-            </View>
-          </View>
-        );
-
-      case 6:
-        return (
-          <View style={[styles.screenInner, { padding: paddingVal }]}>
-            <TouchableOpacity onPress={() => isZoomedView && setSimStep(5)} style={styles.simBackBtn} disabled={!isZoomedView}>
-              <Feather name="arrow-left" size={isZoomedView ? 18 : 12} color={COLORS.textWhite} />
-            </TouchableOpacity>
-
-            <View style={styles.screenCenter}>
-              <Text style={[styles.fearTitle, { fontSize: titleSize, marginBottom: 4 }]}>Look at your fear...</Text>
-              <Text style={[styles.fearSubtitle, { fontSize: bodySize - 1, marginBottom: 12 }]}>Without changing it... What does it feel like?</Text>
-              
-              <View style={[styles.smokeVisualWrapper, { height: isZoomedView ? 120 : 80 }]}>
-                <LinearGradient 
-                  colors={['rgba(99, 102, 241, 0.22)', 'rgba(139, 92, 246, 0.02)']} 
-                  style={[styles.volumetricSmokeBall, { width: isZoomedView ? 90 : 60, height: isZoomedView ? 90 : 60 }]} 
-                />
-              </View>
-
-              <View style={styles.textureGrid}>
-                {['Heavy', 'Cold', 'Tight', 'Fast', 'Empty', 'Unknown'].map((chip) => {
-                  const isActive = textureChip === chip;
-                  return (
-                    <TouchableOpacity
-                      key={chip}
-                      onPress={() => isZoomedView && setTextureChip(chip)}
-                      disabled={!isZoomedView}
-                      style={[
-                        styles.textureChipItem,
-                        isActive && styles.textureChipActive,
-                        { paddingVertical: isZoomedView ? 8 : 4, width: isZoomedView ? 76 : 54, borderRadius: 10, margin: 4 }
-                      ]}
-                    >
-                      <Text style={[styles.textureChipText, { fontSize: bodySize - 3 }, isActive && { color: '#FFF' }]}>{chip}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-
-            <View style={{ width: '100%' }}>
-              <TouchableOpacity onPress={() => isZoomedView && setSimStep(7)} disabled={!isZoomedView} style={[styles.simPrimaryBtn, { height: buttonHeight, borderRadius: buttonHeight / 2 }]}>
-                <LinearGradient colors={[COLORS.purple, COLORS.indigo]} style={styles.simGradient}>
-                  <Text style={[styles.simBtnText, { fontSize: bodySize + 1 }]}>Next →</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-              
-              <View style={[styles.dotsRow, { marginTop: 14 }]}>
-                {[...Array(5)].map((_, idx) => (
-                  <View key={idx} style={[styles.dotItem, idx === 0 && styles.dotActive]} />
-                ))}
-              </View>
-            </View>
-          </View>
-        );
-
-      case 7:
-        return (
-          <View style={[styles.screenInner, { padding: paddingVal }]}>
-            <TouchableOpacity onPress={() => isZoomedView && setSimStep(6)} style={styles.simBackBtn} disabled={!isZoomedView}>
-              <Feather name="arrow-left" size={isZoomedView ? 18 : 12} color={COLORS.textWhite} />
-            </TouchableOpacity>
-
-            <View style={styles.screenCenter}>
-              <Text style={[styles.fearTitle, { fontSize: titleSize, marginBottom: 2 }]}>If fear had a shape...</Text>
-              <Text style={[styles.fearSubtitle, { fontSize: bodySize - 1, marginBottom: 12 }]}>What would it be?</Text>
-              
-              <View style={styles.shapesGridContainer}>
-                {['Cloud', 'Wave', 'Fire', 'Rock', 'Storm', 'Shadow'].map((shape) => {
-                  const isActive = shapeSelect === shape;
-                  return (
-                    <TouchableOpacity
-                      key={shape}
-                      onPress={() => isZoomedView && setShapeSelect(shape)}
-                      disabled={!isZoomedView}
-                      style={[
-                        styles.shapeGridItem,
-                        isActive && styles.shapeGridActive,
-                        { paddingVertical: isZoomedView ? 8 : 4, width: isZoomedView ? 72 : 50, borderRadius: 10, margin: 4 }
-                      ]}
-                    >
-                      <Text style={[styles.shapeGridText, { fontSize: bodySize - 3 }, isActive && { color: '#FFF' }]}>{shape}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              <View style={{ height: isZoomedView ? 60 : 40, justifyContent: 'center', marginTop: 12 }}>
-                <Ionicons name="cloudy" size={isZoomedView ? 50 : 32} color="rgba(139, 92, 246, 0.4)" />
-              </View>
-            </View>
-
-            <View style={{ width: '100%' }}>
-              <TouchableOpacity onPress={() => isZoomedView && setSimStep(8)} disabled={!isZoomedView} style={[styles.simPrimaryBtn, { height: buttonHeight, borderRadius: buttonHeight / 2 }]}>
-                <LinearGradient colors={[COLORS.purple, COLORS.indigo]} style={styles.simGradient}>
-                  <Text style={[styles.simBtnText, { fontSize: bodySize + 1 }]}>Next →</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-              
-              <View style={[styles.dotsRow, { marginTop: 14 }]}>
-                {[...Array(5)].map((_, idx) => (
-                  <View key={idx} style={[styles.dotItem, idx === 1 && styles.dotActive]} />
-                ))}
-              </View>
-            </View>
-          </View>
-        );
-
-      case 8:
-        const motionCloudStyle = useAnimatedStyle(() => {
-          return {
-            transform: [
-              { translateX: cloudTranslateX.value },
-            ],
-            opacity: cloudOpacity.value,
-          };
-        });
-
-        return (
-          <View style={[styles.screenInner, { padding: paddingVal }]}>
-            <TouchableOpacity onPress={() => isZoomedView && setSimStep(7)} style={styles.simBackBtn} disabled={!isZoomedView}>
-              <Feather name="arrow-left" size={isZoomedView ? 18 : 12} color={COLORS.textWhite} />
-            </TouchableOpacity>
-
-            <View style={styles.screenCenter}>
-              <Text style={[styles.fearTitle, { fontSize: titleSize, marginBottom: 4 }]}>Watch it pass...</Text>
-              <Text style={[styles.fearSubtitle, { fontSize: bodySize - 1, marginBottom: 20 }]}>Nothing lasts forever.</Text>
-              
-              <View style={[styles.cloudDriftingTrack, { height: isZoomedView ? 120 : 80, width: isZoomedView ? 240 : 160 }]}>
-                <Animated.View style={[motionCloudStyle, { position: 'absolute', left: 0 }]}>
-                  <Ionicons name="cloudy" size={isZoomedView ? 64 : 44} color="rgba(139, 92, 246, 0.5)" />
-                </Animated.View>
-              </View>
-            </View>
-
-            <View style={{ width: '100%', alignItems: 'center' }}>
-              <TouchableOpacity onPress={() => isZoomedView && setSimStep(9)} disabled={!isZoomedView} style={{ width: '100%' }}>
-                <Text style={[styles.sliderSubtext, { fontSize: bodySize }]}>Even fear changes.</Text>
-              </TouchableOpacity>
-              
-              <View style={[styles.dotsRow, { marginTop: 16 }]}>
-                {[...Array(5)].map((_, idx) => (
-                  <View key={idx} style={[styles.dotItem, idx === 2 && styles.dotActive]} />
-                ))}
-              </View>
-            </View>
-          </View>
-        );
-
-      case 9:
-        return (
-          <View style={[styles.screenInner, { padding: paddingVal }]}>
-            <TouchableOpacity onPress={() => isZoomedView && setSimStep(8)} style={styles.simBackBtn} disabled={!isZoomedView}>
-              <Feather name="arrow-left" size={isZoomedView ? 18 : 12} color={COLORS.textWhite} />
-            </TouchableOpacity>
-
-            <View style={styles.screenCenter}>
-              <Text style={[styles.fearTitle, { fontSize: titleSize - 1, marginBottom: 12 }]}>What do you want{'\n'}to remind yourself?</Text>
-              
-              <ScrollView style={{ width: '100%', maxHeight: isZoomedView ? 240 : 160 }} showsVerticalScrollIndicator={false}>
-                <View style={[styles.reminderGlassCard, { padding: isZoomedView ? 10 : 6, marginBottom: 6 }]}>
-                  <Feather name="shield" size={isZoomedView ? 16 : 10} color={COLORS.purple} />
-                  <Text style={[styles.reminderText, { fontSize: bodySize - 2, marginLeft: 8 }]}>I am safe in this moment</Text>
-                </View>
-                <View style={[styles.reminderGlassCard, { padding: isZoomedView ? 10 : 6, marginBottom: 6 }]}>
-                  <Feather name="wind" size={isZoomedView ? 16 : 10} color={COLORS.cyan || '#06B6D4'} />
-                  <Text style={[styles.reminderText, { fontSize: bodySize - 2, marginLeft: 8 }]}>This feeling will pass</Text>
-                </View>
-                <View style={[styles.reminderGlassCard, { padding: isZoomedView ? 10 : 6, marginBottom: 6 }]}>
-                  <Feather name="heart" size={isZoomedView ? 16 : 10} color="#EF4444" />
-                  <Text style={[styles.reminderText, { fontSize: bodySize - 2, marginLeft: 8 }]}>I can handle hard things</Text>
-                </View>
-                {customReminder.map((rem, rIdx) => (
-                  <View key={rIdx} style={[styles.reminderGlassCard, { padding: isZoomedView ? 10 : 6, marginBottom: 6 }]}>
-                    <Feather name="edit-3" size={isZoomedView ? 16 : 10} color={COLORS.amber} />
-                    <Text style={[styles.reminderText, { fontSize: bodySize - 2, marginLeft: 8 }]} numberOfLines={1}>{rem}</Text>
-                  </View>
-                ))}
-              </ScrollView>
-
-              {isZoomedView && (
-                <View style={{ width: '100%', marginTop: 8 }}>
-                  {showAddReminder ? (
-                    <View style={styles.addReminderInputWrapper}>
-                      <TextInput
-                        style={styles.addReminderField}
-                        placeholder="Type reminder..."
-                        placeholderTextColor="rgba(255,255,255,0.4)"
-                        value={newReminderInput}
-                        onChangeText={setNewReminderInput}
-                      />
-                      <TouchableOpacity 
-                        onPress={() => {
-                          if (newReminderInput.trim()) {
-                            setCustomReminder((prev) => [...prev, newReminderInput]);
-                            setNewReminderInput('');
-                            setShowAddReminder(false);
-                          }
-                        }} 
-                        style={styles.addSaveBtn}
-                      >
-                        <Feather name="check" size={16} color={COLORS.white} />
-                      </TouchableOpacity>
-                    </View>
-                  ) : (
-                    <TouchableOpacity onPress={() => setShowAddReminder(true)} style={styles.addCustomReminderBtn}>
-                      <Text style={styles.addCustomText}>+ Add your own</Text>
-                    </TouchableOpacity>
-                  )}
+            {/* Step Indicator */}
+            <View style={styles.navStepContainer}>
+              <Text style={styles.navStepBadge}>SOCIAL AWARENESS</Text>
+              {screenStep > 1 && (
+                <View style={styles.progressBarTrack}>
+                  <View style={[styles.progressBarFill, { width: `${((screenStep - 1) / 3) * 100}%` }]} />
                 </View>
               )}
             </View>
 
-            <View style={{ width: '100%', marginTop: 8 }}>
-              <TouchableOpacity onPress={() => isZoomedView && setSimStep(10)} disabled={!isZoomedView} style={[styles.simPrimaryBtn, { height: buttonHeight, borderRadius: buttonHeight / 2 }]}>
-                <LinearGradient colors={[COLORS.purple, COLORS.indigo]} style={styles.simGradient}>
-                  <Text style={[styles.simBtnText, { fontSize: bodySize + 1 }]}>Continue →</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-              
-              <View style={[styles.dotsRow, { marginTop: 14 }]}>
-                {[...Array(5)].map((_, idx) => (
-                  <View key={idx} style={[styles.dotItem, idx === 3 && styles.dotActive]} />
-                ))}
-              </View>
-            </View>
+            <View style={{ width: 40 }} />
           </View>
-        );
+        )}
 
-      case 10:
-        return (
-          <View style={[styles.screenInner, { padding: paddingVal }]}>
-            <TouchableOpacity onPress={() => isZoomedView && setSimStep(9)} style={styles.simBackBtn} disabled={!isZoomedView}>
-              <Feather name="arrow-left" size={isZoomedView ? 18 : 12} color={COLORS.textWhite} />
-            </TouchableOpacity>
-
-            <View style={styles.screenCenter}>
-              <Text style={[styles.fearTitle, { fontSize: titleSize, marginBottom: 16 }]}>Today I noticed...</Text>
-              
-              <View style={{ width: '100%' }}>
-                <TouchableOpacity
-                  onPress={() => isZoomedView && setReflectionChecks(prev => ({ ...prev, real: !prev.real }))}
-                  disabled={!isZoomedView}
-                  style={[styles.checklistCard, { padding: isZoomedView ? 12 : 8, marginBottom: 6 }]}
-                >
-                  <View style={[styles.simCheckbox, reflectionChecks.real && styles.simCheckboxActive, { width: isZoomedView ? 20 : 12, height: isZoomedView ? 20 : 12, borderRadius: 4 }]}>
-                    {reflectionChecks.real && <Feather name="check" size={isZoomedView ? 12 : 8} color={COLORS.white} />}
-                  </View>
-                  <Text style={[styles.checklistLabel, { fontSize: bodySize - 1, marginLeft: 10 }]}>My fear was real, and that's okay</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={() => isZoomedView && setReflectionChecks(prev => ({ ...prev, stayed: !prev.stayed }))}
-                  disabled={!isZoomedView}
-                  style={[styles.checklistCard, { padding: isZoomedView ? 12 : 8, marginBottom: 6 }]}
-                >
-                  <View style={[styles.simCheckbox, reflectionChecks.stayed && styles.simCheckboxActive, { width: isZoomedView ? 20 : 12, height: isZoomedView ? 20 : 12, borderRadius: 4 }]}>
-                    {reflectionChecks.stayed && <Feather name="check" size={isZoomedView ? 12 : 8} color={COLORS.white} />}
-                  </View>
-                  <Text style={[styles.checklistLabel, { fontSize: bodySize - 1, marginLeft: 10 }]}>I stayed with it, instead of avoiding</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={() => isZoomedView && setReflectionChecks(prev => ({ ...prev, noChange: !prev.noChange }))}
-                  disabled={!isZoomedView}
-                  style={[styles.checklistCard, { padding: isZoomedView ? 12 : 8 }]}
-                >
-                  <View style={[styles.simCheckbox, reflectionChecks.noChange && styles.simCheckboxActive, { width: isZoomedView ? 20 : 12, height: isZoomedView ? 20 : 12, borderRadius: 4 }]}>
-                    {reflectionChecks.noChange && <Feather name="check" size={isZoomedView ? 12 : 8} color={COLORS.white} />}
-                  </View>
-                  <Text style={[styles.checklistLabel, { fontSize: bodySize - 1, marginLeft: 10 }]}>I didn't try to change it</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            <View style={{ width: '100%', marginTop: 8 }}>
-              <TouchableOpacity 
-                onPress={() => {
-                  if (isZoomedView) {
-                    handleSaveCompletion();
-                    setSimStep(11);
-                  }
-                }} 
-                disabled={!isZoomedView} 
-                style={[styles.simPrimaryBtn, { height: buttonHeight, borderRadius: buttonHeight / 2 }]}
-              >
-                <LinearGradient colors={[COLORS.purple, COLORS.indigo]} style={styles.simGradient}>
-                  <Text style={[styles.simBtnText, { fontSize: bodySize + 1 }]}>Save Reflection</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-              
-              <View style={[styles.dotsRow, { marginTop: 14 }]}>
-                {[...Array(5)].map((_, idx) => (
-                  <View key={idx} style={[styles.dotItem, idx === 4 && styles.dotActive]} />
-                ))}
-              </View>
-            </View>
-          </View>
-        );
-
-      case 11:
-        return (
-          <View style={[styles.screenInner, { padding: paddingVal }]}>
-            <View style={styles.screenCenter}>
-              <View style={[styles.compNeonCircle, { width: isZoomedView ? 90 : 60, height: isZoomedView ? 90 : 60, borderRadius: isZoomedView ? 45 : 30 }]}>
-                <Feather name="check" size={isZoomedView ? 40 : 26} color={COLORS.white} />
+        {/* SCREEN 1: INTRODUCTION */}
+        {screenStep === 1 && (
+          <Animated.View entering={FadeIn.duration(500)} style={styles.screenBody}>
+            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+              <View style={styles.heroGraphicContainer}>
+                <GroupEnergyNodeCircle activeEnergy={null} />
               </View>
 
-              <Text style={[styles.fearTitle, { fontSize: titleSize * 1.1, marginTop: 20, marginBottom: 8 }]}>Observation{'\n'}Complete</Text>
-              
-              <Text style={[styles.compSummaryDesc, { fontSize: bodySize, lineHeight: bodySize * 1.6 }]}>
-                Fear was acknowledged.{'\n'}
-                Not defeated.{'\n'}
-                Not ignored.{'\n'}
-                Simply noticed.
-              </Text>
-            </View>
-
-            <View style={{ width: '100%' }}>
-              <TouchableOpacity onPress={() => isZoomedView && setSimStep(12)} disabled={!isZoomedView} style={[styles.simPrimaryBtn, { height: buttonHeight, borderRadius: buttonHeight / 2 }]}>
-                <LinearGradient colors={[COLORS.purple, COLORS.indigo]} style={styles.simGradient}>
-                  <Text style={[styles.simBtnText, { fontSize: bodySize + 1 }]}>Continue →</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          </View>
-        );
-
-      case 12:
-        return (
-          <View style={[styles.screenInner, { padding: 0 }]}>
-            <LinearGradient
-              colors={['#FDBA74', '#F59E0B', '#8B5CF6', COLORS.deepBlack]}
-              style={StyleSheet.absoluteFillObject}
-              start={{ x: 0.5, y: 0 }}
-              end={{ x: 0.5, y: 1 }}
-            />
-            <View style={{ position: 'absolute', bottom: 60, width: '100%', alignItems: 'center' }}>
-              <Feather name="triangle" size={isZoomedView ? 160 : 100} color="rgba(9, 10, 20, 0.4)" style={{ transform: [{ scaleY: 0.6 }] }} />
-            </View>
-
-            <View style={[StyleSheet.absoluteFillObject, { padding: paddingVal, justifyContent: 'space-between' }]}>
-              <View />
-
-              <View style={styles.screenCenter}>
-                <Text style={[styles.fearTitle, { fontSize: titleSize * 1.3, marginBottom: 8 }]}>Well done!</Text>
-                <Text style={[styles.fearSubtitle, { fontSize: bodySize, lineHeight: bodySize * 1.5, color: '#FFF' }]}>
-                  You showed up for yourself.{'\n'}That's something to be proud of.
+              <View style={styles.heroTextSection}>
+                <Text style={styles.heroTitle}>Observe Group Energy</Text>
+                <Text style={styles.heroSubtitle}>
+                  "Every group has a feeling.{'\n'}Learn to notice the energy without judging it."
                 </Text>
 
-                {isZoomedView && fearText.trim() !== '' && (
-                  <BlurView intensity={25} tint="dark" style={[styles.simSummaryCard, { marginTop: 20 }]}>
-                    <Text style={styles.summaryCardLabel}>Your fear was noted:</Text>
-                    <Text style={styles.summaryCardValue} numberOfLines={2}>"{fearText}"</Text>
-                    <Text style={styles.summaryCardDate}>{formattedDate} • Intensity {intensity}/5</Text>
-                  </BlurView>
-                )}
+                {/* Quote Card */}
+                <View style={styles.quoteGlassCard}>
+                  <Feather name="shield" size={18} color={COLORS.amber} style={{ marginBottom: 6 }} />
+                  <Text style={styles.quoteText}>
+                    "Awareness begins when observation replaces reaction."
+                  </Text>
+                </View>
               </View>
 
-              <TouchableOpacity 
-                onPress={() => isZoomedView && handleFinishTask()} 
-                activeOpacity={0.8}
-                disabled={!isZoomedView}
-                style={[styles.simPrimaryBtn, { height: buttonHeight, borderRadius: buttonHeight / 2, shadowColor: COLORS.amber }]}
+              {/* Begin Observation Button */}
+              <TouchableOpacity
+                onPress={handleBeginObservation}
+                activeOpacity={0.85}
+                style={styles.primaryGradientBtn}
               >
-                <LinearGradient colors={[COLORS.amber, COLORS.purple]} style={styles.simGradient}>
-                  <Text style={[styles.simBtnText, { fontSize: bodySize + 1 }]}>Finish</Text>
+                <LinearGradient
+                  colors={[COLORS.purple, COLORS.indigo]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.gradientBtnInner}
+                >
+                  <Text style={styles.primaryBtnText}>Begin Observation →</Text>
                 </LinearGradient>
               </TouchableOpacity>
+            </ScrollView>
+          </Animated.View>
+        )}
+
+        {/* SCREEN 2: ENERGY SCAN */}
+        {screenStep === 2 && (
+          <Animated.View entering={FadeIn.duration(400)} style={styles.screenBody}>
+            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+              <Text style={styles.sectionHeading}>What energy do you notice?</Text>
+              <Text style={styles.sectionSubheading}>
+                Pause, feel the atmosphere, and select the mood of the room.
+              </Text>
+
+              {/* Dynamic Energy Node Centerpiece */}
+              <View style={styles.centerScanGraphic}>
+                <GroupEnergyNodeCircle activeEnergy={activeEnergy} />
+              </View>
+
+              {/* Floating Bubbles Selector Grid */}
+              <View style={styles.bubblesGrid}>
+                {ENERGY_OPTIONS.map((item) => {
+                  const isSelected = selectedEnergyId === item.id;
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      onPress={() => handleSelectEnergy(item.id)}
+                      activeOpacity={0.8}
+                      style={[
+                        styles.energyBubble,
+                        isSelected && {
+                          borderColor: item.color,
+                          backgroundColor: item.glowColor,
+                          transform: [{ scale: 1.05 }],
+                          shadowColor: item.color,
+                          shadowOpacity: 0.6,
+                          shadowRadius: 12,
+                          elevation: 6,
+                        },
+                      ]}
+                    >
+                      <Text style={styles.bubbleEmoji}>{item.emoji}</Text>
+                      <Text style={[styles.bubbleLabel, isSelected && { color: COLORS.textWhite, fontWeight: '700' }]}>
+                        {item.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {activeEnergy && (
+                <Text style={[styles.energyDescription, { color: activeEnergy.color }]}>
+                  {activeEnergy.description}
+                </Text>
+              )}
+
+              {/* Continue Button */}
+              <TouchableOpacity
+                onPress={handleContinueFromScan}
+                disabled={!selectedEnergyId}
+                activeOpacity={0.85}
+                style={[
+                  styles.primaryGradientBtn,
+                  !selectedEnergyId && styles.btnDisabled,
+                ]}
+              >
+                <LinearGradient
+                  colors={
+                    selectedEnergyId && activeEnergy
+                      ? activeEnergy.gradient
+                      : [COLORS.glassBorder, COLORS.glassBg]
+                  }
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.gradientBtnInner}
+                >
+                  <Text style={styles.primaryBtnText}>Continue →</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </ScrollView>
+          </Animated.View>
+        )}
+
+        {/* SCREEN 3: YOUR OBSERVATION */}
+        {screenStep === 3 && (
+          <Animated.View entering={FadeIn.duration(400)} style={styles.screenBody}>
+            {/* Particle Canvas for Typing */}
+            <View style={StyleSheet.absoluteFill} pointerEvents="none">
+              {typingParticles.map((p) => (
+                <TypingParticleItem
+                  key={p.id}
+                  id={p.id}
+                  xOffset={p.xOffset}
+                  yStart={p.yStart}
+                  color={p.color}
+                  onComplete={handleRemoveParticle}
+                />
+              ))}
             </View>
-          </View>
-        );
 
-      default:
-        return null;
-    }
-  };
+            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+              <Text style={styles.sectionHeading}>Capture What You Noticed</Text>
+              <Text style={styles.sectionSubheading}>
+                "What did you observe about the group's energy?"
+              </Text>
 
-  const canvasWidth = 1180;
-  const gridScale = width < 1240 ? (width - 40) / canvasWidth : 1;
+              {/* Selected Energy Chip */}
+              {activeEnergy && (
+                <View style={[styles.selectedBadgePill, { borderColor: activeEnergy.color, backgroundColor: activeEnergy.glowColor }]}>
+                  <Text style={styles.selectedBadgeEmoji}>{activeEnergy.emoji}</Text>
+                  <Text style={styles.selectedBadgeText}>Noticing {activeEnergy.label} Energy</Text>
+                </View>
+              )}
 
-  return (
-    <View style={styles.canvasContainer}>
-      <StatusBar style="dark" />
+              {/* Glass Reflection Card Text Input */}
+              <View style={styles.glassInputCard}>
+                <TextInput
+                  style={styles.observationTextInput}
+                  placeholder="The group felt..."
+                  placeholderTextColor="rgba(255, 255, 255, 0.35)"
+                  multiline
+                  numberOfLines={4}
+                  value={observationText}
+                  onChangeText={handleTypingText}
+                  maxLength={300}
+                  textAlignVertical="top"
+                />
+                <View style={styles.charCountRow}>
+                  <Text style={styles.charCountText}>{observationText.length} / 300</Text>
+                </View>
+              </View>
 
-      {/* Case Study Header Canvas */}
-      <View style={styles.canvasHeader}>
-        <View style={styles.headerLeft}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.canvasBackBtn}>
-            <Feather name="arrow-left" size={20} color={COLORS.textBlack} />
-          </TouchableOpacity>
-          <View style={{ marginLeft: 16 }}>
-            <Text style={styles.canvasTitle}>Notice Fear Mockups</Text>
-            <Text style={styles.canvasSubtitle}>Premium mobile UX/UI case study presentation</Text>
-          </View>
-        </View>
-
-        <View style={styles.canvasBadge}>
-          <Text style={styles.canvasBadgeText}>📱 Tap any screen to zoom and interact</Text>
-        </View>
-      </View>
-
-      <ScrollView
-        contentContainerStyle={styles.canvasScroll}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={[styles.mockupCanvasBlock, { width: canvasWidth, transform: [{ scale: gridScale }] }]}>
-          <View style={styles.gridContainer}>
-            {[...Array(12)].map((_, i) => {
-              const screenIndex = i + 1;
-              return (
-                <View key={screenIndex} style={styles.mockupCol}>
-                  <Text style={styles.screenGridLabel}>SCREEN {screenIndex}</Text>
-                  
+              {/* Example Suggestion Chips */}
+              <Text style={styles.chipsSectionTitle}>Tap suggestions to add:</Text>
+              <View style={styles.suggestionChipsRow}>
+                {SUGGESTION_CHIPS.map((chip, idx) => (
                   <TouchableOpacity
-                    activeOpacity={0.9}
-                    onPress={() => {
-                      triggerHaptic('light');
-                      setSimStep(screenIndex);
-                      setZoomedIndex(screenIndex);
-                    }}
-                    style={styles.mockupShadowFrame}
+                    key={idx}
+                    onPress={() => handleChipTap(chip)}
+                    activeOpacity={0.7}
+                    style={styles.suggestionChip}
                   >
-                    <View style={styles.iphone16ProFrame}>
-                      <View style={styles.speakerSlit} />
-                      <View style={styles.dynamicIsland} />
-                      <View style={styles.innerBezelFrame}>
-                        {renderScreenContent(screenIndex, false)}
-                      </View>
-                      <LinearGradient
-                        colors={['rgba(255,255,255,0.06)', 'rgba(255,255,255,0.0)', 'rgba(0,0,0,0.08)']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={StyleSheet.absoluteFillObject}
-                        pointerEvents="none"
-                      />
-                    </View>
+                    <Text style={styles.chipText}>+ {chip}</Text>
                   </TouchableOpacity>
-                </View>
-              );
-            })}
-          </View>
-        </View>
-      </ScrollView>
-
-      {/* Zooms Screen interactive full-size modal */}
-      {zoomedIndex !== null && (
-        <Modal visible={true} transparent animationType="fade" onRequestClose={() => setZoomedIndex(null)}>
-          <View style={styles.modalOverlay}>
-            <TouchableOpacity style={StyleSheet.absoluteFillObject} activeOpacity={1} onPress={() => setZoomedIndex(null)} />
-            
-            <BlurView intensity={35} tint="dark" style={styles.modalBlurBackground}>
-              <View style={styles.zoomedHUD}>
-                <Text style={styles.zoomedHUDTitle}>Interactive Simulation (Step {simStep}/12)</Text>
-                
-                <TouchableOpacity onPress={() => setZoomedIndex(null)} style={styles.zoomedCloseBtn}>
-                  <Feather name="x" size={24} color={COLORS.white} />
-                </TouchableOpacity>
+                ))}
               </View>
 
-              <View style={styles.zoomedIPhoneWrapper}>
-                <View style={[styles.iphone16ProFrame, styles.iphoneZoomSize]}>
-                  <View style={[styles.speakerSlit, styles.speakerZoomSize]} />
-                  <View style={[styles.dynamicIsland, styles.islandZoomSize]} />
-                  <View style={styles.innerBezelFrame}>
-                    {renderScreenContent(simStep, true)}
+              {/* Save Observation Button */}
+              <TouchableOpacity
+                onPress={handleSaveObservation}
+                disabled={!observationText.trim()}
+                activeOpacity={0.85}
+                style={[
+                  styles.primaryGradientBtn,
+                  !observationText.trim() && styles.btnDisabled,
+                ]}
+              >
+                <LinearGradient
+                  colors={
+                    observationText.trim() && activeEnergy
+                      ? activeEnergy.gradient
+                      : [COLORS.purple, COLORS.indigo]
+                  }
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.gradientBtnInner}
+                >
+                  <Text style={styles.primaryBtnText}>Save Observation →</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </ScrollView>
+          </Animated.View>
+        )}
+
+        {/* SCREEN 4: ENERGY VISUALIZATION */}
+        {screenStep === 4 && activeEnergy && (
+          <Animated.View entering={FadeIn.duration(400)} style={styles.screenBody}>
+            {/* Energy Spreading Wave Visual Canvas */}
+            <EnergyWaveCanvas energy={activeEnergy} />
+
+            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+              <Text style={styles.sectionHeading}>Your Observation</Text>
+              <Text style={styles.sectionSubheading}>
+                The invisible emotional atmosphere you captured.
+              </Text>
+
+              {/* Glass Display Reflection Card */}
+              <View style={[styles.glassDisplayCard, { borderColor: activeEnergy.color }]}>
+                <View style={[styles.badgeDisplayRow, { backgroundColor: activeEnergy.glowColor }]}>
+                  <Text style={styles.displayEmoji}>{activeEnergy.emoji}</Text>
+                  <Text style={styles.displayTextLabel}>{activeEnergy.label} Energy</Text>
+                </View>
+
+                <View style={styles.quoteBlock}>
+                  <Text style={styles.quoteSymbol}>“</Text>
+                  <Text style={styles.savedObservationText}>{observationText}</Text>
+                  <Text style={[styles.quoteSymbol, { alignSelf: 'flex-end' }]}>”</Text>
+                </View>
+
+                <View style={styles.cardFooterInfo}>
+                  <Feather name="globe" size={14} color={COLORS.textDim} />
+                  <Text style={styles.footerText}>Social Awareness Reflection</Text>
+                </View>
+              </View>
+
+              {errorMessage && (
+                <Text style={styles.errorText}>{errorMessage}</Text>
+              )}
+
+              {/* Complete Observation Button */}
+              <TouchableOpacity
+                onPress={handleContinueToCompletion}
+                disabled={isSubmitting}
+                activeOpacity={0.85}
+                style={styles.primaryGradientBtn}
+              >
+                <LinearGradient
+                  colors={activeEnergy.gradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.gradientBtnInner}
+                >
+                  {isSubmitting ? (
+                    <ActivityIndicator size="small" color="#FFF" />
+                  ) : (
+                    <Text style={styles.primaryBtnText}>Complete Task →</Text>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+            </ScrollView>
+          </Animated.View>
+        )}
+
+        {/* SCREEN 5: SHARED COMPLETION */}
+        {screenStep === 5 && (
+          <Animated.View entering={FadeInUp.duration(600)} style={styles.completionContainer}>
+            <ScrollView contentContainerStyle={styles.completionScroll} showsVerticalScrollIndicator={false}>
+              {/* Badge Hero Icon */}
+              <View style={styles.completionBadgeCircle}>
+                <LinearGradient
+                  colors={[COLORS.purple, COLORS.indigo]}
+                  style={styles.badgeCircleInner}
+                >
+                  <Text style={styles.completionEmoji}>🌐✨</Text>
+                </LinearGradient>
+              </View>
+
+              <Text style={styles.completionWellDone}>Well Done</Text>
+              <Text style={styles.completionTaskTitle}>Observe Group Energy</Text>
+
+              {/* Reward & Badge Container */}
+              <View style={styles.rewardPillsRow}>
+                <View style={styles.rewardPill}>
+                  <Ionicons name="sparkles" size={16} color={COLORS.amber} />
+                  <Text style={styles.rewardPillText}>+250 Mind Points</Text>
+                </View>
+
+                <View style={styles.badgePill}>
+                  <Feather name="award" size={15} color={COLORS.cyan} />
+                  <Text style={styles.badgePillText}>🌐 Energy Observer</Text>
+                </View>
+              </View>
+
+              {/* Completion Message Box */}
+              <View style={styles.completionQuoteCard}>
+                <Text style={styles.completionMessageText}>
+                  "You noticed the invisible energy that connects people."
+                </Text>
+              </View>
+
+              {/* User Observation Summary Card */}
+              {activeEnergy && (
+                <View style={styles.summaryCard}>
+                  <Text style={styles.summaryTitle}>Captured Summary:</Text>
+                  <View style={styles.summaryDetailRow}>
+                    <Text style={styles.summaryEmoji}>{activeEnergy.emoji}</Text>
+                    <Text style={styles.summaryEnergyName}>{activeEnergy.label} Energy</Text>
                   </View>
-                  <LinearGradient
-                    colors={['rgba(255,255,255,0.06)', 'rgba(255,255,255,0.0)', 'rgba(0,0,0,0.08)']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={StyleSheet.absoluteFillObject}
-                    pointerEvents="none"
-                  />
+                  {observationText ? (
+                    <Text style={styles.summaryObservationText}>"{observationText}"</Text>
+                  ) : null}
                 </View>
-              </View>
+              )}
 
-              <View style={styles.modalControllerRow}>
-                <TouchableOpacity
-                  onPress={() => {
-                    triggerHaptic('light');
-                    setSimStep((prev) => Math.max(1, prev - 1));
-                  }}
-                  disabled={simStep === 1}
-                  style={[styles.simNavBtn, simStep === 1 && { opacity: 0.4 }]}
+              {/* Continue / Finish Button */}
+              <TouchableOpacity
+                onPress={handleFinishAndReturn}
+                activeOpacity={0.85}
+                style={[styles.primaryGradientBtn, { marginTop: 24 }]}
+              >
+                <LinearGradient
+                  colors={[COLORS.purple, COLORS.indigo]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.gradientBtnInner}
                 >
-                  <Feather name="arrow-left" size={20} color={COLORS.white} />
-                  <Text style={styles.simNavText}>Previous</Text>
-                </TouchableOpacity>
-
-                <View style={styles.simStepProgressBadge}>
-                  <Text style={styles.simStepText}>Screen {simStep} of 12</Text>
-                </View>
-
-                <TouchableOpacity
-                  onPress={() => {
-                    triggerHaptic('light');
-                    if (simStep === 10) {
-                      handleSaveCompletion();
-                    }
-                    setSimStep((prev) => Math.min(12, prev + 1));
-                  }}
-                  disabled={simStep === 12}
-                  style={[styles.simNavBtn, simStep === 12 && { opacity: 0.4 }]}
-                >
-                  <Text style={styles.simNavText}>Next</Text>
-                  <Feather name="arrow-right" size={20} color={COLORS.white} />
-                </TouchableOpacity>
-              </View>
-            </BlurView>
-          </View>
-        </Modal>
-      )}
+                  <Text style={styles.primaryBtnText}>Continue</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </ScrollView>
+          </Animated.View>
+        )}
+      </SafeAreaView>
     </View>
   );
 }
 
+// ==========================================
+// STYLES
+// ==========================================
+
 const styles = StyleSheet.create({
-  canvasContainer: {
+  container: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: COLORS.bgDark,
   },
-  loadingContainer: {
+  safeArea: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
+  },
+  centerContent: {
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 24,
   },
-  canvasHeader: {
-    height: 72,
-    backgroundColor: COLORS.bgWhite,
+  loadingText: {
+    marginTop: 16,
+    color: COLORS.textDim,
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  navHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    zIndex: 100,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
   },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  canvasBackBtn: {
+  navBackBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: COLORS.glassBg,
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  canvasTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: COLORS.textBlack,
-    letterSpacing: -0.5,
-  },
-  canvasSubtitle: {
-    fontSize: 12,
-    color: COLORS.textBlackSub,
-  },
-  canvasBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    backgroundColor: '#EEF2FF',
-    borderWidth: 1,
-    borderColor: '#E0E7FF',
-  },
-  canvasBadgeText: {
-    color: COLORS.indigo,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  canvasScroll: {
-    flexGrow: 1,
+  navStepContainer: {
     alignItems: 'center',
-    paddingVertical: 40,
   },
-  mockupCanvasBlock: {
-    backgroundColor: COLORS.bgWhite,
-    borderRadius: 36,
-    paddingVertical: 40,
-    paddingHorizontal: 30,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.08,
-    shadowRadius: 24,
+  navStepBadge: {
+    color: COLORS.amber,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+  },
+  progressBarTrack: {
+    width: 100,
+    height: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    borderRadius: 2,
+    marginTop: 6,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: COLORS.purple,
+    borderRadius: 2,
+  },
+  screenBody: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 22,
+    paddingBottom: 40,
+    alignItems: 'center',
+  },
+
+  // HERO GRAPHIC (SCREEN 1)
+  heroGraphicContainer: {
+    marginVertical: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  groupCircleWrapper: {
+    width: 220,
+    height: 220,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  energyRingBackground: {
+    position: 'absolute',
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    borderWidth: 2,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.7,
+    shadowRadius: 20,
+  },
+  energyWaveArc: {
+    position: 'absolute',
+    width: 216,
+    height: 216,
+    borderRadius: 108,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+  },
+  centerEnergyOrb: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 15,
     elevation: 8,
   },
-  gridContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+  centerOrbEmoji: {
+    fontSize: 32,
   },
-  mockupCol: {
-    width: 260,
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  screenGridLabel: {
-    color: COLORS.textBlackSub,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1.5,
-    marginBottom: 12,
-    textTransform: 'uppercase',
-  },
-  mockupShadowFrame: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.16,
-    shadowRadius: 18,
-    elevation: 10,
-  },
-  iphone16ProFrame: {
-    width: 226,
-    height: 460,
-    borderRadius: 34,
-    backgroundColor: '#0F172A',
-    borderWidth: 5,
-    borderColor: '#334155',
-    overflow: 'hidden',
-  },
-  innerBezelFrame: {
-    flex: 1,
-    borderRadius: 30,
-    overflow: 'hidden',
-  },
-  speakerSlit: {
-    width: 44,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: '#475569',
+  avatarNode: {
     position: 'absolute',
-    top: 5,
-    alignSelf: 'center',
-    zIndex: 99,
-  },
-  dynamicIsland: {
-    width: 68,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#000000',
-    position: 'absolute',
-    top: 10,
-    alignSelf: 'center',
-    zIndex: 99,
-  },
-  screenInner: {
-    flex: 1,
-    backgroundColor: COLORS.deepBlack,
-    justifyContent: 'space-between',
-  },
-  smokeOverlayTop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 120,
-    zIndex: 1,
-  },
-  screenCenter: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  screenTopAlign: {
-    flex: 1,
-    justifyContent: 'flex-start',
-    alignItems: 'center',
-  },
-  mountainSilhouette: {
-    position: 'absolute',
-    bottom: 40,
-    width: '100%',
-    alignItems: 'center',
-    opacity: 0.5,
-  },
-  mountainShape: {
-    transform: [{ scaleY: 0.5 }],
-  },
-  fearTitle: {
-    color: COLORS.textWhite,
-    fontWeight: '800',
-    textAlign: 'center',
-    letterSpacing: -0.5,
-  },
-  fearSubtitle: {
-    color: COLORS.textDim,
-    textAlign: 'center',
-  },
-  simPrimaryBtn: {
-    width: '100%',
-    overflow: 'hidden',
-    shadowColor: COLORS.purple,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  simGradient: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  simBtnText: {
-    color: COLORS.textWhite,
-    fontWeight: '700',
-  },
-  simBackBtn: {
-    position: 'absolute',
-    left: 12,
-    top: 34,
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
-  },
-  simFearOrb: {
-    backgroundColor: 'rgba(139, 92, 246, 0.12)',
+    backgroundColor: 'rgba(15, 16, 38, 0.9)',
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    shadowOffset: { width: 0, height: 0 },
-    shadowColor: COLORS.purple,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  simOrbCore: {
-    width: '45%',
-    height: '45%',
-    borderRadius: 99,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.4)',
-  },
-  tapOrbText: {
-    color: COLORS.purple,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-  },
-  dotsRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+
+  // HERO TEXTS
+  heroTextSection: {
     alignItems: 'center',
-    height: 12,
+    marginVertical: 12,
   },
-  dotItem: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    marginHorizontal: 4,
-  },
-  dotActive: {
-    backgroundColor: COLORS.purple,
-    width: 10,
-  },
-  simInputBoxGlass: {
-    width: '100%',
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: COLORS.glassBorder,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    padding: 12,
-  },
-  simTextInput: {
-    flex: 1,
+  heroTitle: {
+    fontSize: 28,
+    fontWeight: '800',
     color: COLORS.textWhite,
-    textAlignVertical: 'top',
+    textAlign: 'center',
+    marginBottom: 8,
   },
-  intensityRing: {
-    borderWidth: 6,
-    borderColor: COLORS.purple,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: COLORS.purple,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.4,
-    shadowRadius: 15,
-  },
-  sliderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '80%',
-  },
-  sliderNumBtn: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderWidth: 1,
-    borderColor: COLORS.glassBorder,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sliderNumActive: {
-    backgroundColor: COLORS.purple,
-    borderColor: COLORS.purple,
-  },
-  sliderNumText: {
-    color: COLORS.textWhite,
-    fontWeight: '600',
-  },
-  sliderSubtext: {
+  heroSubtitle: {
+    fontSize: 15,
     color: COLORS.textDim,
     textAlign: 'center',
-    letterSpacing: 0.5,
-  },
-  bodyMapWrapper: {
-    width: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  hotspotNode: {
-    position: 'absolute',
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    borderWidth: 1,
-    borderColor: COLORS.textWhite,
-  },
-  hotspotActive: {
-    backgroundColor: COLORS.purple,
-    shadowColor: COLORS.purple,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 8,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  bodyChipsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    marginTop: 16,
-  },
-  bodyChip: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
-    borderColor: COLORS.glassBorder,
-    margin: 3,
-  },
-  bodyChipActive: {
-    backgroundColor: COLORS.purple,
-    borderColor: COLORS.purple,
-  },
-  bodyChipText: {
-    color: COLORS.textDim,
-    fontWeight: '600',
-  },
-  smokeVisualWrapper: {
-    width: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  volumetricSmokeBall: {
-    borderRadius: 99,
-    shadowColor: COLORS.indigo,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 20,
-  },
-  textureGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    width: '100%',
-  },
-  textureChipItem: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
-    borderColor: COLORS.glassBorder,
-    alignItems: 'center',
-  },
-  textureChipActive: {
-    backgroundColor: COLORS.purple,
-    borderColor: COLORS.purple,
-  },
-  textureChipText: {
-    color: COLORS.textDim,
-    fontWeight: '600',
-  },
-  shapesGridContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    width: '100%',
-  },
-  shapeGridItem: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
-    borderColor: COLORS.glassBorder,
-    alignItems: 'center',
-  },
-  shapeGridActive: {
-    backgroundColor: COLORS.purple,
-    borderColor: COLORS.purple,
-    shadowColor: COLORS.purple,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 6,
-  },
-  shapeGridText: {
-    color: COLORS.textDim,
-    fontWeight: '600',
-  },
-  cloudDriftingTrack: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
-  },
-  reminderGlassCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.glassBorder,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    width: '100%',
-  },
-  reminderText: {
-    color: COLORS.textWhite,
-    fontWeight: '500',
-  },
-  addCustomReminderBtn: {
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-    borderStyle: 'dashed',
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  addCustomText: {
-    color: COLORS.textDim,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  addReminderInputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 38,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.purple,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    overflow: 'hidden',
-    paddingHorizontal: 8,
-  },
-  addReminderField: {
-    flex: 1,
-    color: COLORS.textWhite,
-    fontSize: 12,
-    padding: 0,
-  },
-  addSaveBtn: {
-    width: 26,
-    height: 26,
-    borderRadius: 6,
-    backgroundColor: COLORS.purple,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checklistCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: COLORS.glassBorder,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    width: '100%',
-  },
-  simCheckbox: {
-    borderWidth: 1.5,
-    borderColor: COLORS.purple,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  simCheckboxActive: {
-    backgroundColor: COLORS.purple,
-  },
-  checklistLabel: {
-    color: COLORS.textWhite,
-    fontWeight: '500',
-  },
-  compNeonCircle: {
-    borderWidth: 3,
-    borderColor: COLORS.purple,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: COLORS.purple,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.7,
-    shadowRadius: 15,
-  },
-  compSummaryDesc: {
-    color: COLORS.textDim,
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-  simSummaryCard: {
-    borderRadius: 16,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    width: '100%',
-  },
-  summaryCardLabel: {
-    color: COLORS.purple,
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  summaryCardValue: {
-    color: COLORS.textWhite,
-    fontSize: 13,
-    fontWeight: '500',
-    fontStyle: 'italic',
-    marginTop: 4,
-  },
-  summaryCardDate: {
-    color: COLORS.textDim,
-    fontSize: 10,
-    marginTop: 6,
-    fontWeight: '600',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalBlurBackground: {
-    borderRadius: 30,
-    padding: 24,
-    alignItems: 'center',
-    width: '90%',
-    maxWidth: 420,
-    borderWidth: 1,
-    borderColor: COLORS.glassBorder,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(15, 23, 42, 0.85)',
-  },
-  zoomedHUD: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    width: '100%',
+    lineHeight: 22,
     marginBottom: 20,
   },
-  zoomedHUDTitle: {
-    color: COLORS.textWhite,
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  zoomedCloseBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  zoomedIPhoneWrapper: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.35,
-    shadowRadius: 25,
-    elevation: 12,
-  },
-  iphoneZoomSize: {
-    width: 310,
-    height: 630,
-    borderRadius: 44,
-    borderWidth: 7,
-  },
-  speakerZoomSize: {
-    width: 60,
-    height: 4,
-    top: 6,
-  },
-  islandZoomSize: {
-    width: 90,
-    height: 20,
-    top: 13,
-  },
-  modalControllerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  quoteGlassCard: {
     width: '100%',
-    marginTop: 24,
-  },
-  simNavBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: COLORS.glassBg,
     borderWidth: 1,
     borderColor: COLORS.glassBorder,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 18,
+    borderRadius: 16,
+    padding: 18,
+    alignItems: 'center',
+    marginVertical: 8,
   },
-  simNavText: {
+  quoteText: {
     color: COLORS.textWhite,
-    fontSize: 13,
-    fontWeight: '600',
-    marginHorizontal: 6,
+    fontSize: 14,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    lineHeight: 20,
   },
-  simStepProgressBadge: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    backgroundColor: 'rgba(139, 92, 246, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(139, 92, 246, 0.25)',
-  },
-  simStepText: {
-    color: COLORS.purple,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  simGlassBtn: {
+
+  // BUTTONS
+  primaryGradientBtn: {
     width: '100%',
-    backgroundColor: 'rgba(139, 92, 246, 0.25)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    height: 54,
+    borderRadius: 27,
+    marginTop: 20,
     overflow: 'hidden',
+    shadowColor: COLORS.purple,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 6,
   },
-  simGlassBtnBlur: {
+  gradientBtnInner: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  primaryBtnText: {
+    color: COLORS.textWhite,
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+  },
+  btnDisabled: {
+    opacity: 0.45,
+  },
+
+  // SCREEN 2 SCAN
+  sectionHeading: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: COLORS.textWhite,
+    textAlign: 'center',
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  sectionSubheading: {
+    fontSize: 14,
+    color: COLORS.textDim,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  centerScanGraphic: {
+    marginVertical: 10,
+    alignItems: 'center',
+  },
+  bubblesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 10,
+    marginVertical: 14,
+  },
+  energyBubble: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 22,
+    backgroundColor: COLORS.glassBg,
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
+  },
+  bubbleEmoji: {
+    fontSize: 18,
+    marginRight: 6,
+  },
+  bubbleLabel: {
+    fontSize: 14,
+    color: COLORS.textDim,
+    fontWeight: '500',
+  },
+  energyDescription: {
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginVertical: 8,
+  },
+
+  // SCREEN 3 OBSERVATION
+  selectedBadgePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  selectedBadgeEmoji: {
+    fontSize: 16,
+    marginRight: 6,
+  },
+  selectedBadgeText: {
+    color: COLORS.textWhite,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  glassInputCard: {
+    width: '100%',
+    backgroundColor: COLORS.glassBg,
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 16,
+  },
+  observationTextInput: {
+    color: COLORS.textWhite,
+    fontSize: 16,
+    lineHeight: 24,
+    minHeight: 110,
+  },
+  charCountRow: {
+    alignItems: 'flex-end',
+    marginTop: 8,
+  },
+  charCountText: {
+    color: COLORS.textDim,
+    fontSize: 12,
+  },
+  chipsSectionTitle: {
+    alignSelf: 'flex-start',
+    color: COLORS.textDim,
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 8,
+  },
+  suggestionChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    width: '100%',
+    marginBottom: 16,
+  },
+  suggestionChip: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  chipText: {
+    color: COLORS.textDim,
+    fontSize: 12,
+  },
+
+  // SCREEN 4 VISUALIZATION
+  waveCanvasContainer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  waveCircle: {
+    position: 'absolute',
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    borderWidth: 2,
+  },
+  glassDisplayCard: {
+    width: '100%',
+    backgroundColor: 'rgba(15, 16, 38, 0.85)',
+    borderWidth: 1.5,
+    borderRadius: 22,
+    padding: 22,
+    marginVertical: 20,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+  },
+  badgeDisplayRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginBottom: 16,
+  },
+  displayEmoji: {
+    fontSize: 20,
+    marginRight: 8,
+  },
+  displayTextLabel: {
+    color: COLORS.textWhite,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  quoteBlock: {
+    marginVertical: 10,
+  },
+  quoteSymbol: {
+    fontSize: 32,
+    color: COLORS.amber,
+    fontWeight: '800',
+    lineHeight: 28,
+  },
+  savedObservationText: {
+    color: COLORS.textWhite,
+    fontSize: 17,
+    fontStyle: 'italic',
+    lineHeight: 26,
+    marginVertical: 4,
+  },
+  cardFooterInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  footerText: {
+    color: COLORS.textDim,
+    fontSize: 12,
+    marginLeft: 6,
+  },
+  errorText: {
+    color: COLORS.rose,
+    fontSize: 13,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+
+  // PARTICLES
   ambientParticle: {
     position: 'absolute',
-    borderRadius: 99,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 6,
   },
   typingParticle: {
     position: 'absolute',
     width: 6,
     height: 6,
     borderRadius: 3,
-    zIndex: 99,
+    alignSelf: 'center',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 3,
+    shadowOpacity: 0.8,
+    shadowRadius: 6,
+  },
+
+  // SCREEN 5 COMPLETION
+  completionContainer: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  completionScroll: {
+    paddingHorizontal: 24,
+    paddingVertical: 30,
+    alignItems: 'center',
+  },
+  completionBadgeCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    padding: 3,
+    backgroundColor: COLORS.glassBorder,
+    marginBottom: 20,
+    shadowColor: COLORS.purple,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+  },
+  badgeCircleInner: {
+    flex: 1,
+    borderRadius: 47,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  completionEmoji: {
+    fontSize: 44,
+  },
+  completionWellDone: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: COLORS.amber,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    marginBottom: 6,
+  },
+  completionTaskTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: COLORS.textWhite,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  rewardPillsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 20,
+  },
+  rewardPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.4)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  rewardPillText: {
+    color: COLORS.amber,
+    fontSize: 13,
+    fontWeight: '700',
+    marginLeft: 6,
+  },
+  badgePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(6, 182, 212, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(6, 182, 212, 0.4)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  badgePillText: {
+    color: COLORS.cyan,
+    fontSize: 13,
+    fontWeight: '700',
+    marginLeft: 6,
+  },
+  completionQuoteCard: {
+    width: '100%',
+    backgroundColor: COLORS.glassBg,
+    borderWidth: 1,
+    borderColor: COLORS.glassBorder,
+    borderRadius: 18,
+    padding: 18,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  completionMessageText: {
+    color: COLORS.textWhite,
+    fontSize: 15,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  summaryCard: {
+    width: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  summaryTitle: {
+    color: COLORS.textDim,
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 8,
+  },
+  summaryDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  summaryEmoji: {
+    fontSize: 18,
+    marginRight: 6,
+  },
+  summaryEnergyName: {
+    color: COLORS.textWhite,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  summaryObservationText: {
+    color: COLORS.textDim,
+    fontSize: 14,
+    fontStyle: 'italic',
+    marginTop: 4,
   },
 });

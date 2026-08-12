@@ -1,9 +1,9 @@
-import { API_BASE_URL } from './Api';
+import { API_BASE_URL, getApiBaseUrl } from './Api';
 
 /**
  * Resolves an image URL from the database into a fully-qualified URL.
  * 
- * Handles three cases:
+ * Handles cases:
  * 1. Relative path (new format): "/uploads/profile_123.png" → "http://<API_BASE_URL>/uploads/profile_123.png"
  * 2. Old absolute URL with stale IP: "http://192.168.1.8:5000/uploads/..." → "http://<API_BASE_URL>/uploads/..."
  * 3. External URL (https://cdn...): returned as-is
@@ -19,21 +19,23 @@ export function resolveImageUrl(url: string | null | undefined, fallback: string
   // Local file URI (from camera or image picker before upload)
   if (cleanUrl.startsWith('file://') || cleanUrl.startsWith('data:image')) return cleanUrl;
 
+  const currentBase = getApiBaseUrl() || API_BASE_URL;
+
   // Check if URL points to an uploaded image resource (/uploads/...)
   const uploadsIndex = cleanUrl.indexOf('/uploads/');
   if (uploadsIndex !== -1) {
     const relativePath = cleanUrl.substring(uploadsIndex);
-    return `${API_BASE_URL}${relativePath}`;
+    return `${currentBase}${relativePath}`;
   }
 
-  // Already a valid HTTPS external image URL
+  // Already a valid HTTPS external image URL (unless it's an HTTP URL pointing to /uploads/)
   if (cleanUrl.startsWith('https://') || cleanUrl.startsWith('http://')) {
     return cleanUrl;
   }
 
   // Relative path without leading slash
   if (cleanUrl.startsWith('uploads/')) {
-    return `${API_BASE_URL}/${cleanUrl}`;
+    return `${currentBase}/${cleanUrl}`;
   }
 
   return cleanUrl;

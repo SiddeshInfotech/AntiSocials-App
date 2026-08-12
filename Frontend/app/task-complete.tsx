@@ -1,77 +1,75 @@
 import { useEffect } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
-import { API_BASE_URL } from '../constants/Api';
+import { apiFetch } from '../constants/Api';
 
 /**
  * Redirects to unified task-success screen
- * Now supports dynamic task types + points and connects them to the backend API.
+ * Supports standard task difficulty: Easy=100, Medium=300, Hard=600.
  */
 export default function TaskCompleteScreen() {
   const router = useRouter();
   const { type, points } = useLocalSearchParams<{ type?: string; points?: string }>();
 
-  // 🎯 Assign default points based on task if not passed
-  const getPoints = () => {
+  const getTaskInfo = () => {
     switch (type) {
       case 'breathing':
-        return '100';
+        return { name: 'Breathe consciously for 3 minutes', difficulty: 'easy', defaultPoints: '100' };
       case 'water':
-        return '150';
+        return { name: 'Drink a glass of water mindfully', difficulty: 'easy', defaultPoints: '100' };
       case 'social':
-        return '200';
+        return { name: 'Call an old friend', difficulty: 'medium', defaultPoints: '300' };
       case 'tech':
-        return '600';
+        return { name: 'Take an hour tech-free break', difficulty: 'hard', defaultPoints: '600' };
       case 'meet':
-        return '700';
+        return { name: 'Meet one friend in real life', difficulty: 'hard', defaultPoints: '600' };
       default:
-        return '100';
+        return { name: 'Task', difficulty: 'easy', defaultPoints: '100' };
     }
   };
 
   useEffect(() => {
     const completeTask = async () => {
-      let pointsData = { pointsAdded: points || getPoints(), totalPoints: '0', streak: '0' };
-      const taskNames: Record<string, string> = {
-        'breathing': 'Breathe consciously for 3 minutes',
-        'water': 'Drink a glass of water mindfully',
-        'tech': 'Take an hour tech-free break',
-        'meet': 'Meet one friend in real life',
-        'social': 'Call an old friend',
+      const taskInfo = getTaskInfo();
+      let pointsData = { 
+        pointsEarned: points || taskInfo.defaultPoints, 
+        totalPoints: points || taskInfo.defaultPoints, 
+        streak: '1' 
       };
-      const taskName = taskNames[type || ''] || '';
 
-      if (taskName) {
-        try {
-          const token = await SecureStore.getItemAsync('token');
-          if (token) {
-            const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-              },
-              body: JSON.stringify({ task_name: taskName })
-            });
-            const data = await response.json();
-            if (response.ok || data.success) {
-              pointsData = { 
-                pointsAdded: data.pointsAdded?.toString() || pointsData.pointsAdded, 
-                totalPoints: data.totalPoints?.toString() || "0",
-                streak: data.streak?.toString() || "0"
-              };
-            }
+      try {
+        const token = await SecureStore.getItemAsync('token');
+        if (token) {
+          const response = await apiFetch('/api/tasks/complete', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ task_name: taskInfo.name })
+          });
+          const data = await response.json();
+          if (response.ok || data.success) {
+            const pts = (data.pointsEarned ?? data.points_earned ?? data.pointsAdded ?? taskInfo.defaultPoints);
+            pointsData = { 
+              pointsEarned: pts > 0 ? pts.toString() : taskInfo.defaultPoints, 
+              totalPoints: (data.totalPoints ?? data.total_points ?? taskInfo.defaultPoints).toString(),
+              streak: (data.currentStreak ?? data.current_streak ?? data.streak ?? 1).toString()
+            };
           }
-        } catch (e) {
-          console.error("TaskComplete complete API error:", e);
         }
+      } catch (e) {
+        console.error("TaskComplete complete API error:", e);
       }
 
       router.replace({
         pathname: '/task-success',
         params: {
           type: type || 'default',
-          points: pointsData.pointsAdded,
+          taskName: taskInfo.name,
+          difficulty: taskInfo.difficulty,
+          pointsEarned: pointsData.pointsEarned,
+          points: pointsData.pointsEarned,
           totalPoints: pointsData.totalPoints,
           streak: pointsData.streak,
         },

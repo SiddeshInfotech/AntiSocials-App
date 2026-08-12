@@ -60,75 +60,83 @@ const triggerHaptic = (type: 'light' | 'medium' | 'success') => {
   }
 };
 
+const FloatingItem = ({ width, height, index }: { width: number; height: number; index: number }) => {
+  const posX = useSharedValue(Math.random() * width);
+  const posY = useSharedValue(height + Math.random() * 80);
+  const rot = useSharedValue(0);
+  const scale = Math.random() * 0.4 + 0.35;
+  const opacity = Math.random() * 0.25 + 0.15;
+  const isLeaf = index % 3 === 0;
+  const isFeather = index % 3 === 1;
+
+  useEffect(() => {
+    const duration = 15000 + Math.random() * 10000;
+    const delay = Math.random() * 6000;
+
+    posY.value = withDelay(
+      delay,
+      withRepeat(
+        withSequence(
+          withTiming(height + 40, { duration: 0 }),
+          withTiming(-50, { duration, easing: Easing.linear })
+        ),
+        -1,
+        false
+      )
+    );
+
+    posX.value = withRepeat(
+      withSequence(
+        withTiming(posX.value + (Math.random() * 50 - 25), {
+          duration: 4000 + Math.random() * 2000,
+          easing: Easing.inOut(Easing.ease),
+        }),
+        withTiming(posX.value - (Math.random() * 50 - 25), {
+          duration: 4000 + Math.random() * 2000,
+          easing: Easing.inOut(Easing.ease),
+        })
+      ),
+      -1,
+      true
+    );
+
+    rot.value = withRepeat(
+      withTiming(360, { duration: 8000 + Math.random() * 4000, easing: Easing.linear }),
+      -1,
+      false
+    );
+  }, []);
+
+  const style = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: posX.value },
+      { translateY: posY.value },
+      { scale },
+      { rotate: `${rot.value}deg` },
+    ],
+    opacity,
+  }));
+
+  return (
+    <Animated.View style={[styles.floatingElement, style]}>
+      {isLeaf ? (
+        <MaterialCommunityIcons name="leaf" size={24} color={COLORS.primary} />
+      ) : isFeather ? (
+        <Feather name="feather" size={24} color={COLORS.accent} />
+      ) : (
+        <Feather name="wind" size={22} color={COLORS.primary} />
+      )}
+    </Animated.View>
+  );
+};
+
 // Ambient Floating Feathers and Leaves in the background
 const AmbientFloatingElements = ({ width, height }: { width: number; height: number }) => {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {[...Array(12)].map((_, i) => {
-        const posX = useSharedValue(Math.random() * width);
-        const posY = useSharedValue(height + Math.random() * 80);
-        const rot = useSharedValue(0);
-        const scale = Math.random() * 0.4 + 0.35;
-        const opacity = Math.random() * 0.25 + 0.15;
-        const isLeaf = i % 3 === 0;
-        const isFeather = i % 3 === 1;
-
-        useEffect(() => {
-          const duration = 15000 + Math.random() * 10000;
-          const delay = Math.random() * 6000;
-
-          posY.value = withDelay(
-            delay,
-            withRepeat(
-              withSequence(
-                withTiming(height + 40, { duration: 0 }),
-                withTiming(-50, { duration, easing: Easing.linear })
-              ),
-              -1,
-              false
-            )
-          );
-
-          posX.value = withRepeat(
-            withSequence(
-              withTiming(posX.value + (Math.random() * 50 - 25), {
-                duration: 4000 + Math.random() * 2000,
-                easing: Easing.inOut(Easing.ease),
-              }),
-              withTiming(posX.value - (Math.random() * 50 - 25), {
-                duration: 4000 + Math.random() * 2000,
-                easing: Easing.inOut(Easing.ease),
-              })
-            ),
-            -1,
-            true
-          );
-
-          rot.value = withRepeat(
-            withTiming(360, { duration: 8000 + Math.random() * 4000, easing: Easing.linear }),
-            -1,
-            false
-          );
-        }, []);
-
-        const style = useAnimatedStyle(() => ({
-          transform: [
-            { translateX: posX.value },
-            { translateY: posY.value },
-            { scale },
-            { rotate: `${rot.value}deg` },
-          ],
-          opacity,
-        }));
-
-        return (
-          <Animated.View key={i} style={[styles.floatingElement, style]}>
-            {isLeaf && <Ionicons name="leaf-outline" size={20} color={COLORS.primary} />}
-            {isFeather && <MaterialCommunityIcons name="feather" size={22} color={COLORS.accent} />}
-            {!isLeaf && !isFeather && <Ionicons name="sparkles-outline" size={16} color={COLORS.primary} />}
-          </Animated.View>
-        );
-      })}
+      {Array.from({ length: 12 }).map((_, i) => (
+        <FloatingItem key={i} index={i} width={width} height={height} />
+      ))}
     </View>
   );
 };

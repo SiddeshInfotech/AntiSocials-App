@@ -2,6 +2,7 @@ import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useIsFocused } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import TasksJourneySection from "../../components/TasksJourneySection";
+import CircularHabitDashboard from "../../components/CircularHabitDashboard";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
@@ -746,19 +747,21 @@ export default function HomeScreen() {
 
   const trackView = async (storyId: number) => {
     try {
+      console.log(`👀 [Story View] Tracking view for storyId: ${storyId}`);
       const token = await SecureStore.getItemAsync('token');
       await apiFetch(`/api/stories/${storyId}/view`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
     } catch (e) {
-      console.error("Track view error:", e);
+      console.error("❌ Track view error:", e);
     }
   };
 
   const fetchViewers = async (storyId: number | string) => {
     if (!storyId) return;
     try {
+      console.log(`👀 [Fetch Viewers] Fetching viewers for storyId: ${storyId}`);
       const token = await SecureStore.getItemAsync('token');
       const response = await apiFetch(`/api/stories/${storyId}/views`, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -768,23 +771,27 @@ export default function HomeScreen() {
         setStoryViewers(Array.isArray(data.viewers) ? data.viewers : []);
         setShowViewersList(true);
       } else {
-        Alert.alert("Error", data.error || "Failed to fetch viewers");
+        Alert.alert("Notice", data.error || "Unable to load viewers");
       }
     } catch (e) {
-      console.error("Fetch viewers error:", e);
-      Alert.alert("Error", "Network error while fetching viewers");
+      console.error("❌ Fetch viewers error:", e);
+      Alert.alert("Notice", "Unable to load viewers at this time.");
     }
   };
 
   React.useEffect(() => {
     if (isFocused) {
-      if ((updatedPoints || updatedStreak) && homeData) {
+      console.log('📌 [Home] isFocused triggered. updatedPoints:', updatedPoints, 'updatedStreak:', updatedStreak);
+      if (updatedPoints !== undefined || updatedStreak !== undefined) {
+        const parsedPts = (updatedPoints && !isNaN(parseInt(updatedPoints, 10))) ? parseInt(updatedPoints, 10) : undefined;
+        const parsedStk = (updatedStreak && !isNaN(parseInt(updatedStreak, 10))) ? parseInt(updatedStreak, 10) : undefined;
         setHomeData((prev: any) => ({ 
-          ...prev, 
-          total_points: updatedPoints ? parseInt(updatedPoints, 10) : prev.total_points,
+          ...(prev || {}), 
+          total_points: parsedPts !== undefined ? parsedPts : (prev?.total_points ?? 0),
           user: {
-            ...prev.user,
-            streak_count: updatedStreak ? parseInt(updatedStreak, 10) : prev.user?.streak_count
+            ...(prev?.user || {}),
+            points: parsedPts !== undefined ? parsedPts : (prev?.user?.points ?? 0),
+            streak_count: parsedStk !== undefined ? parsedStk : (prev?.user?.streak_count ?? 0)
           }
         }));
       }
@@ -801,40 +808,59 @@ export default function HomeScreen() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
-      if (response.ok && data.points !== undefined) {
+      console.log('📌 [Home] fetchUserSummary received:', data?.points, 'streak:', data?.streak);
+      if (response.ok && data && (data.points !== undefined || data.total_points !== undefined || data.totalPoints !== undefined)) {
+        const pts = Number(data.points ?? data.total_points ?? data.totalPoints ?? 0);
+        const stk = Number(data.streak ?? data.currentStreak ?? data.current_streak ?? 0);
         setHomeData((prev: any) => ({ 
-          ...prev, 
-          total_points: data.points, 
-          completedTasks: data.completedTasks,
+          ...(prev || {}), 
+          total_points: pts, 
+          completedTasks: data.completedTasks || prev?.completedTasks || [],
           user: {
-            ...prev?.user,
-            streak_count: data.streak
+            ...(prev?.user || {}),
+            points: pts,
+            streak_count: stk
           }
         }));
       }
     } catch (e) {
-      console.error('❌ fetchUserSummary error:', e);
+      console.error('❌ [Home] fetchUserSummary error:', e);
     }
   };
 
   const fetchHomeData = async () => {
     try {
       const token = await SecureStore.getItemAsync('token');
-      console.log('📌 fetchHomeData: token exists:', !!token);
       if (!token) return;
       const response = await apiFetch('/api/home', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
-      console.log('📌 fetchHomeData response status:', response.status);
-      console.log('📌 fetchHomeData tasks count:', data?.tasks?.length);
-      console.log('📌 fetchHomeData total_points:', data?.total_points);
-      console.log('📌 fetchHomeData streak:', data?.user?.streak_count);
-      if (response.ok) {
-        setHomeData(data);
+      console.log('📌 [Home] fetchHomeData received total_points:', data?.total_points, 'user points:', data?.user?.points, 'streak:', data?.streak_count);
+      if (response.ok && data) {
+        setHomeData((prev: any) => {
+          const finalPoints = (data.total_points !== undefined && data.total_points !== null) 
+            ? Number(data.total_points) 
+            : ((data.user?.points !== undefined && data.user?.points !== null) ? Number(data.user.points) : (prev?.total_points ?? 0));
+          const finalStreak = (data.streak_count !== undefined && data.streak_count !== null)
+            ? Number(data.streak_count)
+            : ((data.user?.streak_count !== undefined && data.user?.streak_count !== null) ? Number(data.user.streak_count) : (prev?.user?.streak_count ?? 0));
+
+          return {
+            ...(prev || {}),
+            ...data,
+            total_points: finalPoints,
+            user: {
+              ...(prev?.user || {}),
+              ...data.user,
+              points: finalPoints,
+              streak_count: finalStreak
+            }
+          };
+        });
       }
     } catch (e) {
-      console.error('❌ fetchHomeData error:', e);
+      console.error('❌ [Home] fetchHomeData error:', e);
     }
   };
 
@@ -871,13 +897,17 @@ export default function HomeScreen() {
       const data = await response.json();
       
       if (response.ok || data.success) {
+        const nextPoints = data.totalPoints !== undefined ? data.totalPoints : (data.total_points !== undefined ? data.total_points : undefined);
+        const nextStreak = data.currentStreak !== undefined ? data.currentStreak : (data.streak !== undefined ? data.streak : undefined);
+        
         setHomeData((prev: any) => ({ 
           ...prev, 
-          total_points: data.totalPoints !== undefined ? data.totalPoints : prev.total_points,
-          completedTasks: data.completedTasks || prev.completedTasks,
+          total_points: nextPoints !== undefined ? nextPoints : prev?.total_points,
+          completedTasks: data.completedTasks || prev?.completedTasks,
           user: {
             ...prev?.user,
-            streak_count: data.streak !== undefined ? data.streak : prev?.user?.streak_count
+            points: nextPoints !== undefined ? nextPoints : prev?.user?.points,
+            streak_count: nextStreak !== undefined ? nextStreak : prev?.user?.streak_count
           }
         }));
         fetchHomeData(); 
@@ -910,6 +940,7 @@ export default function HomeScreen() {
     if (!previewStoryMedia) return;
     try {
       setIsUploading(true);
+      console.log('🚀 [Story Upload] Starting upload flow for media:', previewStoryMedia, 'type:', previewMediaType);
       const token = await SecureStore.getItemAsync('token');
 
       // 1. Upload to server to get public URL (Required for videos, better for images)
@@ -920,43 +951,72 @@ export default function HomeScreen() {
       const formData = new FormData();
       formData.append('image', { uri: previewStoryMedia, name: filename, type } as any);
 
+      console.log('📤 [Story Upload] Sending media to /upload...');
       const uploadRes = await apiFetch('/upload', {
         method: "POST",
         body: formData,
+        timeoutMs: 30000,
       });
 
       const uploadData = await uploadRes.json();
-      if (!uploadRes.ok) throw new Error(uploadData.error || "Upload failed");
+      console.log(`📥 [Story Upload] /upload status=${uploadRes.status}, imageUrl=${uploadData?.imageUrl}`);
+      if (!uploadRes.ok || !uploadData?.imageUrl) {
+        throw new Error(uploadData?.error || "Media upload failed on server");
+      }
 
       // 2. Save story metadata
+      const storyPayload = {
+        media_url: uploadData.imageUrl,
+        media_type: previewMediaType,
+        text_elements: storyElements,
+        text_content: storyElements.length > 0 ? storyElements.map(el => el.content).join(' ') : null,
+        text_position: storyElements.length > 0 ? { x: storyElements[0].x, y: storyElements[0].y } : {},
+        caption: ''
+      };
+
+      console.log('📤 [Story Upload] Creating story record via POST /api/stories with payload:', storyPayload);
       const response = await apiFetch('/api/stories', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          media_url: uploadData.imageUrl,
-          media_type: previewMediaType,
-          text_elements: storyElements,
-          text_content: storyElements.length > 0 ? storyElements.map(el => el.content).join(' ') : null,
-          text_position: storyElements.length > 0 ? { x: storyElements[0].x, y: storyElements[0].y } : {},
-          caption: ''
-        })
+        body: JSON.stringify(storyPayload)
       });
 
-      if (response.ok) {
-        fetchHomeData(); 
+      const data = await response.json();
+      console.log(`📥 [Story Upload] POST /api/stories status=${response.status}`, data);
+
+      if (response.ok && data.story) {
+        const createdStory = data.story;
+        console.log(`✅ [Story Upload Success] Story ID: ${createdStory.id}, User ID: ${createdStory.user_id}, URL: ${createdStory.media_url}`);
+
+        // IMMEDIATELY update local state so "Your Story" is instantly available to view
+        setHomeData((prev: any) => {
+          const existingOwn = prev?.own_stories || [];
+          return {
+            ...(prev || {}),
+            own_stories: [createdStory, ...existingOwn.filter((s: any) => s.id !== createdStory.id)],
+          };
+        });
+
+        // Close editor preview and reset
         setPreviewStoryMedia(null);
         resetStoryEdits();
+
+        // Background sync to ensure all data is fresh
+        fetchHomeData().catch((syncErr) => console.error("Error refreshing home data after upload:", syncErr));
+
         Alert.alert("Success", "Story uploaded successfully!");
       } else {
-        const data = await response.json();
-        Alert.alert("Error", data.error || "Failed to upload story");
+        Alert.alert("Upload Failed", data?.error || "Failed to create story record.");
       }
     } catch (e: any) {
-      console.error(e);
-      Alert.alert("Error", e.message || "Network error");
+      console.error('❌ [Story Upload Exception]:', e);
+      const userMessage = e?.message && !e.message.toLowerCase().includes('network request failed')
+        ? e.message
+        : "Unable to upload story. Please check your connection and try again.";
+      Alert.alert("Upload Failed", userMessage);
     } finally {
       setIsUploading(false);
     }
@@ -964,6 +1024,7 @@ export default function HomeScreen() {
 
   const deleteStory = async (storyId: number) => {
     try {
+      console.log(`🗑️ [Story Delete] Deleting storyId: ${storyId}`);
       const token = await SecureStore.getItemAsync('token');
       const response = await apiFetch(`/api/stories/${storyId}`, {
         method: 'DELETE',
@@ -973,14 +1034,20 @@ export default function HomeScreen() {
       });
 
       if (response.ok) {
+        console.log(`✅ [Story Delete Success] storyId: ${storyId}`);
         setViewingStory(null);
-        fetchHomeData();
+        setHomeData((prev: any) => ({
+          ...(prev || {}),
+          own_stories: (prev?.own_stories || []).filter((s: any) => s.id !== storyId),
+        }));
+        fetchHomeData().catch((e) => console.error("Error refreshing home data after story deletion:", e));
       } else {
-        Alert.alert("Error", "Failed to delete story");
+        const data = await response.json().catch(() => ({}));
+        Alert.alert("Error", data.error || "Failed to delete story");
       }
     } catch (e) {
-      console.error("Delete story error:", e);
-      Alert.alert("Error", "Network error");
+      console.error("❌ Delete story error:", e);
+      Alert.alert("Error", "Unable to delete story. Please check your connection.");
     }
   };
 
@@ -1044,8 +1111,8 @@ export default function HomeScreen() {
         {/* Top Header */}
         <View style={[styles.header, { paddingTop: Math.max(insets.top, 25) }]}>
           <View style={styles.stats}>
-            <Text style={styles.statItem}>🔥 {homeData?.user?.streak_count || 0}</Text>
-            <Text style={styles.statItem}>⚡ {homeData?.total_points || 0}</Text>
+            <Text style={styles.statItem}>🔥 {homeData?.user?.streak_count ?? homeData?.streak_count ?? 0}</Text>
+            <Text style={styles.statItem}>⚡ {homeData?.total_points ?? homeData?.user?.points ?? 0}</Text>
           </View>
           <Text style={styles.appName}>AntiSocial</Text>
         </View>
@@ -1130,103 +1197,79 @@ export default function HomeScreen() {
           </ScrollView>
         </View>
 
-        {/* Main Dashboard Box */}
-        <View style={styles.dashboardContainer}>
-          <View
-            style={styles.tasksCircleAreaFlex}
-            onLayout={(e) => {
-              const { width: w, height: h } = e.nativeEvent.layout;
-              // store for polar math — safe to call setState here
-              setCircleSize({ w, h });
-            }}
-          >
-            {/* Circular emoji buttons — polar coordinates around TRUE container center */}
-            {(() => {
-              const ITEMS = [
-                { label: "Reflect", emoji: "✍️" },
-                { label: "Smile", emoji: "😊" },
-                { label: "Breathe", emoji: "🫁" },
-                { label: "Eye Rest", emoji: "👀" },
-                { label: "Stretch", emoji: "🧘‍♀️" },
-                { label: "Silent", emoji: "🤫" },
-              ];
+        {/* AntiSocial Dog Growth & Circular Habit Dashboard */}
+        <CircularHabitDashboard
+          completedTasks={homeData?.completedTasks || []}
+          activeTask={activeTask}
+          onSelectTask={(taskLabel) => handleTaskPress(taskLabel)}
+          onStartTask={(task) => {
+            Haptics.notificationAsync(
+              Haptics.NotificationFeedbackType.Success,
+            );
+            
+            // Handle dedicated task routes
+            if (task === "Smile") {
+              router.push("/smile-task" as any);
+              setActiveTask(null);
+              return;
+            }
 
-              const BUTTON_SIZE = 70;
-              // Circle is always centered on the full container dimensions
-              const cx = circleSize.w / 2;
-              const cy = circleSize.h / 2;
-              const radius = Math.min(cx, cy) * 0.82;
-              const COUNT = ITEMS.length;
-              const START_ANGLE = -120 * (Math.PI / 180);
+            if (task === "Silent") {
+              router.push("/silent" as any);
+              setActiveTask(null);
+              return;
+            }
 
-              return ITEMS.map((item, i) => {
-                const angle = START_ANGLE + (i * 2 * Math.PI) / COUNT;
-                const x = cx + radius * Math.cos(angle) - BUTTON_SIZE / 2;
-                const y = cy + radius * Math.sin(angle) - BUTTON_SIZE / 2;
-                return (
-                  <View
-                    key={item.label}
-                    style={[
-                      styles.circularItemWrapper,
-                      { left: x, top: y, width: BUTTON_SIZE },
-                    ]}
-                  >
-                    {renderTaskItemFlex(item.label, item.emoji)}
-                  </View>
-                );
-              });
-            })()}
+            if (task === "Breathe") {
+              router.push("/groundingBreath" as any);
+              setActiveTask(null);
+              return;
+            }
 
-            {/* Cat with animations */}
-            <AnimatedBuddyContainer
-              activeTask={activeTask}
-              onStartTask={(task) => {
-                Haptics.notificationAsync(
-                  Haptics.NotificationFeedbackType.Success,
-                );
-                
-                // Handle complex tasks that have their own routes
-                if (task === "Connect") {
-                  router.push("/ask" as any);
-                  setActiveTask(null);
-                  return;
-                }
-                
-                if (task === "Gratitude") {
-                  router.push("/gratitude" as any);
-                  setActiveTask(null);
-                  return;
-                }
+            if (task === "Stretch") {
+              router.push("/stretch" as any);
+              setActiveTask(null);
+              return;
+            }
 
-                if (task === "Walk") {
-                  router.push("/walk" as any);
-                  setActiveTask(null);
-                  return;
-                }
+            if (task === "Eye Rest") {
+              router.push("/eye-rest-task" as any);
+              setActiveTask(null);
+              return;
+            }
 
-                if (task === "Stretch") {
-                  router.push("/stretch" as any);
-                  setActiveTask(null);
-                  return;
-                }
+            if (task === "Reflect") {
+              router.push("/reflect" as any);
+              setActiveTask(null);
+              return;
+            }
 
-                completeTaskApi(task);
-                Alert.alert(
-                  `Completed ${task}`,
-                  `You have successfully completed this task. Points added!`,
-                );
-                setActiveTask(null);
-                
-                // Navigate to task screen based on task name
-                if (task === "Eye Rest") {
-                  router.push("/eye-rest-task" as any);
-                } else if (task === "Confirm") {
-                  router.push("/confirm-presence-task" as any);
-                }
-              }}
-            />
-          </View>
-        </View>
+            if (task === "Connect") {
+              router.push("/ask" as any);
+              setActiveTask(null);
+              return;
+            }
+            
+            if (task === "Gratitude") {
+              router.push("/gratitude" as any);
+              setActiveTask(null);
+              return;
+            }
+
+            if (task === "Walk") {
+              router.push("/walk" as any);
+              setActiveTask(null);
+              return;
+            }
+
+            completeTaskApi(task);
+            Alert.alert(
+              `Completed ${task}`,
+              `You have successfully completed this task. Points added!`,
+            );
+            setActiveTask(null);
+          }}
+        />
 
         <TasksJourneySection completedTasks={homeData?.completedTasks || []} />
 
@@ -1252,7 +1295,11 @@ export default function HomeScreen() {
         visible={viewingStory !== null} 
         animationType="fade" 
         transparent={true}
-        onShow={() => viewingStory && viewingStory.user_id !== homeData?.user?.id && trackView(viewingStory.id)}
+        onShow={() => {
+          if (viewingStory && homeData?.user?.id && Number(viewingStory.user_id) !== Number(homeData.user.id)) {
+            trackView(viewingStory.id);
+          }
+        }}
       >
         <View style={styles.storyViewerOverlay}>
           <SafeAreaView style={{ flex: 1, position: 'relative' }}>
@@ -1262,7 +1309,7 @@ export default function HomeScreen() {
                   <Text style={styles.storyViewerUsername}>{viewingStory?.username || 'Your Story'}</Text>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  {viewingStory?.user_id === homeData?.user?.id && (
+                  {viewingStory && homeData?.user?.id && Number(viewingStory.user_id) === Number(homeData.user.id) && (
                     <TouchableOpacity 
                       onPress={() => {
                         Alert.alert("Delete Story", "Are you sure you want to delete this story?", [
@@ -1328,7 +1375,7 @@ export default function HomeScreen() {
              </View>
 
              {/* Views Count at Bottom for Owner */}
-             {viewingStory && viewingStory.user_id === homeData?.user?.id && (
+             {viewingStory && homeData?.user?.id && Number(viewingStory.user_id) === Number(homeData.user.id) && (
                <TouchableOpacity 
                  onPress={() => fetchViewers(viewingStory?.id)}
                  style={{ 

@@ -1,367 +1,496 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Easing, Dimensions, Pressable, Alert, AppState, Image } from 'react-native';
-import { useRouter } from 'expo-router';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import * as SecureStore from 'expo-secure-store';
-import { API_BASE_URL } from '../constants/Api';
-import { Feather } from '@expo/vector-icons';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  StyleSheet,
+  View,
+  Text,
+  TouchableOpacity,
+  Image,
+  useWindowDimensions,
+  Platform,
+  ActivityIndicator,
+  ScrollView,
+  TextInput,
+} from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withRepeat,
+  withSequence,
+  Easing,
+  FadeIn,
+  FadeOut,
+  ZoomIn,
+} from 'react-native-reanimated';
+import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Video, ResizeMode } from 'expo-av';
+import * as ImagePicker from 'expo-image-picker';
+import * as Haptics from 'expo-haptics';
+import * as SecureStore from 'expo-secure-store';
+import { apiFetch } from '../constants/Api';
 
-const { width } = Dimensions.get('window');
-const TASK_DURATION = 120; // 2 minutes (120 seconds)
+const HERO_EAT_IMAGE = require('../assets/images/make_it_9_16_image_2K_202608051427.jpeg');
+const EAT_VIDEO_BACKGROUND = require('../assets/videos/Eating_food_consciously_202608051401.mp4');
 
 export default function EatTaskScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
-  
-  const [isActive, setIsActive] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(TASK_DURATION);
-  const [isCompleted, setIsCompleted] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const { width } = useWindowDimensions();
 
-  // Animations
-  const uiFadeAnim = useRef(new Animated.Value(1)).current;
-  const timerFadeAnim = useRef(new Animated.Value(0)).current;
-  const timerGlowAnim = useRef(new Animated.Value(0.6)).current;
-  const breathAnim = useRef(new Animated.Value(1)).current;
-  const bgShiftAnim = useRef(new Animated.Value(0)).current;
-  
-  // Mascot Floating & Gentle Breathing
-  const mascotFloatAnim = useRef(new Animated.Value(0)).current;
-  const mascotScaleAnim = useRef(new Animated.Value(0.95)).current;
+  // Page Step: 1: Introduction | 2: Mindful Bite Experience | 3: Share Moment | 4: Completion
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
 
-  // AppState recovery tracking
-  const appState = useRef(AppState.currentState);
-  const endTimeRef = useRef<number>(0);
+  // Page 3 State: Image Upload & Optional Note
+  const [mealImage, setMealImage] = useState<string | null>(null);
+  const [reflectionNote, setReflectionNote] = useState<string>('');
 
-  // AppState change listener to handle backgrounding/resuming
+  // Page 4 State: Loading
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  // Page 1 Gentle Floating Movement for hero image
+  const floatY = useSharedValue(0);
+  const glowScale = useSharedValue(1);
+
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', (nextAppState) => {
-      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
-        // Adjust remaining time based on timestamp
-        if (isActive && !isPaused) {
-          const remaining = Math.max(0, Math.round((endTimeRef.current - Date.now()) / 1000));
-          setTimeLeft(remaining);
-        }
-      }
-      appState.current = nextAppState;
-    });
+    floatY.value = withRepeat(
+      withSequence(
+        withTiming(-7, { duration: 2800, easing: Easing.inOut(Easing.ease) }),
+        withTiming(7, { duration: 2800, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
 
-    return () => {
-      subscription.remove();
-    };
-  }, [isActive, isPaused]);
-
-  // Initial animations
-  useEffect(() => {
-    // Background Breathing
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(breathAnim, { toValue: 1.04, duration: 5000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        Animated.timing(breathAnim, { toValue: 1, duration: 5000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-      ])
-    ).start();
-
-    // Background shift
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(bgShiftAnim, { toValue: 1, duration: 12000, easing: Easing.inOut(Easing.linear), useNativeDriver: true }),
-        Animated.timing(bgShiftAnim, { toValue: 0, duration: 12000, easing: Easing.inOut(Easing.linear), useNativeDriver: true }),
-      ])
-    ).start();
-
-    // Mascot animations (Gentle floating / breathing)
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(mascotFloatAnim, { toValue: -5, duration: 4000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-        Animated.timing(mascotFloatAnim, { toValue: 0, duration: 4000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      ])
-    ).start();
-
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(mascotScaleAnim, { toValue: 1.02, duration: 4000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-        Animated.timing(mascotScaleAnim, { toValue: 0.96, duration: 4000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      ])
-    ).start();
-
-    // Timer Glow Effect
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(timerGlowAnim, { toValue: 1, duration: 2500, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        Animated.timing(timerGlowAnim, { toValue: 0.6, duration: 2500, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-      ])
-    ).start();
+    glowScale.value = withRepeat(
+      withSequence(
+        withTiming(1.03, { duration: 3500, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0.97, { duration: 3500, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
   }, []);
 
-  // Timer Run Loop
-  useEffect(() => {
-    let timer: ReturnType<typeof setInterval>;
-    if (isActive && !isPaused && timeLeft > 0) {
-      endTimeRef.current = Date.now() + timeLeft * 1000;
-      timer = setInterval(() => {
-        setTimeLeft((prev) => {
-          if (prev <= 1) {
-            setIsCompleted(true);
-            setIsActive(false);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-    return () => {
-      if (timer) clearInterval(timer);
-    };
-  }, [isActive, isPaused]);
+  const animatedHeroStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: floatY.value }, { scale: glowScale.value }],
+  }));
 
-  const startTask = () => {
-    setIsActive(true);
-    // Crossfade details page into timer page
-    Animated.parallel([
-      Animated.timing(uiFadeAnim, {
-        toValue: 0,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.timing(timerFadeAnim, {
-        toValue: 1,
-        duration: 1200,
-        useNativeDriver: true,
-      })
-    ]).start();
+  // Haptic feedback helper
+  const triggerHaptic = useCallback((type: 'light' | 'medium' | 'success' | 'warning' = 'light') => {
+    if (Platform.OS === 'web') return;
+    try {
+      if (type === 'light') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      else if (type === 'medium') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      else if (type === 'success') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      else if (type === 'warning') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    } catch (e) {}
+  }, []);
+
+  // Image Picker for Page 3
+  const handlePickImage = async () => {
+    triggerHaptic('light');
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        alert('Permission to access camera roll is required!');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        setMealImage(result.assets[0].uri);
+        triggerHaptic('success');
+      }
+    } catch (e) {
+      console.error('Image picker error:', e);
+    }
   };
 
+  // Complete Task Backend Integration (Page 4)
   const completeTaskBackend = async () => {
     if (isLoading) return;
     setIsLoading(true);
-    let pointsData = { pointsAdded: '0', totalPoints: '0', streak: '0' };
+    triggerHaptic('medium');
+
+    let pointsData = { pointsAdded: '10', totalPoints: '0', streak: '0' };
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
-        const response = await fetch(`${API_BASE_URL}/api/tasks/complete`, {
+        const response = await apiFetch('/api/tasks/complete', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({ task_name: 'Eat one bite consciously' })
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            task_name: 'Eat one bite consciously',
+            note: reflectionNote,
+            meal_image: mealImage,
+          }),
         });
         const data = await response.json();
         if (response.ok || data.success) {
-          pointsData = { 
-            pointsAdded: data.pointsAdded?.toString() || "10", 
-            totalPoints: data.totalPoints?.toString() || "0",
-            streak: data.streak?.toString() || "0"
+          pointsData = {
+            pointsAdded: data.pointsAdded?.toString() || '10',
+            totalPoints: data.totalPoints?.toString() || '0',
+            streak: data.streak?.toString() || '0',
           };
-        } else {
-          Alert.alert("Error", data.error || "Failed to submit task completion");
         }
-      } else {
-        Alert.alert("Authorization Error", "No authorization token found. Please log in again.");
       }
-    } catch(e) { 
-      console.error(e);
-      Alert.alert("Connection Error", "Network request failed. Please check your network connection.");
+    } catch (e) {
+      console.error('Backend completion error:', e);
     } finally {
       setIsLoading(false);
     }
 
-    router.replace({ 
-      pathname: '/task-success', 
-      params: { 
-        points: pointsData.pointsAdded, 
-        totalPoints: pointsData.totalPoints, 
-        streak: pointsData.streak 
-      } 
+    router.replace({
+      pathname: '/task-success',
+      params: {
+        points: pointsData.pointsAdded,
+        totalPoints: pointsData.totalPoints,
+        streak: pointsData.streak,
+      },
     } as any);
   };
 
-  const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
-  };
-
-  // Developer testing helper (double click timer to skip to end)
-  const lastPress = useRef(0);
-  const handleDevSkip = () => {
-    if (__DEV__) {
-      const time = Date.now();
-      const delta = time - lastPress.current;
-      lastPress.current = time;
-      if (delta < 300) {
-        setTimeLeft(3); // Fast forward to 3 seconds remaining
-      }
-    }
-  };
+  // Dimensions for hero image card on Page 1
+  const heroWidth = Math.min(width * 0.65, 230);
+  const heroHeight = Math.round(heroWidth * 1.35);
 
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
 
-      {/* Detail Page Background (Mindful Eating) */}
-      <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: uiFadeAnim, transform: [{ scale: breathAnim }] }]}>
-        <Image 
-          source={require('../assets/images/eat-detail-bg.png')}
-          style={StyleSheet.absoluteFillObject}
-          resizeMode="cover"
-        />
-        <LinearGradient
-          colors={['rgba(253, 252, 247, 0.55)', 'rgba(253, 250, 242, 0.65)', 'rgba(254, 253, 251, 0.75)']}
-          locations={[0, 0.5, 1]}
-          style={StyleSheet.absoluteFillObject}
-        />
-      </Animated.View>
+      {/* ========================================================
+          PAGE 1 — INTRODUCTION SCREEN (EXACT UNTOUCHED DESIGN)
+         ======================================================== */}
+      {step === 1 && (
+        <View style={StyleSheet.absoluteFillObject}>
+          {/* CLEAN BRIGHT WARM CREAM / WHITE BACKGROUND */}
+          <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#FAF8F5' }]} />
 
-      {/* Timer Page Background (Subtle blurred/faded dining wooden table) */}
-      <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: timerFadeAnim, transform: [{ scale: breathAnim }] }]}>
-        <Image 
-          source={require('../assets/images/eat-timer-bg.png')}
-          style={StyleSheet.absoluteFillObject}
-          resizeMode="cover"
-        />
-        <LinearGradient
-          colors={['rgba(253, 252, 247, 0.85)', 'rgba(253, 250, 242, 0.9)', 'rgba(254, 253, 251, 0.95)']}
-          locations={[0, 0.5, 1]}
-          style={StyleSheet.absoluteFillObject}
-        />
-      </Animated.View>
+          <SafeAreaView style={styles.screenWrapper} edges={['top', 'bottom']}>
+            <Animated.View entering={FadeIn.duration(600)} style={styles.flexContentWrapper}>
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.introScrollContent}>
+                {/* Top Navigation Row */}
+                <View style={styles.navRow}>
+                  <TouchableOpacity style={styles.iconCircleBtn} onPress={() => router.back()} activeOpacity={0.8}>
+                    <Feather name="arrow-left" size={20} color="#1C1917" />
+                  </TouchableOpacity>
+                </View>
 
-      {/* Edge vignette effect */}
-      <View style={styles.vignetteOverlay} pointerEvents="none" />
-
-      {/* Main Content Safe Area */}
-      <SafeAreaView style={styles.foregroundLayer} edges={['top', 'bottom']}>
-        
-        {/* --- Timer View (Active Phase) --- */}
-        <Animated.View 
-          style={[StyleSheet.absoluteFillObject, styles.timerCenter, { opacity: timerFadeAnim }]} 
-          pointerEvents={isActive || isCompleted ? 'auto' : 'none'}
-        >
-          {!isCompleted && (
-            <View style={styles.timerContentWrapper}>
-              <Animated.View style={[styles.mascotPulseCircle, { transform: [{ translateY: mascotFloatAnim }, { scale: mascotScaleAnim }] }]}>
-                <Text style={styles.giantEmoji}>🍽️</Text>
-              </Animated.View>
-
-              <Pressable onPress={handleDevSkip}>
-                <Animated.Text style={[styles.timerText, { opacity: timerGlowAnim }]}>
-                  {formatTime(timeLeft)}
-                </Animated.Text>
-              </Pressable>
-
-              <Text style={styles.focusSubtitle}>
-                {isPaused ? "Timer Paused" : "Savoring the bite..."}
-              </Text>
-
-              <View style={styles.timerControlsRow}>
-                <TouchableOpacity 
-                  style={[styles.controlButton, isPaused ? styles.resumeButton : styles.pauseButton]}
-                  onPress={() => setIsPaused(!isPaused)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.controlButtonText, isPaused && { color: '#ffffff' }]}>
-                    {isPaused ? "Resume" : "Pause"}
+                {/* Top Section: Typography */}
+                <View style={styles.headerTextWrapper}>
+                  <Text style={styles.serifMainTitle}>Eat One Bit</Text>
+                  <Text style={styles.serifMainSubTitle}>Consciously</Text>
+                  <Text style={styles.headerSubtitle}>
+                    Slow down. Savor. Be present.{"\n"}
+                    Turn one bite into a mindful moment.
                   </Text>
+                </View>
+
+                {/* Center Area: Central Hero Object (Food Bite on Fork) */}
+                <View style={styles.heroCenterContainer}>
+                  <Animated.View
+                    style={[
+                      styles.foodHeroCard,
+                      { width: heroWidth, height: heroHeight },
+                      animatedHeroStyle,
+                    ]}
+                  >
+                    <Image
+                      source={HERO_EAT_IMAGE}
+                      style={styles.heroFoodImage}
+                      resizeMode="cover"
+                    />
+                  </Animated.View>
+                </View>
+              </ScrollView>
+
+              {/* Bottom Button */}
+              <View style={styles.bottomBarArea}>
+                <TouchableOpacity
+                  style={styles.blackPillBtn}
+                  onPress={() => {
+                    triggerHaptic('medium');
+                    setStep(2);
+                  }}
+                  activeOpacity={0.88}
+                >
+                  <Text style={styles.blackBtnText}>Begin Mindful Bite   →</Text>
                 </TouchableOpacity>
               </View>
+            </Animated.View>
+          </SafeAreaView>
+        </View>
+      )}
 
-              <TouchableOpacity 
-                style={styles.abortButton}
-                onPress={() => {
-                  Alert.alert(
-                    "Abort Task?",
-                    "Are you sure you want to stop? Your progress will be lost.",
-                    [
-                      { text: "Cancel", style: "cancel" },
-                      { 
-                        text: "Abort", 
-                        style: "destructive", 
-                        onPress: () => {
-                          router.back();
-                        } 
-                      }
-                    ]
-                  );
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.abortButtonText}>Abort Task</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+      {/* ========================================================
+          PAGE 2 — MINDFUL BITE EXPERIENCE (BRIGHT VIDEO + 6 STEPS)
+         ======================================================== */}
+      {step === 2 && (
+        <View style={StyleSheet.absoluteFillObject}>
+          {/* Full-Screen Video Background */}
+          <Video
+            source={EAT_VIDEO_BACKGROUND}
+            style={StyleSheet.absoluteFillObject}
+            resizeMode={ResizeMode.COVER}
+            shouldPlay
+            isLooping
+            isMuted
+          />
 
-          {isCompleted && (
-            <View style={styles.successContainer}>
-              <Text style={styles.successEmoji}>🍽️</Text>
-              <Text style={styles.successText}>You slowed down eating.</Text>
-              <Text style={styles.successMessage}>Notice the taste, texture, smell, and how your food feels as you chew.</Text>
-              <TouchableOpacity 
-                style={styles.finishButton} 
-                onPress={completeTaskBackend}
-                disabled={isLoading}
-              >
-                <Text style={styles.finishButtonText}>
-                  {isLoading ? "Awarding Points..." : "Claim +10 Points"}
+          {/* Very Light Warm Translucent Gradient Overlay for Maximum Video Brightness */}
+          <LinearGradient
+            colors={[
+              'rgba(255, 255, 255, 0.40)',
+              'rgba(255, 255, 255, 0.10)',
+              'rgba(255, 255, 255, 0.20)',
+              'rgba(255, 255, 255, 0.50)',
+            ]}
+            locations={[0, 0.3, 0.7, 1]}
+            style={StyleSheet.absoluteFillObject}
+          />
+
+          <SafeAreaView style={styles.screenWrapper} edges={['top', 'bottom']}>
+            <Animated.View entering={FadeIn.duration(600)} exiting={FadeOut.duration(400)} style={styles.flexContentWrapper}>
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.introScrollContent}>
+                {/* Top Navigation Row */}
+                <View style={styles.navRow}>
+                  <TouchableOpacity style={styles.iconCircleBtn} onPress={() => setStep(1)} activeOpacity={0.8}>
+                    <Feather name="arrow-left" size={20} color="#1C1917" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Header Titles */}
+                <View style={styles.headerTextWrapper}>
+                  <Text style={styles.page2Title}>Take One Small Bite</Text>
+                  <Text style={styles.page2Subtitle}>Slow down. Notice. Experience.</Text>
+                </View>
+
+                {/* Animated 6-Step Mindful Instruction Card */}
+                <Animated.View entering={FadeIn.delay(200).duration(600)} style={styles.instructionGlassCard}>
+                  <View style={styles.instructionHeaderRow}>
+                    <View style={styles.forkBadgeCircle}>
+                      <MaterialCommunityIcons name="silverware-fork-knife" size={18} color="#1C1917" />
+                    </View>
+                    <Text style={styles.instructionCardTitle}>Mindful Bite Guidance</Text>
+                  </View>
+
+                  <View style={styles.stepsListWrapper}>
+                    <Animated.View entering={FadeIn.delay(300).duration(400)} style={styles.stepItemRow}>
+                      <Text style={styles.stepItemEmoji}>🥢</Text>
+                      <Text style={styles.stepItemText}>Pick one small bite.</Text>
+                    </Animated.View>
+
+                    <Animated.View entering={FadeIn.delay(400).duration(400)} style={styles.stepItemRow}>
+                      <Text style={styles.stepItemEmoji}>👁️</Text>
+                      <Text style={styles.stepItemText}>Look at the food carefully.</Text>
+                    </Animated.View>
+
+                    <Animated.View entering={FadeIn.delay(500).duration(400)} style={styles.stepItemRow}>
+                      <Text style={styles.stepItemEmoji}>👃</Text>
+                      <Text style={styles.stepItemText}>Smell it before eating.</Text>
+                    </Animated.View>
+
+                    <Animated.View entering={FadeIn.delay(600).duration(400)} style={styles.stepItemRow}>
+                      <Text style={styles.stepItemEmoji}>🧘</Text>
+                      <Text style={styles.stepItemText}>Chew slowly.</Text>
+                    </Animated.View>
+
+                    <Animated.View entering={FadeIn.delay(700).duration(400)} style={styles.stepItemRow}>
+                      <Text style={styles.stepItemEmoji}>😋</Text>
+                      <Text style={styles.stepItemText}>Notice the taste and texture.</Text>
+                    </Animated.View>
+
+                    <Animated.View entering={FadeIn.delay(800).duration(400)} style={styles.stepItemRow}>
+                      <Text style={styles.stepItemEmoji}>✨</Text>
+                      <Text style={styles.stepItemText}>Swallow mindfully.</Text>
+                    </Animated.View>
+                  </View>
+                </Animated.View>
+              </ScrollView>
+
+              {/* Bottom Button */}
+              <View style={styles.bottomBarArea}>
+                <TouchableOpacity
+                  style={styles.blackPillBtn}
+                  onPress={() => {
+                    triggerHaptic('medium');
+                    setStep(3);
+                  }}
+                  activeOpacity={0.88}
+                >
+                  <Text style={styles.blackBtnText}>Continue Mindful Eating →</Text>
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+          </SafeAreaView>
+        </View>
+      )}
+
+      {/* ========================================================
+          PAGE 3 — SHARE YOUR FOOD MOMENT (PHOTO + REFLECTION)
+         ======================================================== */}
+      {step === 3 && (
+        <View style={StyleSheet.absoluteFillObject}>
+          <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#FAF8F5' }]} />
+
+          <SafeAreaView style={styles.screenWrapper} edges={['top', 'bottom']}>
+            <Animated.View entering={FadeIn.duration(600)} exiting={FadeOut.duration(400)} style={styles.flexContentWrapper}>
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.introScrollContent}>
+                {/* Top Navigation Row */}
+                <View style={styles.navRow}>
+                  <TouchableOpacity style={styles.iconCircleBtn} onPress={() => setStep(2)} activeOpacity={0.8}>
+                    <Feather name="arrow-left" size={20} color="#1C1917" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Header Titles */}
+                <View style={styles.headerTextWrapper}>
+                  <Text style={styles.page2Title}>What Did You Eat?</Text>
+                  <Text style={styles.page2Subtitle}>Capture this mindful moment.</Text>
+                </View>
+
+                {/* Main Experience: Photo Upload Glass Card */}
+                <TouchableOpacity
+                  style={styles.uploadCardContainer}
+                  onPress={handlePickImage}
+                  activeOpacity={0.88}
+                >
+                  {mealImage ? (
+                    <View style={styles.uploadedImageWrapper}>
+                      <Image source={{ uri: mealImage }} style={styles.uploadedMealImage} resizeMode="cover" />
+                      <View style={styles.uploadedBadgeBar}>
+                        <View style={styles.badgeTagGreen}>
+                          <Ionicons name="checkmark-circle" size={14} color="#16a34a" />
+                          <Text style={styles.badgeTagGreenText}>Meal captured ✓</Text>
+                        </View>
+                        <View style={styles.badgeTagPurple}>
+                          <Text style={styles.badgeTagPurpleText}>Mindful moment saved</Text>
+                        </View>
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={styles.emptyUploadBox}>
+                      <Animated.View entering={ZoomIn.duration(500)} style={styles.cameraIconCircle}>
+                        <Feather name="camera" size={26} color="#1C1917" />
+                      </Animated.View>
+                      <Text style={styles.uploadMainText}>Share a photo of your meal</Text>
+                      <Text style={styles.uploadSubText}>Tap to open camera or gallery</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+
+                {/* Optional Reflection Input */}
+                <View style={styles.reflectionCardContainer}>
+                  <Text style={styles.reflectionLabel}>What did you notice about this bite? (Optional)</Text>
+                  <TextInput
+                    style={styles.reflectionInput}
+                    placeholder="E.g. It was sweet, crisp, and comforting..."
+                    placeholderTextColor="rgba(28, 25, 23, 0.4)"
+                    maxLength={100}
+                    value={reflectionNote}
+                    onChangeText={setReflectionNote}
+                    multiline
+                  />
+                  <Text style={styles.charCountText}>{reflectionNote.length} / 100</Text>
+                </View>
+              </ScrollView>
+
+              {/* Bottom Button */}
+              <View style={styles.bottomBarArea}>
+                <TouchableOpacity
+                  style={styles.blackPillBtn}
+                  onPress={() => {
+                    triggerHaptic('medium');
+                    setStep(4);
+                  }}
+                  activeOpacity={0.88}
+                >
+                  <Text style={styles.blackBtnText}>Complete Moment →</Text>
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+          </SafeAreaView>
+        </View>
+      )}
+
+      {/* ========================================================
+          PAGE 4 — COMPLETION SCREEN
+         ======================================================== */}
+      {step === 4 && (
+        <View style={StyleSheet.absoluteFillObject}>
+          <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#FAF8F5' }]} />
+
+          <SafeAreaView style={styles.screenWrapper} edges={['top', 'bottom']}>
+            <Animated.View entering={FadeIn.duration(800)} style={styles.flexContentWrapper}>
+              <View style={styles.completionCenterContent}>
+                {/* Large Glowing Check Animation */}
+                <Animated.View entering={ZoomIn.duration(700)} style={styles.completionGlowCircle}>
+                  <Ionicons name="checkmark-sharp" size={48} color="#FFFFFF" />
+                </Animated.View>
+
+                <Text style={styles.completionTitle}>Mindful Bite Complete</Text>
+                <Text style={styles.completionSub}>
+                  "You slowed down, noticed your food, and created a healthier connection with eating."
                 </Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </Animated.View>
 
-        {/* --- Onboarding UI (Details Phase) --- */}
-        <Animated.View 
-          style={[styles.uiWrapper, { opacity: uiFadeAnim }]} 
-          pointerEvents={!isActive && !isCompleted ? 'auto' : 'none'}
-        >
-          <Animated.View style={[styles.detailsMascotContainer, { transform: [{ translateY: mascotFloatAnim }, { scale: mascotScaleAnim }] }]}>
-            <Text style={styles.heroEmoji}>🍽️</Text>
-          </Animated.View>
+                {/* Reward Card */}
+                <View style={styles.rewardCardWrapper}>
+                  <View style={styles.rewardHeaderRow}>
+                    <Text style={{ fontSize: 22 }}>🍽️</Text>
+                    <Text style={styles.rewardTitle}>Mindful Eating</Text>
+                    <View style={styles.pointsBadge}>
+                      <Text style={styles.pointsBadgeText}>+10 Points</Text>
+                    </View>
+                  </View>
 
-          <View style={styles.glassPanel}>
-            <Text style={styles.title}>Eat one bite consciously</Text>
-            
-            {/* Badges */}
-            <View style={styles.badgesRow}>
-              <View style={[styles.badge, styles.badgeDuration]}>
-                <Feather name="clock" size={14} color="#3b82f6" />
-                <Text style={[styles.badgeText, styles.textDuration]}>2 min</Text>
+                  <View style={styles.dividerLine} />
+
+                  {/* Achievement Unlocked */}
+                  <View style={styles.achievementSection}>
+                    <View style={styles.achievementTitleRow}>
+                      <Text style={{ fontSize: 18 }}>🌱</Text>
+                      <Text style={styles.achievementLabel}>Achievement Unlocked</Text>
+                    </View>
+                    <Text style={styles.achievementName}>Present Eater</Text>
+                    <Text style={styles.achievementDesc}>
+                      "You turned a simple bite into a moment of awareness."
+                    </Text>
+                  </View>
+                </View>
               </View>
-              <View style={[styles.badge, styles.badgeDifficulty]}>
-                <Feather name="bar-chart-2" size={14} color="#16a34a" />
-                <Text style={[styles.badgeText, styles.textDifficulty]}>Easy</Text>
+
+              {/* Bottom Action */}
+              <View style={styles.bottomBarArea}>
+                <TouchableOpacity
+                  style={styles.blackPillBtn}
+                  onPress={completeTaskBackend}
+                  disabled={isLoading}
+                  activeOpacity={0.88}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <>
+                      <Text style={styles.blackBtnText}>Continue Journey →</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
               </View>
-              <View style={[styles.badge, styles.badgePoints]}>
-                <Feather name="award" size={14} color="#16a34a" />
-                <Text style={[styles.badgeText, styles.textPoints]}>+10 Pts</Text>
-              </View>
-            </View>
-
-            {/* Description Lines */}
-            <View style={styles.descriptionList}>
-              <Text style={styles.descLine}>• Before rushing through your meal, take one bite slowly and mindfully.</Text>
-              <Text style={styles.descLine}>• Notice the taste, texture, smell, and how your food feels as you chew.</Text>
-              <Text style={styles.descLine}>• Avoid looking at your phone while eating this bite.</Text>
-              <Text style={styles.descLine}>• Small moments of mindful eating help improve awareness and create healthier habits.</Text>
-            </View>
-
-            <TouchableOpacity style={styles.startButton} onPress={startTask} activeOpacity={0.85}>
-              <LinearGradient
-                colors={['#10b981', '#059669']}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                style={styles.gradientBtn}
-              >
-                <Text style={styles.startButtonText}>Start Task</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.backButton} onPress={() => router.back()} activeOpacity={0.7}>
-              <Text style={styles.backText}>Go Back</Text>
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
-
-      </SafeAreaView>
+            </Animated.View>
+          </SafeAreaView>
+        </View>
+      )}
     </View>
   );
 }
@@ -369,284 +498,405 @@ export default function EatTaskScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fdfcf7',
+    backgroundColor: '#FAF8F5',
   },
-  vignetteOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    borderWidth: 30,
-    borderColor: 'rgba(0,0,0,0.015)',
-    borderRadius: 70,
+  screenWrapper: {
+    flex: 1,
+    paddingHorizontal: 22,
+    justifyContent: 'space-between',
   },
-  foregroundLayer: {
+  flexContentWrapper: {
     flex: 1,
     justifyContent: 'space-between',
-    zIndex: 2,
   },
-  backButton: {
-    padding: 12,
-    marginTop: 14,
+  introScrollContent: {
+    paddingBottom: 20,
   },
-  backText: {
-    color: '#6b7280',
-    fontSize: 16,
-    fontWeight: '600',
+  navRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    height: 44,
   },
-  abortButton: {
-    padding: 12,
-    marginTop: 20,
+  iconCircleBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(28, 25, 23, 0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  abortButtonText: {
-    color: '#ef4444',
-    fontSize: 15,
-    fontWeight: '600',
+  headerTextWrapper: {
+    alignItems: 'center',
+    marginTop: 10,
+    marginBottom: 20,
+  },
+  serifMainTitle: {
+    fontSize: 34,
+    fontWeight: '400',
+    color: '#1C1917',
+    textAlign: 'center',
     letterSpacing: 0.5,
   },
-  uiWrapper: {
-    flex: 1,
-    width: '100%',
-    paddingHorizontal: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingBottom: 40,
-  },
-  detailsMascotContainer: {
-    marginBottom: 20,
-    backgroundColor: 'rgba(255,255,255,0.7)',
-    borderRadius: 80,
-    width: 140,
-    height: 140,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#d97706',
-    shadowOpacity: 0.1,
-    shadowRadius: 25,
-    shadowOffset: { width: 0, height: 10 },
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.9)',
-  },
-  heroEmoji: {
-    fontSize: 75,
-  },
-  glassPanel: {
-    width: '100%',
-    backgroundColor: 'rgba(255, 255, 255, 0.82)',
-    borderRadius: 30,
-    paddingHorizontal: 24,
-    paddingVertical: 30,
-    alignItems: 'center',
-    shadowColor: '#d97706',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.06,
-    shadowRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.9)',
-  },
-  title: {
-    fontSize: 25,
-    fontWeight: '800',
-    color: '#1f2937',
-    marginBottom: 16,
+  serifMainSubTitle: {
+    fontSize: 34,
+    fontWeight: '700',
+    color: '#1C1917',
     textAlign: 'center',
+    letterSpacing: 0.5,
+    marginBottom: 12,
   },
-  badgesRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
-    marginBottom: 24,
-  },
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-    gap: 4,
-  },
-  badgeDuration: {
-    backgroundColor: '#eff6ff',
-    borderColor: '#bfdbfe',
-  },
-  badgeDifficulty: {
-    backgroundColor: '#f0fdf4',
-    borderColor: '#bbf7d0',
-  },
-  badgePoints: {
-    backgroundColor: '#f0fdf4',
-    borderColor: '#bbf7d0',
-  },
-  badgeText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  textDuration: {
-    color: '#2563eb',
-  },
-  textDifficulty: {
-    color: '#16a34a',
-  },
-  textPoints: {
-    color: '#16a34a',
-  },
-  descriptionList: {
-    width: '100%',
-    marginBottom: 35,
-    gap: 12,
-  },
-  descLine: {
-    fontSize: 15,
-    color: '#4b5563',
+  headerSubtitle: {
+    fontSize: 14,
+    color: 'rgba(28, 25, 23, 0.7)',
+    textAlign: 'center',
     lineHeight: 22,
     fontWeight: '400',
   },
-  startButton: {
+  heroCenterContainer: {
     width: '100%',
-    height: 56,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginVertical: 15,
+  },
+  foodHeroCard: {
     borderRadius: 28,
     overflow: 'hidden',
-    shadowColor: '#10b981',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 15,
-    elevation: 4,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#1C1917',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(28, 25, 23, 0.06)',
   },
-  gradientBtn: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  startButtonText: {
-    color: '#ffffff',
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  
-  // Timer States
-  timerCenter: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  timerContentWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
+  heroFoodImage: {
     width: '100%',
+    height: '100%',
   },
-  mascotPulseCircle: {
-    width: 170,
-    height: 170,
-    borderRadius: 85,
-    backgroundColor: 'rgba(255,255,255,0.75)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 30,
-    shadowColor: '#d97706',
-    shadowOpacity: 0.1,
-    shadowRadius: 30,
-    shadowOffset: { width: 0, height: 10 },
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.9)',
+  bottomBarArea: {
+    width: '100%',
+    paddingBottom: Platform.OS === 'ios' ? 10 : 20,
+    marginTop: 10,
   },
-  giantEmoji: {
-    fontSize: 90,
-  },
-  timerText: {
-    fontSize: 82,
-    fontWeight: '200',
-    color: '#374151',
-    letterSpacing: 2,
-    marginBottom: 10,
-    fontVariant: ['tabular-nums'],
-    textShadowColor: 'rgba(156, 163, 175, 0.1)',
-    textShadowOffset: { width: 0, height: 4 },
-    textShadowRadius: 15,
-  },
-  focusSubtitle: {
-    fontSize: 18,
-    color: '#4b5563',
-    fontWeight: '500',
-    marginBottom: 40,
-  },
-  timerControlsRow: {
+  blackPillBtn: {
+    width: '100%',
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: '#000000',
     flexDirection: 'row',
-    gap: 16,
-    width: '80%',
     justifyContent: 'center',
-  },
-  controlButton: {
-    paddingHorizontal: 40,
-    paddingVertical: 15,
-    borderRadius: 30,
-    width: 180,
     alignItems: 'center',
-    shadowColor: '#10b981',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 6,
   },
-  pauseButton: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.2)',
-  },
-  resumeButton: {
-    backgroundColor: '#10b981',
-  },
-  controlButtonText: {
+  blackBtnText: {
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
-    color: '#10b981',
+    letterSpacing: 0.5,
   },
-  
-  // Success state
-  successContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 28,
-    paddingVertical: 35,
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    borderRadius: 35,
-    width: width * 0.86,
-    shadowColor: '#10b981',
-    shadowOffset: { width: 0, height: 20 },
-    shadowOpacity: 0.12,
-    shadowRadius: 30,
+
+  // Page 2 Styles
+  page2Title: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#1C1917',
+    textAlign: 'center',
+    marginBottom: 4,
+    textShadowColor: 'rgba(255, 255, 255, 0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  page2Subtitle: {
+    fontSize: 14,
+    color: '#1C1917',
+    textAlign: 'center',
+    fontWeight: '600',
+    textShadowColor: 'rgba(255, 255, 255, 0.9)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
+  },
+  instructionGlassCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.94)',
+    borderRadius: 24,
+    padding: 20,
+    marginTop: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.95)',
-  },
-  successEmoji: {
-    fontSize: 70,
-    marginBottom: 20,
-  },
-  successText: {
-    fontSize: 23,
-    fontWeight: '800',
-    color: '#1f2937',
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  successMessage: {
-    fontSize: 15,
-    color: '#4b5563',
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 35,
-    paddingHorizontal: 10,
-  },
-  finishButton: {
-    backgroundColor: '#10b981',
-    paddingVertical: 18,
-    borderRadius: 30,
-    width: '100%',
-    alignItems: 'center',
-    shadowColor: '#10b981',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 15,
+    borderColor: 'rgba(28, 25, 23, 0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
     elevation: 4,
   },
-  finishButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 17,
+  instructionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 16,
+  },
+  forkBadgeCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FAF8F5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(28, 25, 23, 0.08)',
+  },
+  instructionCardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1C1917',
+  },
+  stepsListWrapper: {
+    gap: 10,
+  },
+  stepItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#FAF8F5',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(28, 25, 23, 0.05)',
+  },
+  stepItemEmoji: {
+    fontSize: 18,
+  },
+  stepItemText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1C1917',
+  },
+
+  // Page 3 Styles
+  uploadCardContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 20,
+    marginTop: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(28, 25, 23, 0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 3,
+    minHeight: 200,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyUploadBox: {
+    alignItems: 'center',
+  },
+  cameraIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#FAF8F5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(28, 25, 23, 0.08)',
+  },
+  uploadMainText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1C1917',
+    marginBottom: 4,
+  },
+  uploadSubText: {
+    fontSize: 12,
+    color: 'rgba(28, 25, 23, 0.5)',
+  },
+  uploadedImageWrapper: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  uploadedMealImage: {
+    width: '100%',
+    height: 180,
+    borderRadius: 16,
+    marginBottom: 12,
+  },
+  uploadedBadgeBar: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  badgeTagGreen: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0fdf4',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    gap: 4,
+  },
+  badgeTagGreenText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#16a34a',
+  },
+  badgeTagPurple: {
+    backgroundColor: '#faf5ff',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  badgeTagPurpleText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#9333ea',
+  },
+
+  reflectionCardContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    marginTop: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(28, 25, 23, 0.08)',
+  },
+  reflectionLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1C1917',
+    marginBottom: 8,
+  },
+  reflectionInput: {
+    backgroundColor: '#FAF8F5',
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 13,
+    color: '#1C1917',
+    minHeight: 60,
+    textAlignVertical: 'top',
+  },
+  charCountText: {
+    fontSize: 10,
+    color: 'rgba(28, 25, 23, 0.4)',
+    textAlign: 'right',
+    marginTop: 6,
+  },
+
+  // Page 4 Styles
+  completionCenterContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 'auto',
+  },
+  completionGlowCircle: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: '#16a34a',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#16a34a',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 20,
+    elevation: 8,
+    marginBottom: 20,
+  },
+  completionTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#1C1917',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  completionSub: {
+    fontSize: 14,
+    color: 'rgba(28, 25, 23, 0.7)',
+    textAlign: 'center',
+    lineHeight: 22,
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  rewardCardWrapper: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(28, 25, 23, 0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 14,
+    elevation: 4,
+  },
+  rewardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  rewardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1C1917',
+    flex: 1,
+  },
+  pointsBadge: {
+    backgroundColor: '#f0fdf4',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+  },
+  pointsBadgeText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#16a34a',
+  },
+  dividerLine: {
+    height: 1,
+    backgroundColor: 'rgba(28, 25, 23, 0.06)',
+    marginVertical: 14,
+  },
+  achievementSection: {
+    gap: 4,
+  },
+  achievementTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  achievementLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#78716C',
+    letterSpacing: 1,
+  },
+  achievementName: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1C1917',
+    marginTop: 2,
+  },
+  achievementDesc: {
+    fontSize: 12,
+    color: 'rgba(28, 25, 23, 0.65)',
+    lineHeight: 18,
+    marginTop: 2,
   },
 });
