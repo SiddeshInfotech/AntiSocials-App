@@ -231,7 +231,7 @@ export default function JoinEventVerifiedTaskScreen() {
     // Attempt to fetch from backend
     try {
       const token = await SecureStore.getItemAsync('token');
-      const res = await fetch(`${API_BASE_URL}/api/events/nearby?latitude=${lat}&longitude=${lng}`, {
+      const res = await apiFetch(`/api/events/nearby?latitude=${lat}&longitude=${lng}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       const data = await res.json();

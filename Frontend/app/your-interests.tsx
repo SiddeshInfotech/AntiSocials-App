@@ -5,7 +5,7 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 import * as SecureStore from 'expo-secure-store';
-import { API_BASE_URL } from '../constants/Api';
+import { API_BASE_URL, apiFetch } from '../constants/Api';
 
 const INTERESTS_LIST = [
   'Sports & Fitness', 'Music & Jamming', 'Reading & Book Club', 'Study Groups',
@@ -25,7 +25,7 @@ export default function YourInterestsScreen() {
         const token = await SecureStore.getItemAsync('token');
         if (!token) return;
 
-        const response = await fetch(`${API_BASE_URL}/api/profile/interests`, {
+        const response = await apiFetch('/api/profile/interests', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
 
@@ -73,7 +73,7 @@ export default function YourInterestsScreen() {
     setIsSaving(true);
     try {
       const token = await SecureStore.getItemAsync('token');
-      const response = await fetch(`${API_BASE_URL}/api/profile/interests`, {
+      const response = await apiFetch('/api/profile/interests', {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,

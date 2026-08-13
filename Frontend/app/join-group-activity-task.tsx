@@ -207,7 +207,7 @@ export default function JoinGroupActivityTaskScreen() {
 
     try {
       const token = await SecureStore.getItemAsync('token');
-      const res = await fetch(`${API_BASE_URL}/api/activities/nearby?latitude=${lat}&longitude=${lng}`, {
+      const res = await apiFetch(`/api/activities/nearby?latitude=${lat}&longitude=${lng}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       const data = await res.json();

@@ -5,7 +5,7 @@ import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { resolveImageUrl } from '../../constants/ImageUtils';
 
-import { API_BASE_URL } from '../../constants/Api';
+import { API_BASE_URL, apiFetch } from '../../constants/Api';
 import * as SecureStore from 'expo-secure-store';
 import { useIsFocused } from '@react-navigation/native';
 import * as Location from 'expo-location';
@@ -40,9 +40,25 @@ interface Activity {
   memberPreview?: MemberPreview[];
 }
 
-const AVATAR_COLORS = ['#8B5CF6', '#EC4899', '#3B82F6', '#10B981', '#F59E0B', '#6366F1', '#14B8A6'];
+const CATEGORY_COLORS: { [key: string]: string } = {
+  "Sports & Fitness": "#FF5722",
+  "Music & Jamming": "#E91E63",
+  "Reading & Book Club": "#9C27B0",
+  "Study Groups": "#3F51B5",
+  "Tech & Coding": "#00BCD4",
+  "Networking & Meetups": "#4CAF50",
+  "Arts & Creativity": "#FF9800",
+  "Gaming": "#795548",
+  "Movies & Entertainment": "#607D8B",
+  "Food & Dining": "#E64A19"
+};
 
-const getAvatarColor = (name: string, index: number = 0) => {
+const AVATAR_COLORS = [
+  '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD',
+  '#D4A5A5', '#9B59B6', '#3498DB', '#E67E22', '#2ECC71'
+];
+
+const getAvatarColor = (name: string, index: number): string => {
   if (!name) return AVATAR_COLORS[index % AVATAR_COLORS.length];
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
@@ -66,7 +82,7 @@ export default function ActivitiesScreen() {
     try {
       setLoading(true);
       const token = await SecureStore.getItemAsync('token');
-      const response = await fetch(`${API_BASE_URL}/api/activities`, {
+      const response = await apiFetch('/api/activities', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -113,10 +129,10 @@ export default function ActivitiesScreen() {
 
       const token = await SecureStore.getItemAsync('token');
       if (token) {
-        const meResponse = await fetch(`${API_BASE_URL}/api/me`, { headers: { 'Authorization': `Bearer ${token}` } });
+        const meResponse = await apiFetch('/api/me', { headers: { 'Authorization': `Bearer ${token}` } });
         if (meResponse.ok) {
           const meData = await meResponse.json();
-          await fetch(`${API_BASE_URL}/user/${meData.id}`, {
+          await apiFetch(`/user/${meData.id}`, {
             method: 'PATCH',
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -136,10 +152,10 @@ export default function ActivitiesScreen() {
       try {
         const token = await SecureStore.getItemAsync('token');
         if (token) {
-          const meResponse = await fetch(`${API_BASE_URL}/api/me`, { headers: { 'Authorization': `Bearer ${token}` } });
+          const meResponse = await apiFetch('/api/me', { headers: { 'Authorization': `Bearer ${token}` } });
           if (meResponse.ok) {
             const meData = await meResponse.json();
-            await fetch(`${API_BASE_URL}/user/${meData.id}`, {
+            await apiFetch(`/user/${meData.id}`, {
               method: 'PATCH',
               headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
               body: JSON.stringify({ latitude: null, longitude: null })
@@ -163,7 +179,7 @@ export default function ActivitiesScreen() {
       const method = isJoining ? 'POST' : 'DELETE';
       const endpoint = isJoining ? 'join' : 'leave';
 
-      const response = await fetch(`${API_BASE_URL}/api/activities/${activity.id}/${endpoint}`, {
+      const response = await apiFetch(`/api/activities/${activity.id}/${endpoint}`, {
         method: method,
         headers: {
           'Authorization': `Bearer ${token}`
