@@ -29,33 +29,59 @@ app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' }));
 // Ensure uploads directory exists
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir);
+    fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// Serve static files from uploads folder
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Serve static files from uploads folder with CORS and cache headers
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'), {
+    maxAge: '1d',
+    setHeaders: (res) => {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    }
+}));
 
 // Configure Multer
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-        cb(null, 'uploads/')
+        cb(null, uploadDir);
     },
     filename: function (req, file, cb) {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        // Default to .jpg if no extension
-        const ext = path.extname(file.originalname) || '.jpg';
-        cb(null, 'profile_' + uniqueSuffix + ext);
+        let ext = path.extname(file.originalname);
+        if (!ext || ext === '.') {
+            if (file.mimetype && file.mimetype.includes('video')) {
+                ext = '.mp4';
+            } else if (file.mimetype && file.mimetype.includes('png')) {
+                ext = '.png';
+            } else {
+                ext = '.jpg';
+            }
+        }
+        cb(null, 'story_' + uniqueSuffix + ext);
     }
 });
-const upload = multer({ storage: storage });
+const upload = multer({ 
+    storage: storage,
+    limits: { fileSize: 100 * 1024 * 1024 } // 100MB limit for video/image
+});
 
-app.post('/upload', upload.single('image'), (req, res) => {
-    if (!req.file) {
-        return res.status(400).json({ error: "No image provided" });
+const uploadMediaMiddleware = upload.any();
+
+app.post('/upload', uploadMediaMiddleware, (req, res) => {
+    const uploadedFile = req.file || (req.files && req.files.length > 0 ? req.files[0] : null);
+    if (!uploadedFile) {
+        return res.status(400).json({ error: "No media file provided" });
     }
-    // Return relative path only — frontend constructs the full URL using API_BASE_URL
-    const relativePath = `/uploads/${req.file.filename}`;
-    res.status(200).json({ imageUrl: relativePath });
+    // Return standard relative path with forward slashes
+    const relativePath = `/uploads/${uploadedFile.filename}`;
+    console.log(`📸 [Media Uploaded] filename: ${uploadedFile.filename}, path: ${relativePath}, size: ${uploadedFile.size}B, mime: ${uploadedFile.mimetype}`);
+    res.status(200).json({ 
+        imageUrl: relativePath,
+        mediaUrl: relativePath,
+        filename: uploadedFile.filename,
+        mimetype: uploadedFile.mimetype
+    });
 });
 
 // Initialize Database Table

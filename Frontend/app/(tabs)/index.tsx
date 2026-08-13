@@ -26,6 +26,7 @@ import {
   KeyboardAvoidingView,
   TextInput,
   PanResponder,
+  ActivityIndicator,
 } from "react-native";
 import { apiFetch, API_BASE_URL } from "../../constants/Api";
 import { resolveImageUrl } from "../../constants/ImageUtils";
@@ -707,7 +708,7 @@ export default function HomeScreen() {
     if (!homeData?.active_stories || !Array.isArray(homeData.active_stories)) return [];
     const map: Record<string, any[]> = {};
     homeData.active_stories
-      .filter((story: any) => !isStoryExpired(story.expires_at))
+      .filter((story: any) => story && story.media_url && typeof story.media_url === "string" && story.media_url.trim() !== "")
       .forEach((story: any) => {
         const uid = String(story.user_id);
         if (!map[uid]) map[uid] = [];
@@ -719,18 +720,18 @@ export default function HomeScreen() {
   }, [homeData?.active_stories]);
 
   const openOwnStories = (startIndex = 0) => {
-    const stories = (homeData?.own_stories || []).filter((s: any) => !isStoryExpired(s.expires_at));
+    const stories = (homeData?.own_stories || []).filter((s: any) => s && s.media_url && typeof s.media_url === "string" && s.media_url.trim() !== "");
     if (stories.length > 0) {
-      setActiveStoryList([stories[0]]);
-      setActiveStoryIndex(0);
+      setActiveStoryList(stories);
+      setActiveStoryIndex(Math.min(startIndex, stories.length - 1));
     }
   };
 
   const openUserStories = (userStories: any[], startIndex = 0) => {
-    const stories = (userStories || []).filter((s: any) => !isStoryExpired(s.expires_at));
+    const stories = (userStories || []).filter((s: any) => s && s.media_url && typeof s.media_url === "string" && s.media_url.trim() !== "");
     if (stories.length > 0) {
-      setActiveStoryList([stories[0]]);
-      setActiveStoryIndex(0);
+      setActiveStoryList(stories);
+      setActiveStoryIndex(Math.min(startIndex, stories.length - 1));
     }
   };
 
@@ -1053,8 +1054,8 @@ export default function HomeScreen() {
   };
 
   const handleAddStory = async () => {
-    const unexpiredOwn = (homeData?.own_stories || []).filter((s: any) => !isStoryExpired(s.expires_at));
-    if (unexpiredOwn.length > 0) {
+    const validOwn = (homeData?.own_stories || []).filter((s: any) => s && s.media_url && typeof s.media_url === "string" && s.media_url.trim() !== "");
+    if (validOwn.length > 0) {
       Alert.alert("Active Story Exists", "You already have an active story.");
       return;
     }
@@ -1276,7 +1277,7 @@ export default function HomeScreen() {
             contentContainerStyle={styles.storiesScroll}
           >
             {/* 1. CURRENT USER STORY (Add Story or View Own Story) */}
-            {homeData?.own_stories && (homeData.own_stories.filter((s: any) => !isStoryExpired(s.expires_at)).length > 0) ? (
+            {homeData?.own_stories && (homeData.own_stories.filter((s: any) => s && s.media_url && typeof s.media_url === "string" && s.media_url.trim() !== "").length > 0) ? (
               <TouchableOpacity
                 style={styles.storyItemContainer}
                 activeOpacity={0.8}
@@ -1495,7 +1496,7 @@ export default function HomeScreen() {
 
              {/* 3. Media Content & Touch Zones */}
              <View style={styles.storyViewerContent}>
-                {viewingStory?.media_type === 'video' ? (
+                {viewingStory?.media_type === 'video' || (typeof viewingStory?.media_url === 'string' && viewingStory.media_url.endsWith('.mp4')) ? (
                   <Video
                     source={{ uri: resolveImageUrl(viewingStory?.media_url) }}
                     style={styles.storyViewerImage}
