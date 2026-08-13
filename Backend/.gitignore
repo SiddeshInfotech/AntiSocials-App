@@ -29,3 +29,6 @@ coverage/
 
 # temp files
 *.tmp
+
+# User uploaded files
+uploads/

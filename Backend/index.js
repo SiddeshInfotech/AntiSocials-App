@@ -26,6 +26,14 @@ app.use(cors());
 app.use(bodyParser.json({ limit: '50mb' })); // Higher limit for base64 images
 app.use(bodyParser.urlencoded({ extended: true, limit: '50mb' }));
 
+// Health Check Endpoint
+app.get('/health', (req, res) => {
+    res.json({
+        status: "ok",
+        service: "AntiSocials Backend"
+    });
+});
+
 // Ensure uploads directory exists
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) {
