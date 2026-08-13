@@ -124,7 +124,7 @@ export default function ConnectionGraph({
     3: new Animated.Value(290),
   }).current;
 
-  // Pulse animation for loading / empty state rings (Native driver)
+  // Pulse animation for loading / empty state rings
   const pulseAnim = useRef(new Animated.Value(0.4)).current;
   useEffect(() => {
     const loop = Animated.loop(
@@ -132,12 +132,12 @@ export default function ConnectionGraph({
         Animated.timing(pulseAnim, {
           toValue: 0.9,
           duration: 1200,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
         Animated.timing(pulseAnim, {
           toValue: 0.4,
           duration: 1200,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
       ])
     );
@@ -172,7 +172,6 @@ export default function ConnectionGraph({
         scaleAnim = new Animated.Value(0.2);
         opacityAnim = new Animated.Value(0);
 
-        // Native animations for Animated.View transform & opacity
         Animated.parallel([
           Animated.spring(radiusAnim, {
             toValue: item.baseRadius,
@@ -184,12 +183,12 @@ export default function ConnectionGraph({
             toValue: 1,
             friction: 6,
             tension: 50,
-            useNativeDriver: true,
+            useNativeDriver: false,
           }),
           Animated.timing(opacityAnim, {
             toValue: 1,
             duration: 350,
-            useNativeDriver: true,
+            useNativeDriver: false,
           }),
         ]).start();
 
@@ -262,12 +261,12 @@ export default function ConnectionGraph({
           toValue: isSelected ? 1.3 : isDimmed ? 0.8 : 1,
           friction: 6,
           tension: 50,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
         Animated.timing(node.opacityAnim, {
           toValue: isDimmed ? 0.35 : 1,
           duration: 300,
-          useNativeDriver: true,
+          useNativeDriver: false,
         })
       );
 
