@@ -10,6 +10,12 @@ import * as SecureStore from 'expo-secure-store';
 import { useIsFocused } from '@react-navigation/native';
 import * as Location from 'expo-location';
 
+export interface MemberPreview {
+  id: string;
+  name: string;
+  profileImage: string | null;
+}
+
 interface Activity {
   id: string;
   category: string;
@@ -31,7 +37,20 @@ interface Activity {
   pincode?: string;
   city?: string;
   distance?: number;
+  memberPreview?: MemberPreview[];
 }
+
+const AVATAR_COLORS = ['#8B5CF6', '#EC4899', '#3B82F6', '#10B981', '#F59E0B', '#6366F1', '#14B8A6'];
+
+const getAvatarColor = (name: string, index: number = 0) => {
+  if (!name) return AVATAR_COLORS[index % AVATAR_COLORS.length];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const colorIndex = Math.abs(hash) % AVATAR_COLORS.length;
+  return AVATAR_COLORS[colorIndex];
+};
 
 export default function ActivitiesScreen() {
   const router = useRouter();
@@ -152,12 +171,14 @@ export default function ActivitiesScreen() {
       });
 
       if (response.ok) {
+        const resData = await response.json();
         setActivities(prev => prev.map(a => {
           if (a.id === activity.id) {
             return {
               ...a,
               isJoined: isJoining,
-              joined: isJoining ? a.joined + 1 : a.joined - 1
+              joined: resData.joined !== undefined ? resData.joined : (isJoining ? a.joined + 1 : Math.max(0, a.joined - 1)),
+              memberPreview: resData.memberPreview !== undefined ? resData.memberPreview : a.memberPreview
             };
           }
           return a;
@@ -303,6 +324,39 @@ export default function ActivitiesScreen() {
                       {activity.joined}/{activity.capacity} joined
                     </Text>
                   </View>
+
+                  {/* Joined Members Preview */}
+                  {activity.memberPreview && activity.memberPreview.length > 0 && (
+                    <View style={styles.memberPreviewContainer}>
+                      <View style={styles.memberChipsRow}>
+                        {activity.memberPreview.slice(0, 3).map((member, idx) => {
+                          const imageUri = member.profileImage ? resolveImageUrl(member.profileImage) : null;
+                          const initial = (member.name || 'U').charAt(0).toUpperCase();
+                          return (
+                            <View key={member.id || `member-${idx}`} style={styles.memberChip}>
+                              {imageUri ? (
+                                <Image source={{ uri: imageUri }} style={styles.memberAvatarImage} />
+                              ) : (
+                                <View style={[styles.memberAvatarFallback, { backgroundColor: getAvatarColor(member.name, idx) }]}>
+                                  <Text style={styles.memberAvatarInitial}>{initial}</Text>
+                                </View>
+                              )}
+                              <Text style={styles.memberName} numberOfLines={1}>
+                                {member.name}
+                              </Text>
+                            </View>
+                          );
+                        })}
+                        {activity.joined > (activity.memberPreview?.length || 0) && (
+                          <View style={styles.moreMembersBadge}>
+                            <Text style={styles.moreMembersText}>
+                              +{activity.joined - (activity.memberPreview?.length || 0)} more
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  )}
                 </View>
 
                 {/* Footer Divider */}
@@ -479,6 +533,67 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#4B5563',
     marginLeft: 8,
+  },
+  memberPreviewContainer: {
+    marginTop: 2,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  memberChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 6,
+  },
+  memberChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 14,
+    maxWidth: 140,
+  },
+  memberAvatarImage: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    marginRight: 6,
+  },
+  memberAvatarFallback: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 6,
+  },
+  memberAvatarInitial: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  memberName: {
+    fontSize: 12,
+    color: '#374151',
+    fontWeight: '500',
+    flexShrink: 1,
+  },
+  moreMembersBadge: {
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FFEDD5',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 14,
+  },
+  moreMembersText: {
+    fontSize: 11,
+    color: '#EA580C',
+    fontWeight: '600',
   },
   divider: {
     height: 1,

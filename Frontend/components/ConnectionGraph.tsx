@@ -132,12 +132,12 @@ export default function ConnectionGraph({
         Animated.timing(pulseAnim, {
           toValue: 0.9,
           duration: 1200,
-          useNativeDriver: false,
+          useNativeDriver: true,
         }),
         Animated.timing(pulseAnim, {
           toValue: 0.4,
           duration: 1200,
-          useNativeDriver: false,
+          useNativeDriver: true,
         }),
       ])
     );
@@ -172,6 +172,7 @@ export default function ConnectionGraph({
         scaleAnim = new Animated.Value(0.2);
         opacityAnim = new Animated.Value(0);
 
+        // Native animations for Animated.View transform & opacity
         Animated.parallel([
           Animated.spring(radiusAnim, {
             toValue: item.baseRadius,
@@ -179,24 +180,26 @@ export default function ConnectionGraph({
             tension: 40,
             useNativeDriver: true,
           }),
-          Animated.spring(lineRadiusAnim, {
-            toValue: item.baseRadius,
-            friction: 7,
-            tension: 40,
-            useNativeDriver: false,
-          }),
           Animated.spring(scaleAnim, {
             toValue: 1,
             friction: 6,
             tension: 50,
-            useNativeDriver: false,
+            useNativeDriver: true,
           }),
           Animated.timing(opacityAnim, {
             toValue: 1,
             duration: 350,
-            useNativeDriver: false,
+            useNativeDriver: true,
           }),
         ]).start();
+
+        // JS animation for SVG line (react-native-svg props)
+        Animated.spring(lineRadiusAnim, {
+          toValue: item.baseRadius,
+          friction: 7,
+          tension: 40,
+          useNativeDriver: false,
+        }).start();
       }
 
       const nodeObj: AnimatedNodeItem = {
@@ -259,12 +262,12 @@ export default function ConnectionGraph({
           toValue: isSelected ? 1.3 : isDimmed ? 0.8 : 1,
           friction: 6,
           tension: 50,
-          useNativeDriver: false,
+          useNativeDriver: true,
         }),
         Animated.timing(node.opacityAnim, {
           toValue: isDimmed ? 0.35 : 1,
           duration: 300,
-          useNativeDriver: false,
+          useNativeDriver: true,
         })
       );
 
@@ -278,7 +281,12 @@ export default function ConnectionGraph({
       );
     });
 
-    Animated.parallel([...nativeAnimations, ...jsAnimations]).start();
+    if (nativeAnimations.length > 0) {
+      Animated.parallel(nativeAnimations).start();
+    }
+    if (jsAnimations.length > 0) {
+      Animated.parallel(jsAnimations).start();
+    }
   }, [expandedTier, selectedNodeId, animatedNodes]);
 
   const handleNodePress = (node: AnimatedNodeItem) => {

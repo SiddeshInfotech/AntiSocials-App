@@ -1,5 +1,48 @@
 const db = require('../db');
 
+const parseMemberPreview = (raw) => {
+    let list = raw;
+    if (typeof list === 'string') {
+        try { list = JSON.parse(list); } catch (e) { list = []; }
+    }
+    if (!Array.isArray(list)) return [];
+    return list.map(m => ({
+        id: m.id ? m.id.toString() : '',
+        name: m.name || 'Member',
+        profileImage: m.profileImage || null
+    }));
+};
+
+const getActivityMemberInfo = async (activityId) => {
+    const res = await db.query(`
+        SELECT 
+            COUNT(*)::int as joined_count,
+            (
+                SELECT COALESCE(json_agg(json_build_object(
+                    'id', mu.id::text,
+                    'name', mu.username,
+                    'profileImage', mu.image_url
+                ) ORDER BY ap_sub.joined_at ASC, ap_sub.id ASC), '[]'::json)
+                FROM (
+                    SELECT ap.user_id, ap.joined_at, ap.id
+                    FROM activity_participants ap
+                    WHERE ap.activity_id = $1
+                    ORDER BY ap.joined_at ASC, ap.id ASC
+                    LIMIT 3
+                ) ap_sub
+                JOIN users mu ON ap_sub.user_id = mu.id
+            ) as member_preview
+        FROM activity_participants
+        WHERE activity_id = $1
+    `, [activityId]);
+
+    const row = res.rows[0] || {};
+    return {
+        joined: row.joined_count ? parseInt(row.joined_count) : 0,
+        memberPreview: parseMemberPreview(row.member_preview)
+    };
+};
+
 exports.getActivities = async (req, res) => {
     try {
         const userId = req.user.id;
@@ -17,6 +60,21 @@ exports.getActivities = async (req, res) => {
                     u.image_url as creator_image,
                     (SELECT COUNT(*) FROM activity_participants WHERE activity_id = a.id) as joined_count,
                     EXISTS(SELECT 1 FROM activity_participants WHERE activity_id = a.id AND user_id = $1) as is_joined,
+                    (
+                        SELECT COALESCE(json_agg(json_build_object(
+                            'id', mu.id::text,
+                            'name', mu.username,
+                            'profileImage', mu.image_url
+                        ) ORDER BY ap_sub.joined_at ASC, ap_sub.id ASC), '[]'::json)
+                        FROM (
+                            SELECT ap.user_id, ap.joined_at, ap.id
+                            FROM activity_participants ap
+                            WHERE ap.activity_id = a.id
+                            ORDER BY ap.joined_at ASC, ap.id ASC
+                            LIMIT 3
+                        ) ap_sub
+                        JOIN users mu ON ap_sub.user_id = mu.id
+                    ) as member_preview,
                     (6371 * acos( LEAST(1.0, GREATEST(-1.0, cos(radians($2)) * cos(radians(a.latitude)) * cos(radians(a.longitude) - radians($3)) + sin(radians($2)) * sin(radians(a.latitude)))) )) AS distance
                 FROM activities a
                 JOIN users u ON a.creator_id = u.id
@@ -33,7 +91,22 @@ exports.getActivities = async (req, res) => {
                     u.username as creator_name, 
                     u.image_url as creator_image,
                     (SELECT COUNT(*) FROM activity_participants WHERE activity_id = a.id) as joined_count,
-                    EXISTS(SELECT 1 FROM activity_participants WHERE activity_id = a.id AND user_id = $1) as is_joined
+                    EXISTS(SELECT 1 FROM activity_participants WHERE activity_id = a.id AND user_id = $1) as is_joined,
+                    (
+                        SELECT COALESCE(json_agg(json_build_object(
+                            'id', mu.id::text,
+                            'name', mu.username,
+                            'profileImage', mu.image_url
+                        ) ORDER BY ap_sub.joined_at ASC, ap_sub.id ASC), '[]'::json)
+                        FROM (
+                            SELECT ap.user_id, ap.joined_at, ap.id
+                            FROM activity_participants ap
+                            WHERE ap.activity_id = a.id
+                            ORDER BY ap.joined_at ASC, ap.id ASC
+                            LIMIT 3
+                        ) ap_sub
+                        JOIN users mu ON ap_sub.user_id = mu.id
+                    ) as member_preview
                 FROM activities a
                 JOIN users u ON a.creator_id = u.id
                 WHERE $2::varchar IS NULL OR a.pincode = $2
@@ -67,7 +140,8 @@ exports.getActivities = async (req, res) => {
             },
             imageColor: row.image_url ? null : (row.category_color || '#EA580C'),
             imageUrl: row.image_url,
-            emoji: row.emoji || '📅'
+            emoji: row.emoji || '📅',
+            memberPreview: parseMemberPreview(row.member_preview)
         }));
 
         res.json(activities);
@@ -86,7 +160,22 @@ exports.getJoinedActivities = async (req, res) => {
                 u.username as creator_name, 
                 u.image_url as creator_image,
                 (SELECT COUNT(*) FROM activity_participants WHERE activity_id = a.id) as joined_count,
-                true as is_joined
+                true as is_joined,
+                (
+                    SELECT COALESCE(json_agg(json_build_object(
+                        'id', mu.id::text,
+                        'name', mu.username,
+                        'profileImage', mu.image_url
+                    ) ORDER BY ap_sub.joined_at ASC, ap_sub.id ASC), '[]'::json)
+                    FROM (
+                        SELECT ap.user_id, ap.joined_at, ap.id
+                        FROM activity_participants ap
+                        WHERE ap.activity_id = a.id
+                        ORDER BY ap.joined_at ASC, ap.id ASC
+                        LIMIT 3
+                    ) ap_sub
+                    JOIN users mu ON ap_sub.user_id = mu.id
+                ) as member_preview
             FROM activities a
             JOIN users u ON a.creator_id = u.id
             JOIN activity_participants ap ON a.id = ap.activity_id
@@ -114,7 +203,8 @@ exports.getJoinedActivities = async (req, res) => {
             },
             imageColor: row.image_url ? null : (row.category_color || '#EA580C'),
             imageUrl: row.image_url,
-            emoji: row.emoji || '📅'
+            emoji: row.emoji || '📅',
+            memberPreview: parseMemberPreview(row.member_preview)
         }));
 
         res.json(activities);
@@ -134,7 +224,22 @@ exports.getActivityById = async (req, res) => {
                 u.username as creator_name, 
                 u.image_url as creator_image,
                 (SELECT COUNT(*) FROM activity_participants WHERE activity_id = a.id) as joined_count,
-                EXISTS(SELECT 1 FROM activity_participants WHERE activity_id = a.id AND user_id = $1) as is_joined
+                EXISTS(SELECT 1 FROM activity_participants WHERE activity_id = a.id AND user_id = $1) as is_joined,
+                (
+                    SELECT COALESCE(json_agg(json_build_object(
+                        'id', mu.id::text,
+                        'name', mu.username,
+                        'profileImage', mu.image_url
+                    ) ORDER BY ap_sub.joined_at ASC, ap_sub.id ASC), '[]'::json)
+                    FROM (
+                        SELECT ap.user_id, ap.joined_at, ap.id
+                        FROM activity_participants ap
+                        WHERE ap.activity_id = a.id
+                        ORDER BY ap.joined_at ASC, ap.id ASC
+                        LIMIT 3
+                    ) ap_sub
+                    JOIN users mu ON ap_sub.user_id = mu.id
+                ) as member_preview
             FROM activities a
             JOIN users u ON a.creator_id = u.id
             WHERE a.id = $2
@@ -165,7 +270,8 @@ exports.getActivityById = async (req, res) => {
             },
             imageColor: row.image_url ? null : '#EA580C',
             imageUrl: row.image_url,
-            emoji: row.emoji || '📅'
+            emoji: row.emoji || '📅',
+            memberPreview: parseMemberPreview(row.member_preview)
         };
 
         res.json(activity);
@@ -210,13 +316,16 @@ exports.createActivity = async (req, res) => {
             [newActivity.id, creator_id]
         );
 
+        const memberInfo = await getActivityMemberInfo(newActivity.id);
+
         res.status(201).json({
             message: 'Activity created successfully',
             activity: {
                 ...newActivity,
                 id: newActivity.id.toString(),
-                joined: 1,
-                isJoined: true
+                joined: memberInfo.joined,
+                isJoined: true,
+                memberPreview: memberInfo.memberPreview
             }
         });
     } catch (error) {
@@ -344,7 +453,14 @@ exports.joinActivity = async (req, res) => {
             [id, userId]
         );
 
-        res.json({ message: 'Joined activity successfully' });
+        const memberInfo = await getActivityMemberInfo(id);
+
+        res.json({ 
+            message: 'Joined activity successfully',
+            joined: memberInfo.joined,
+            isJoined: true,
+            memberPreview: memberInfo.memberPreview
+        });
     } catch (error) {
         console.error('Join activity error:', error);
         res.status(500).json({ error: 'Internal server error' });
@@ -364,7 +480,14 @@ exports.leaveActivity = async (req, res) => {
             [id, userId]
         );
 
-        res.json({ message: 'Left activity successfully' });
+        const memberInfo = await getActivityMemberInfo(id);
+
+        res.json({ 
+            message: 'Left activity successfully',
+            joined: memberInfo.joined,
+            isJoined: false,
+            memberPreview: memberInfo.memberPreview
+        });
     } catch (error) {
         console.error('Leave activity error:', error);
         res.status(500).json({ error: 'Internal server error' });
