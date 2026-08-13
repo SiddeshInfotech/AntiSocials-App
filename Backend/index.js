@@ -68,19 +68,26 @@ const upload = multer({
 
 const uploadMediaMiddleware = upload.any();
 
-app.post('/upload', uploadMediaMiddleware, (req, res) => {
-    const uploadedFile = req.file || (req.files && req.files.length > 0 ? req.files[0] : null);
-    if (!uploadedFile) {
-        return res.status(400).json({ error: "No media file provided" });
-    }
-    // Return standard relative path with forward slashes
-    const relativePath = `/uploads/${uploadedFile.filename}`;
-    console.log(`📸 [Media Uploaded] filename: ${uploadedFile.filename}, path: ${relativePath}, size: ${uploadedFile.size}B, mime: ${uploadedFile.mimetype}`);
-    res.status(200).json({ 
-        imageUrl: relativePath,
-        mediaUrl: relativePath,
-        filename: uploadedFile.filename,
-        mimetype: uploadedFile.mimetype
+app.post('/upload', (req, res) => {
+    uploadMediaMiddleware(req, res, (err) => {
+        if (err) {
+            console.error("❌ [Upload Error] Multer error:", err);
+            return res.status(400).json({ error: err.message || "File upload failed" });
+        }
+        const uploadedFile = req.file || (req.files && req.files.length > 0 ? req.files[0] : null);
+        if (!uploadedFile) {
+            console.warn("⚠️ [Upload Warning] No media file received");
+            return res.status(400).json({ error: "No media file provided" });
+        }
+        // Return standard relative path with forward slashes
+        const relativePath = `/uploads/${uploadedFile.filename}`;
+        console.log(`📸 [Media Uploaded] filename: ${uploadedFile.filename}, path: ${relativePath}, size: ${uploadedFile.size}B, mime: ${uploadedFile.mimetype}`);
+        res.status(200).json({ 
+            imageUrl: relativePath,
+            mediaUrl: relativePath,
+            filename: uploadedFile.filename,
+            mimetype: uploadedFile.mimetype
+        });
     });
 });
 

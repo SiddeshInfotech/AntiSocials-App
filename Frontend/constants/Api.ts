@@ -8,14 +8,14 @@ const expoHost = Constants.expoConfig?.hostUri
   ? `http://${Constants.expoConfig.hostUri.split(':').slice(0, -1).join(':')}:5000`
   : '';
 
-// Try linkingUri (extract IP from exp://192.168.x.x:8081)
+// Try linkingUri (extract IP from exp://192.168.x.x:8081 or http://...)
 const linkingUri = Constants.linkingUri || '';
 const linkingMatch = linkingUri.match(/exp:\/\/([^:/]+)/) || linkingUri.match(/http:\/\/([^:/]+)/);
 const linkingHostIp = linkingMatch ? linkingMatch[1] : '';
 const linkingHost = linkingHostIp ? `http://${linkingHostIp}:5000` : '';
 
-// Try debuggerHost fallback (older or alternative Expo configs)
-const debuggerHost = (Constants.manifest as any)?.debuggerHost || (Constants.manifest2 as any)?.extra?.expoGo?.debuggerHost || '';
+// Try debuggerHost fallback (Expo Go / manifest configs)
+const debuggerHost = (Constants.manifest as any)?.debuggerHost || (Constants.manifest2 as any)?.extra?.expoGo?.debuggerHost || (Constants as any)?.expoGoConfig?.debuggerHost || '';
 const debuggerHostIp = debuggerHost ? debuggerHost.split(':')[0] : '';
 const debuggerHostUrl = debuggerHostIp ? `http://${debuggerHostIp}:5000` : '';
 
@@ -24,9 +24,11 @@ const candidateBases = [
   expoHost,
   linkingHost,
   debuggerHostUrl,
+  'http://192.168.1.103:5000',
   'http://192.168.1.5:5000',
   'http://192.168.1.102:5000',
   Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://127.0.0.1:5000',
+  'http://10.0.2.2:5000',
   'http://localhost:5000',
   'http://127.0.0.1:5000',
 ].filter((value, index, self) => Boolean(value) && self.indexOf(value) === index) as string[];
@@ -56,9 +58,14 @@ export const apiFetch = async (path: string, options: ApiFetchOptions = {}) => {
     const timeoutId = setTimeout(() => controller.abort(), timeoutDuration);
 
     try {
+      const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+      const fullUrl = path.startsWith('http://') || path.startsWith('https://') 
+        ? path 
+        : `${baseUrl}${normalizedPath}`;
+
       console.log(`[API] Attempting ${options.method || 'GET'} ${path} on ${baseUrl}`);
       const { timeoutMs, ...fetchOptions } = options;
-      const response = await fetch(`${baseUrl}${path}`, {
+      const response = await fetch(fullUrl, {
         ...fetchOptions,
         signal: controller.signal,
         headers: {
@@ -91,3 +98,4 @@ export const apiFetch = async (path: string, options: ApiFetchOptions = {}) => {
 
   throw new Error('Network request failed. Please check your connection.');
 };
+

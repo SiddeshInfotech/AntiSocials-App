@@ -102,25 +102,35 @@ export default function EditProfileScreen() {
     try {
       const filename = uri.split('/').pop() || 'profile.jpg';
       const match = /\.(\w+)$/.exec(filename);
-      const type = match ? `image/${match[1]}` : `image`;
+      const ext = match ? match[1].toLowerCase() : 'jpg';
+      let type = 'image/jpeg';
+      if (ext === 'png') type = 'image/png';
+      else if (ext === 'webp') type = 'image/webp';
+      else if (ext === 'gif') type = 'image/gif';
+      else if (ext === 'heic' || ext === 'heif') type = 'image/heic';
 
       const formData = new FormData();
       formData.append('image', { uri, name: filename, type } as any);
 
-      const response = await fetch(`${API_BASE_URL}/upload`, {
+      console.log('📤 [EditProfile] Uploading image:', { uri, filename, type });
+
+      const response = await apiFetch('/upload', {
         method: "POST",
         body: formData,
+        timeoutMs: 30000,
       });
 
       const data = await response.json();
-      if (!response.ok) {
-        Alert.alert("Upload Failed", data.error || "Could not upload image");
+      console.log('📥 [EditProfile] Image upload response:', response.status, data);
+
+      if (!response.ok || !data?.imageUrl) {
+        Alert.alert("Upload Failed", data?.error || "Could not upload image");
       } else {
         setProfileImage(data.imageUrl);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Upload Error:", error);
-      Alert.alert("Error", "Could not connect to server for image upload.");
+      Alert.alert("Upload Error", error?.message || "Could not connect to server for image upload.");
     } finally {
       setIsSaving(false);
     }

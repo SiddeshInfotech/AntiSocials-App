@@ -20,6 +20,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as ImagePicker from "expo-image-picker";
 import * as SecureStore from 'expo-secure-store';
 import { API_BASE_URL, apiFetch } from '../constants/Api';
+import { resolveImageUrl } from '../constants/ImageUtils';
 
 export default function Signup() {
   const router = useRouter();
@@ -128,25 +129,45 @@ export default function Signup() {
     try {
       const filename = uri.split('/').pop() || 'profile.jpg';
       const match = /\.(\w+)$/.exec(filename);
-      const type = match ? `image/${match[1]}` : `image`;
+      const ext = match ? match[1].toLowerCase() : 'jpg';
+      let type = 'image/jpeg';
+      if (ext === 'png') {
+        type = 'image/png';
+      } else if (ext === 'webp') {
+        type = 'image/webp';
+      } else if (ext === 'gif') {
+        type = 'image/gif';
+      } else if (ext === 'heic' || ext === 'heif') {
+        type = 'image/heic';
+      }
 
       const formData = new FormData();
-      formData.append('image', { uri, name: filename, type } as any);
+      formData.append('image', {
+        uri,
+        name: filename,
+        type,
+      } as any);
 
-      const response = await fetch(`${API_BASE_URL}/upload`, {
+      console.log('📤 [Signup] Uploading image:', { uri, filename, type });
+
+      const response = await apiFetch('/upload', {
         method: "POST",
         body: formData,
+        timeoutMs: 30000,
       });
 
       const data = await response.json();
-      if (!response.ok) {
-        Alert.alert("Upload Failed", data.error || "Could not upload image");
+      console.log('📥 [Signup] Image upload response:', response.status, data);
+
+      if (!response.ok || !data?.imageUrl) {
+        Alert.alert("Upload Failed", data?.error || "Could not upload image");
       } else {
         setImage(data.imageUrl);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Upload Error:", error);
-      Alert.alert("Error", "Could not connect to server for image upload.");
+      const errorMessage = error?.message || "Could not connect to server for image upload.";
+      Alert.alert("Upload Error", errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -227,15 +248,17 @@ export default function Signup() {
           <Text style={styles.label}>Profile Photo</Text>
 
           {/* Image Picker */}
-          <TouchableOpacity style={styles.imageCircle} onPress={pickImage}>
-            {image ? (
-              <Image source={{ uri: image }} style={styles.image} />
+          <TouchableOpacity style={styles.imageCircle} onPress={pickImage} disabled={isLoading}>
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#9C27FF" />
+            ) : image ? (
+              <Image source={{ uri: resolveImageUrl(image) }} style={styles.image} />
             ) : (
               <Text style={styles.camera}>📷</Text>
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.photoButton} onPress={pickImage}>
+          <TouchableOpacity style={styles.photoButton} onPress={pickImage} disabled={isLoading}>
             <Text style={styles.photoText}>Add Photo</Text>
           </TouchableOpacity>
 

@@ -20,7 +20,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'react-native';
 import * as Location from 'expo-location';
 
-import { API_BASE_URL } from '../constants/Api';
+import { API_BASE_URL, apiFetch } from '../constants/Api';
 import * as SecureStore from 'expo-secure-store';
 
 export default function CreateActivityScreen() {
@@ -178,7 +178,7 @@ export default function CreateActivityScreen() {
       const formData = new FormData();
       formData.append('image', { uri, name: filename, type } as any);
 
-      const response = await fetch(`${API_BASE_URL}/upload`, {
+      const response = await apiFetch('/upload', {
         method: "POST",
         body: formData,
       });
@@ -225,7 +225,7 @@ export default function CreateActivityScreen() {
         }
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/activities`, {
+      const response = await apiFetch('/api/activities', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
