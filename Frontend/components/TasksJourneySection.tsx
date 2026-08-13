@@ -18,10 +18,21 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
   const prototypeDays = Array.from({ length: 100 }, (_, index) => index + 1);
 
   const stageLabels = [
-    { title: "Habits", icon: "calendar", color: "#16a34a" },
-    { title: "Social", icon: "heart", color: "#2563eb" },
-    { title: "Community", icon: "users", color: "#9333ea" },
-    { title: "Leadership", icon: "sun", color: "#ea580c" },
+    { title: "Habits", icon: "calendar", color: "#16a34a" },            // Stage 1 (Day 1-7)
+    { title: "Social Presence", icon: "heart", color: "#2563eb" },     // Stage 2 (Day 8-14)
+    { title: "Courage", icon: "zap", color: "#dc2626" },              // Stage 3 (Day 15-21)
+    { title: "Authentic Voice", icon: "message-circle", color: "#9333ea" }, // Stage 4 (Day 22-28)
+    { title: "Community", icon: "users", color: "#0891b2" },           // Stage 5 (Day 29-35)
+    { title: "Discomfort Lab", icon: "shield", color: "#d97706" },     // Stage 6 (Day 36-42)
+    { title: "Group Rhythm", icon: "eye", color: "#4f46e5" },          // Stage 7 (Day 43-49)
+    { title: "Leadership", icon: "compass", color: "#ea580c" },        // Stage 8 (Day 50-56)
+    { title: "Deep Curiosity", icon: "globe", color: "#0284c7" },      // Stage 9 (Day 57-63)
+    { title: "Emotion Mastery", icon: "anchor", color: "#059669" },    // Stage 10 (Day 64-70)
+    { title: "Focus & Presence", icon: "sun", color: "#b45309" },      // Stage 11 (Day 71-77)
+    { title: "Inspiring Others", icon: "star", color: "#c026d3" },     // Stage 12 (Day 78-84)
+    { title: "Real Impact", icon: "award", color: "#15803d" },         // Stage 13 (Day 85-91)
+    { title: "Transformation", icon: "feather", color: "#7c3aed" },    // Stage 14 (Day 92-98)
+    { title: "Mastery", icon: "check-circle", color: "#eab308" },      // Stage 15 (Day 99-100)
   ] as const;
 
   const getStageForDay = (day: number) => {
@@ -31,6 +42,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
     const stage = stageLabels[stageIndex];
 
     return {
+      stageNumber: stageIndex + 1,
       title: `Stage ${stageIndex + 1}: ${stage.title}`,
       label: stage.title,
       icon: stage.icon,
@@ -872,9 +884,19 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
   }, []);
 
   const activeTaskBucketIndex = Math.floor((activePrototype - 1) / 7);
-  const activeTaskStart = activeTaskBucketIndex * 7;
-  const activeTaskEnd = activeTaskStart + 7;
-  const visibleTasks = sortedTasksData.slice(activeTaskStart, activeTaskEnd);
+  const tasksPerBucket = 7;
+  const totalTasks = sortedTasksData.length;
+
+  const visibleTasks = React.useMemo(() => {
+    if (totalTasks === 0) return [];
+    const startIndex = (activeTaskBucketIndex * tasksPerBucket) % totalTasks;
+    const items: typeof tasksData = [];
+    for (let i = 0; i < tasksPerBucket; i++) {
+      items.push(sortedTasksData[(startIndex + i) % totalTasks]);
+    }
+    return items;
+  }, [sortedTasksData, activeTaskBucketIndex, totalTasks]);
+
   const visibleTaskStartDay = activeTaskBucketIndex * 7 + 1;
   const visibleTaskEndDay = Math.min(visibleTaskStartDay + 6, 100);
 
