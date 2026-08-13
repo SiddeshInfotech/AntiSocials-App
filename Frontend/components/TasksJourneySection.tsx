@@ -859,10 +859,22 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
     },
   ];
 
+  const difficultyMap: Record<string, number> = { easy: 1, medium: 2, hard: 3 };
+  const sortedTasksData = React.useMemo(() => {
+    return [...tasksData].sort((a, b) => {
+      const diffA = (a.difficulty || "easy").toString().toLowerCase().trim();
+      const diffB = (b.difficulty || "easy").toString().toLowerCase().trim();
+      const orderA = difficultyMap[diffA] ?? 4;
+      const orderB = difficultyMap[diffB] ?? 4;
+      if (orderA !== orderB) return orderA - orderB;
+      return 0; // Preserves original relative order within same difficulty
+    });
+  }, []);
+
   const activeTaskBucketIndex = Math.floor((activePrototype - 1) / 7);
   const activeTaskStart = activeTaskBucketIndex * 7;
   const activeTaskEnd = activeTaskStart + 7;
-  const visibleTasks = tasksData.slice(activeTaskStart, activeTaskEnd);
+  const visibleTasks = sortedTasksData.slice(activeTaskStart, activeTaskEnd);
   const visibleTaskStartDay = activeTaskBucketIndex * 7 + 1;
   const visibleTaskEndDay = Math.min(visibleTaskStartDay + 6, 100);
 

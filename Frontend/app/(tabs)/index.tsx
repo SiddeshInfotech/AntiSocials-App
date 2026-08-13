@@ -982,6 +982,8 @@ export default function HomeScreen() {
           return {
             ...(prev || {}),
             ...data,
+            own_stories: data.own_stories || [],
+            active_stories: data.active_stories || [],
             total_points: finalPoints,
             user: {
               ...(prev?.user || {}),
@@ -1327,26 +1329,6 @@ export default function HomeScreen() {
                 </TouchableOpacity>
               );
             })}
-            {/* Dummy Default Stories */}
-            {[
-              { id: "1", name: "Sarah", emoji: "👱‍♀️" },
-              { id: "2", name: "Mike", emoji: "👱‍♂️" },
-              { id: "3", name: "Emma", emoji: "👩" },
-              { id: "4", name: "John", emoji: "👨" },
-            ].map((story) => (
-              <TouchableOpacity
-                key={`dummy-${story.id}`}
-                style={styles.storyItemContainer}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.storyRing, { borderWidth: 2, borderColor: "#c026d3", padding: 2 }]}>
-                  <View style={{ width: '100%', height: '100%', borderRadius: 30, backgroundColor: "#fdf2f8", justifyContent: "center", alignItems: "center" }}>
-                    <Text style={{ fontSize: 30 }}>{story.emoji}</Text>
-                  </View>
-                </View>
-                <Text style={styles.storyName}>{story.name}</Text>
-              </TouchableOpacity>
-            ))}
           </ScrollView>
         </View>
 

@@ -1,6 +1,32 @@
 const db = require('../db');
 const pointsStreakService = require('../services/pointsStreakService');
 
+// Helper to verify if story exists, is active, and is accessible by user (own story or accepted connection)
+const verifyStoryAccess = async (storyId, userId) => {
+    const sId = parseInt(storyId, 10);
+    const uId = parseInt(userId, 10);
+    if (!sId || !uId || isNaN(sId) || isNaN(uId)) return null;
+
+    const res = await db.query(`
+        SELECT s.id, s.user_id 
+        FROM stories s
+        WHERE s.id = $1 
+          AND s.is_active = TRUE 
+          AND s.expires_at > NOW()
+          AND (
+              s.user_id = $2 
+              OR s.user_id IN (
+                  SELECT CASE WHEN c.user_id = $2 THEN c.friend_id ELSE c.user_id END
+                  FROM user_connections c
+                  WHERE (c.user_id = $2 OR c.friend_id = $2)
+                    AND (LOWER(c.status) = 'accepted' OR LOWER(c.status) = 'connected')
+              )
+          )
+    `, [sId, uId]);
+
+    return res.rows.length > 0 ? res.rows[0] : null;
+};
+
 exports.getHomeData = async (req, res) => {
     try {
         const userId = parseInt(req.user.id, 10);
@@ -15,12 +41,21 @@ exports.getHomeData = async (req, res) => {
         // Points, Streak & Completed tasks from pointsStreakService (single source of truth)
         const userSummary = await pointsStreakService.getUserPointsAndStreak(userId);
 
-        console.log(`📌 [Backend GET /api/home] userId: ${userId}, totalPoints: ${userSummary.totalPoints}, streak: ${userSummary.currentStreak}, completedCount: ${userSummary.completedCount}`);
+        console.log(`📌 [Backend GET /api/home] userId: ${userId}, username: ${user.username}, totalPoints: ${userSummary.totalPoints}, streak: ${userSummary.currentStreak}`);
 
         // Deactivate any expired stories before returning home data
         await db.query('UPDATE stories SET is_active = FALSE WHERE is_active = TRUE AND expires_at <= NOW()');
 
-        // Active stories
+        // Fetch accepted connection IDs for debug log
+        const connRes = await db.query(`
+            SELECT CASE WHEN c.user_id = $1 THEN c.friend_id ELSE c.user_id END as conn_id
+            FROM user_connections c
+            WHERE (c.user_id = $1 OR c.friend_id = $1)
+              AND (LOWER(c.status) = 'accepted' OR LOWER(c.status) = 'connected')
+        `, [userId]);
+        const acceptedConnIds = connRes.rows.map(r => r.conn_id);
+
+        // Active stories: ONLY own stories OR stories from ACCEPTED connections
         const storiesRes = await db.query(`
             SELECT 
                 s.id, 
@@ -36,22 +71,46 @@ exports.getHomeData = async (req, res) => {
                 s.expires_at, 
                 s.view_count, 
                 u.username, 
+                COALESCE(u.profile_name, u.username) AS display_name,
                 u.image_url as profile_image
             FROM stories s
             JOIN users u ON s.user_id = u.id
-            WHERE s.is_active = TRUE AND s.expires_at > NOW()
+            WHERE s.is_active = TRUE 
+              AND s.expires_at > NOW()
+              AND (
+                  s.user_id = $1 
+                  OR s.user_id IN (
+                      SELECT CASE WHEN c.user_id = $1 THEN c.friend_id ELSE c.user_id END
+                      FROM user_connections c
+                      WHERE (c.user_id = $1 OR c.friend_id = $1)
+                        AND (LOWER(c.status) = 'accepted' OR LOWER(c.status) = 'connected')
+                  )
+              )
             ORDER BY s.created_at ASC
-        `);
+        `, [userId]);
 
         // Split own story vs others
         const ownStories = storiesRes.rows.filter(s => s.user_id === userId);
         const activeStories = storiesRes.rows.filter(s => s.user_id !== userId);
-        console.log(`📌 [Backend GET /api/home] userId: ${userId}, ownStories: ${ownStories.length}, activeStories: ${activeStories.length}`);
+        const returnedOwners = [...new Set(storiesRes.rows.map(s => `${s.username} (ID: ${s.user_id})`))];
 
-        // Tasks with completion status mapped directly for the user
-        const tasksRes = await db.query('SELECT * FROM tasks ORDER BY created_at DESC');
+        console.log(`🔒 [STORY ACCESS DEBUG GET /api/home] Viewer: ${user.username} (ID: ${userId}) | Accepted Conns: [${acceptedConnIds.join(', ')}] | Returned Story Owners: [${returnedOwners.join(', ')}]`);
+
+        // Tasks with completion status mapped directly for the user and strictly sorted by difficulty (EASY -> MEDIUM -> HARD)
+        const tasksRes = await db.query(`
+            SELECT * FROM tasks 
+            ORDER BY 
+              CASE 
+                WHEN LOWER(COALESCE(difficulty, '')) = 'easy' THEN 1
+                WHEN LOWER(COALESCE(difficulty, '')) = 'medium' THEN 2
+                WHEN LOWER(COALESCE(difficulty, '')) = 'hard' THEN 3
+                ELSE 4
+              END ASC,
+              created_at DESC
+        `);
         const completedNamesSet = new Set((userSummary.completedTasks || []).map(t => t.toLowerCase().trim()));
-        const enrichedTasks = tasksRes.rows.map(task => {
+        const difficultyOrderMap = { 'easy': 1, 'medium': 2, 'hard': 3 };
+        const rawEnrichedTasks = tasksRes.rows.map(task => {
             const tTitle = task.title.toLowerCase().trim();
             const isCompleted = completedNamesSet.has(tTitle) ||
                 (tTitle.includes("water") && completedNamesSet.has("drink a glass of water mindfully")) ||
@@ -63,6 +122,16 @@ exports.getHomeData = async (req, res) => {
                 completed: isCompleted,
                 status: isCompleted ? 'completed' : 'pending'
             };
+        });
+
+        // Enforce strict EASY -> MEDIUM -> HARD sequence preserving relative order
+        const enrichedTasks = [...rawEnrichedTasks].sort((a, b) => {
+            const diffA = (a.difficulty || 'easy').toString().toLowerCase().trim();
+            const diffB = (b.difficulty || 'easy').toString().toLowerCase().trim();
+            const orderA = difficultyOrderMap[diffA] || 4;
+            const orderB = difficultyOrderMap[diffB] || 4;
+            if (orderA !== orderB) return orderA - orderB;
+            return 0;
         });
 
         return res.status(200).json({
@@ -195,10 +264,39 @@ exports.uploadStory = async (req, res) => {
 exports.getStories = async (req, res) => {
     try {
         const currentUserId = req.user ? parseInt(req.user.id, 10) : 0;
+        if (!currentUserId) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
         const { userId } = req.query;
 
         // Deactivate expired stories before returning feed
         await db.query('UPDATE stories SET is_active = FALSE WHERE is_active = TRUE AND expires_at <= NOW()');
+
+        // Fetch accepted connection IDs for debug log
+        const connRes = await db.query(`
+            SELECT CASE WHEN c.user_id = $1 THEN c.friend_id ELSE c.user_id END as conn_id
+            FROM user_connections c
+            WHERE (c.user_id = $1 OR c.friend_id = $1)
+              AND (LOWER(c.status) = 'accepted' OR LOWER(c.status) = 'connected')
+        `, [currentUserId]);
+        const acceptedConnIds = connRes.rows.map(r => r.conn_id);
+
+        // If target userId parameter is passed, verify it is either current user or an accepted connection
+        if (userId) {
+            const targetId = parseInt(userId, 10);
+            if (targetId !== currentUserId) {
+                const connCheck = await db.query(
+                    `SELECT id FROM user_connections 
+                     WHERE ((user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1))
+                       AND (LOWER(status) = 'accepted' OR LOWER(status) = 'connected')`,
+                    [currentUserId, targetId]
+                );
+                if (connCheck.rows.length === 0) {
+                    console.log(`🔒 [STORY ACCESS DENIED GET /api/stories] Viewer: ${currentUserId} requested Target: ${targetId} - NOT CONNECTED`);
+                    return res.status(200).json({ stories: [] });
+                }
+            }
+        }
 
         let query = `
             SELECT 
@@ -215,6 +313,7 @@ exports.getStories = async (req, res) => {
                 s.expires_at, 
                 s.view_count, 
                 u.username, 
+                COALESCE(u.profile_name, u.username) AS display_name,
                 u.image_url as profile_image,
                 COALESCE((SELECT COUNT(*)::INTEGER FROM story_likes sl WHERE sl.story_id = s.id), 0) as likes_count,
                 COALESCE((SELECT COUNT(*)::INTEGER FROM story_comments sc WHERE sc.story_id = s.id), 0) as comments_count,
@@ -222,17 +321,28 @@ exports.getStories = async (req, res) => {
                 EXISTS(SELECT 1 FROM story_likes sl WHERE sl.story_id = s.id AND sl.user_id = $1) as is_liked_by_user
             FROM stories s
             JOIN users u ON s.user_id = u.id
-            WHERE s.is_active = TRUE AND s.expires_at > NOW()
+            WHERE s.is_active = TRUE 
+              AND s.expires_at > NOW()
+              AND (
+                  s.user_id = $1 
+                  OR s.user_id IN (
+                      SELECT CASE WHEN c.user_id = $1 THEN c.friend_id ELSE c.user_id END
+                      FROM user_connections c
+                      WHERE (c.user_id = $1 OR c.friend_id = $1)
+                        AND (LOWER(c.status) = 'accepted' OR LOWER(c.status) = 'connected')
+                  )
+              )
         `;
         const params = [currentUserId];
         if (userId) {
             query += ' AND s.user_id = $2';
-            params.push(userId);
+            params.push(parseInt(userId, 10));
         }
         query += ' ORDER BY s.created_at DESC';
 
         const result = await db.query(query, params);
-        console.log(`📌 [Backend GET /api/stories] currentUserId: ${currentUserId}, count: ${result.rows.length}`);
+        const returnedOwners = [...new Set(result.rows.map(s => `${s.username} (ID: ${s.user_id})`))];
+        console.log(`🔒 [STORY ACCESS DEBUG GET /api/stories] Viewer ID: ${currentUserId} | Accepted Conns: [${acceptedConnIds.join(', ')}] | Returned Story Owners: [${returnedOwners.join(', ')}] | Count: ${result.rows.length}`);
         return res.status(200).json({ stories: result.rows });
     } catch (err) {
         console.error('getStories error:', err);
@@ -244,10 +354,15 @@ exports.getStoryById = async (req, res) => {
     try {
         const storyId = parseInt(req.params.id, 10);
         const currentUserId = req.user ? parseInt(req.user.id, 10) : 0;
+        if (!currentUserId) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+
         const result = await db.query(`
             SELECT 
                 s.*, 
                 u.username, 
+                COALESCE(u.profile_name, u.username) AS display_name,
                 u.image_url as profile_image,
                 COALESCE((SELECT COUNT(*)::INTEGER FROM story_likes sl WHERE sl.story_id = s.id), 0) as likes_count,
                 COALESCE((SELECT COUNT(*)::INTEGER FROM story_comments sc WHERE sc.story_id = s.id), 0) as comments_count,
@@ -255,12 +370,23 @@ exports.getStoryById = async (req, res) => {
                 EXISTS(SELECT 1 FROM story_likes sl WHERE sl.story_id = s.id AND sl.user_id = $2) as is_liked_by_user
             FROM stories s
             JOIN users u ON s.user_id = u.id
-            WHERE s.id = $1 AND s.is_active = TRUE AND s.expires_at > NOW()
+            WHERE s.id = $1 
+              AND s.is_active = TRUE 
+              AND s.expires_at > NOW()
+              AND (
+                  s.user_id = $2 
+                  OR s.user_id IN (
+                      SELECT CASE WHEN c.user_id = $2 THEN c.friend_id ELSE c.user_id END
+                      FROM user_connections c
+                      WHERE (c.user_id = $2 OR c.friend_id = $2)
+                        AND (c.status = 'accepted' OR c.status = 'connected')
+                  )
+              )
         `, [storyId, currentUserId]);
 
         if (result.rows.length === 0) {
-            console.log(`📌 [Backend GET /api/stories/:id] storyId: ${storyId} not found or has expired`);
-            return res.status(404).json({ error: 'Story not found or has expired' });
+            console.log(`📌 [Backend GET /api/stories/:id] storyId: ${storyId} not found, expired, or access denied`);
+            return res.status(404).json({ error: 'This story is no longer available.' });
         }
         console.log(`📌 [Backend GET /api/stories/:id] storyId: ${storyId} found`);
         return res.status(200).json({ story: result.rows[0] });
@@ -283,10 +409,9 @@ exports.likeStory = async (req, res) => {
             return res.status(400).json({ error: 'Invalid story ID' });
         }
 
-        // Verify story exists
-        const storyCheck = await db.query('SELECT id FROM stories WHERE id = $1', [storyId]);
-        if (storyCheck.rows.length === 0) {
-            return res.status(404).json({ error: 'Story not found' });
+        const story = await verifyStoryAccess(storyId, userId);
+        if (!story) {
+            return res.status(404).json({ error: 'Story not found or access denied' });
         }
 
         // Insert like (prevent duplicates via UNIQUE constraint & ON CONFLICT)
@@ -321,6 +446,11 @@ exports.unlikeStory = async (req, res) => {
             return res.status(400).json({ error: 'Invalid story ID' });
         }
 
+        const story = await verifyStoryAccess(storyId, userId);
+        if (!story) {
+            return res.status(404).json({ error: 'Story not found or access denied' });
+        }
+
         await db.query('DELETE FROM story_likes WHERE story_id = $1 AND user_id = $2', [storyId, userId]);
 
         const countRes = await db.query('SELECT COUNT(*)::INTEGER as total FROM story_likes WHERE story_id = $1', [storyId]);
@@ -347,6 +477,13 @@ exports.getStoryLikes = async (req, res) => {
 
         if (!storyId || isNaN(storyId)) {
             return res.status(400).json({ error: 'Invalid story ID' });
+        }
+
+        if (userId) {
+            const story = await verifyStoryAccess(storyId, userId);
+            if (!story) {
+                return res.status(404).json({ error: 'Story not found or access denied' });
+            }
         }
 
         const countRes = await db.query('SELECT COUNT(*)::INTEGER as total FROM story_likes WHERE story_id = $1', [storyId]);
@@ -380,6 +517,11 @@ exports.getStoryComments = async (req, res) => {
 
         if (!storyId || isNaN(storyId)) {
             return res.status(400).json({ error: 'Invalid story ID' });
+        }
+
+        const story = await verifyStoryAccess(storyId, currentUserId);
+        if (!story) {
+            return res.status(404).json({ error: 'Story not found or access denied' });
         }
 
         const result = await db.query(`
@@ -425,9 +567,9 @@ exports.addStoryComment = async (req, res) => {
             return res.status(400).json({ error: 'Comment text cannot be empty' });
         }
 
-        const storyCheck = await db.query('SELECT id FROM stories WHERE id = $1', [storyId]);
-        if (storyCheck.rows.length === 0) {
-            return res.status(404).json({ error: 'Story not found' });
+        const story = await verifyStoryAccess(storyId, userId);
+        if (!story) {
+            return res.status(404).json({ error: 'Story not found or access denied' });
         }
 
         const insertRes = await db.query(
@@ -513,9 +655,11 @@ exports.trackStoryShare = async (req, res) => {
             return res.status(400).json({ error: 'Invalid story ID' });
         }
 
-        const storyCheck = await db.query('SELECT id FROM stories WHERE id = $1', [storyId]);
-        if (storyCheck.rows.length === 0) {
-            return res.status(404).json({ error: 'Story not found' });
+        if (userId) {
+            const story = await verifyStoryAccess(storyId, userId);
+            if (!story) {
+                return res.status(404).json({ error: 'Story not found or access denied' });
+            }
         }
 
         await db.query('INSERT INTO story_shares (story_id, user_id) VALUES ($1, $2)', [storyId, userId]);
@@ -536,10 +680,18 @@ exports.trackStoryShare = async (req, res) => {
 
 exports.getStoryShareCount = async (req, res) => {
     try {
+        const userId = req.user ? parseInt(req.user.id, 10) : null;
         const storyId = parseInt(req.params.storyId, 10);
 
         if (!storyId || isNaN(storyId)) {
             return res.status(400).json({ error: 'Invalid story ID' });
+        }
+
+        if (userId) {
+            const story = await verifyStoryAccess(storyId, userId);
+            if (!story) {
+                return res.status(404).json({ error: 'Story not found or access denied' });
+            }
         }
 
         const countRes = await db.query('SELECT COUNT(*)::INTEGER as total FROM story_shares WHERE story_id = $1', [storyId]);
@@ -561,8 +713,17 @@ exports.getStoryShareCount = async (req, res) => {
 
 exports.trackStoryView = async (req, res) => {
     try {
-        const userId = req.user.id;
-        const storyId = req.params.storyId;
+        const userId = parseInt(req.user.id, 10);
+        const storyId = parseInt(req.params.storyId, 10);
+
+        if (!storyId || isNaN(storyId)) {
+            return res.status(400).json({ success: false, error: 'Invalid story ID' });
+        }
+
+        const story = await verifyStoryAccess(storyId, userId);
+        if (!story) {
+            return res.status(404).json({ success: false, error: 'Story not found or access denied' });
+        }
 
         // Add view record
         const viewResult = await db.query(
@@ -663,10 +824,27 @@ exports.getTasks = async (req, res) => {
             SELECT t.*, ut.status, ut.progress, ut.started_at, ut.completed_at
             FROM tasks t
             LEFT JOIN user_tasks ut ON t.id = ut.task_id AND ut.user_id = $1
-            ORDER BY t.created_at DESC
+            ORDER BY 
+              CASE 
+                WHEN LOWER(COALESCE(t.difficulty, '')) = 'easy' THEN 1
+                WHEN LOWER(COALESCE(t.difficulty, '')) = 'medium' THEN 2
+                WHEN LOWER(COALESCE(t.difficulty, '')) = 'hard' THEN 3
+                ELSE 4
+              END ASC,
+              t.created_at DESC
         `, [userId]);
 
-        return res.status(200).json({ tasks: result.rows });
+        const difficultyOrderMap = { 'easy': 1, 'medium': 2, 'hard': 3 };
+        const sortedTasks = [...result.rows].sort((a, b) => {
+            const diffA = (a.difficulty || 'easy').toString().toLowerCase().trim();
+            const diffB = (b.difficulty || 'easy').toString().toLowerCase().trim();
+            const orderA = difficultyOrderMap[diffA] || 4;
+            const orderB = difficultyOrderMap[diffB] || 4;
+            if (orderA !== orderB) return orderA - orderB;
+            return 0;
+        });
+
+        return res.status(200).json({ tasks: sortedTasks });
     } catch (err) {
         console.error('getTasks error:', err);
         return res.status(500).json({ error: 'Internal server error' });

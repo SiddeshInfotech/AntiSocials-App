@@ -29,7 +29,7 @@ exports.getProfile = async (req, res) => {
         const activitiesResult = await db.query('SELECT COUNT(*) FROM activity_participants WHERE user_id = $1', [userId]);
         const activitiesJoined = parseInt(activitiesResult.rows[0].count, 10);
 
-        const connectionsResult = await db.query('SELECT COUNT(*) FROM user_connections WHERE user_id = $1 OR friend_id = $1', [userId]).catch(() => ({ rows: [{ count: 0 }] }));
+        const connectionsResult = await db.query("SELECT COUNT(*) FROM user_connections WHERE (user_id = $1 OR friend_id = $1) AND (status = 'accepted' OR status = 'connected')", [userId]).catch(() => ({ rows: [{ count: 0 }] }));
         const connections = parseInt(connectionsResult.rows[0]?.count || 0, 10);
 
         const storiesResult = await db.query("SELECT COUNT(*) FROM stories WHERE user_id = $1", [userId]);
@@ -116,7 +116,7 @@ exports.getStats = async (req, res) => {
         const summary = await pointsStreakService.getUserPointsAndStreak(userId);
         const tasksCompleted = summary.completedCount;
 
-        const connectionsResult = await db.query('SELECT COUNT(*) FROM user_connections WHERE user_id = $1 OR friend_id = $1', [userId]).catch(() => ({ rows: [{ count: 0 }] }));
+        const connectionsResult = await db.query("SELECT COUNT(*) FROM user_connections WHERE (user_id = $1 OR friend_id = $1) AND (status = 'accepted' OR status = 'connected')", [userId]).catch(() => ({ rows: [{ count: 0 }] }));
         const connections = parseInt(connectionsResult.rows[0]?.count || 0, 10);
 
         const taskPoints = summary.totalPoints;
@@ -427,29 +427,89 @@ exports.getIncomingRequests = async (req, res) => {
     }
 };
 
+exports.getOutgoingRequests = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        const sql = `
+            SELECT 
+                c.id AS request_id,
+                c.created_at,
+                u.id AS receiver_id,
+                u.username,
+                COALESCE(u.profile_name, u.username) AS display_name,
+                u.profession,
+                u.about,
+                u.image_url AS profile_image
+            FROM user_connections c
+            JOIN users u ON u.id = c.friend_id
+            WHERE c.user_id = $1 AND c.status = 'pending'
+            ORDER BY c.created_at DESC
+        `;
+
+        const result = await db.query(sql, [userId]);
+
+        const requests = result.rows.map(row => ({
+            request_id: row.request_id,
+            created_at: row.created_at,
+            status: 'pending',
+            receiver: {
+                id: row.receiver_id,
+                user_id: row.receiver_id,
+                username: row.username,
+                display_name: row.display_name,
+                profile_image: row.profile_image,
+                profession: row.profession,
+                about: row.about,
+                connection_status: 'requested'
+            }
+        }));
+
+        res.json({ requests });
+    } catch (error) {
+        console.error('getOutgoingRequests error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
 exports.acceptConnectionRequest = async (req, res) => {
     try {
         const userId = req.user.id;
         const { friend_id, target_user_id, sender_id } = req.body;
-        const targetId = parseInt(friend_id || target_user_id || sender_id, 10);
+        const paramId = req.params?.friendId || req.params?.id;
+        const targetId = parseInt(friend_id || target_user_id || sender_id || paramId, 10);
 
         if (!targetId || isNaN(targetId)) {
-            return res.status(400).json({ error: 'Valid friend_id is required' });
+            return res.status(400).json({ error: 'Valid friend_id or id parameter is required' });
         }
 
-        const result = await db.query(
+        // Security check: Only the actual receiver (friend_id = userId) can accept a pending request from sender (user_id = targetId)
+        const updateRes = await db.query(
             `UPDATE user_connections 
              SET status = 'accepted' 
-             WHERE ((user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1))
+             WHERE user_id = $1 AND friend_id = $2 AND status = 'pending'
              RETURNING id, status`,
             [targetId, userId]
         );
 
-        if (result.rows.length === 0) {
-            await db.query(
-                `INSERT INTO user_connections (user_id, friend_id, status) VALUES ($1, $2, 'accepted')`,
+        if (updateRes.rows.length === 0) {
+            // Check if connection is already accepted
+            const checkAlready = await db.query(
+                `SELECT id, status FROM user_connections 
+                 WHERE ((user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1))
+                   AND (status = 'accepted' OR status = 'connected')`,
                 [targetId, userId]
             );
+
+            if (checkAlready.rows.length > 0) {
+                return res.json({
+                    success: true,
+                    message: 'Already connected',
+                    connection_status: 'connected'
+                });
+            }
+
+            return res.status(400).json({ error: 'No pending connection request found to accept' });
         }
 
         res.json({
@@ -467,18 +527,38 @@ exports.declineConnectionRequest = async (req, res) => {
     try {
         const userId = req.user.id;
         const { friend_id, target_user_id, sender_id } = req.body;
-        const targetId = parseInt(friend_id || target_user_id || sender_id || req.params?.friendId, 10);
+        const paramId = req.params?.friendId || req.params?.id;
+        const targetId = parseInt(friend_id || target_user_id || sender_id || paramId, 10);
 
         if (!targetId || isNaN(targetId)) {
-            return res.status(400).json({ error: 'Valid friend_id is required' });
+            return res.status(400).json({ error: 'Valid friend_id or id parameter is required' });
         }
 
-        await db.query(
+        // Security check: Only the actual receiver (friend_id = userId) can decline a pending request from sender (user_id = targetId)
+        const updateRes = await db.query(
             `UPDATE user_connections 
              SET status = 'declined' 
-             WHERE ((user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1))`,
+             WHERE user_id = $1 AND friend_id = $2 AND status = 'pending'
+             RETURNING id, status`,
             [targetId, userId]
         );
+
+        if (updateRes.rows.length === 0) {
+            // Check if already declined or no relationship
+            const checkDeclined = await db.query(
+                `SELECT id, status FROM user_connections 
+                 WHERE ((user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1)) AND status = 'declined'`,
+                [targetId, userId]
+            );
+
+            if (checkDeclined.rows.length > 0) {
+                return res.json({
+                    success: true,
+                    message: 'Connection request already declined',
+                    connection_status: 'none'
+                });
+            }
+        }
 
         res.json({
             success: true,
@@ -494,7 +574,8 @@ exports.declineConnectionRequest = async (req, res) => {
 exports.removeConnection = async (req, res) => {
     try {
         const userId = req.user.id;
-        const targetId = parseInt(req.params.friendId, 10);
+        const paramId = req.params?.friendId || req.params?.id;
+        const targetId = parseInt(paramId, 10);
 
         if (!targetId || isNaN(targetId)) {
             return res.status(400).json({ error: 'Valid friendId parameter is required' });

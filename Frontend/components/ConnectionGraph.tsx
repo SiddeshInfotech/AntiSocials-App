@@ -131,12 +131,12 @@ export default function ConnectionGraph({
         Animated.timing(pulseAnim, {
           toValue: 0.9,
           duration: 1200,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
         Animated.timing(pulseAnim, {
           toValue: 0.4,
           duration: 1200,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
       ])
     );
@@ -179,12 +179,12 @@ export default function ConnectionGraph({
             toValue: 1,
             friction: 6,
             tension: 50,
-            useNativeDriver: true,
+            useNativeDriver: false,
           }),
           Animated.timing(opacityAnim, {
             toValue: 1,
             duration: 350,
-            useNativeDriver: true,
+            useNativeDriver: false,
           }),
         ]).start();
       }
@@ -247,12 +247,12 @@ export default function ConnectionGraph({
           toValue: isSelected ? 1.3 : isDimmed ? 0.8 : 1,
           friction: 6,
           tension: 50,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
         Animated.timing(node.opacityAnim, {
           toValue: isDimmed ? 0.35 : 1,
           duration: 300,
-          useNativeDriver: true,
+          useNativeDriver: false,
         })
       );
     });

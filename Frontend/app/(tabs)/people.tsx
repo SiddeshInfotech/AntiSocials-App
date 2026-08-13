@@ -15,6 +15,8 @@ import {
   Keyboard,
   ActivityIndicator,
   Modal,
+  RefreshControl,
+  AppState,
 } from "react-native";
 import ConnectionGraph, { ConnectedUserNode } from "../../components/ConnectionGraph";
 import { StatusBar } from "expo-status-bar";
@@ -400,6 +402,32 @@ export default function People() {
     }
   };
 
+  // --- REFRESH & FOREGROUND STATE ---
+  const [refreshing, setRefreshing] = useState<boolean>(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await Promise.all([
+      fetchConnections(),
+      fetchCurrentUser(),
+      fetchIncomingRequests(),
+    ]);
+    setRefreshing(false);
+  };
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
+      if (nextAppState === "active") {
+        fetchConnections();
+        fetchIncomingRequests();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
   useEffect(() => {
     if (isFocused) {
       fetchConnections();
@@ -727,6 +755,14 @@ export default function People() {
       <ScrollView
         style={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={["#9333EA"]}
+            tintColor="#9333EA"
+          />
+        }
       >
         {isFocused && <StatusBar style="dark" backgroundColor="#ffffff" />}
 
@@ -940,6 +976,25 @@ export default function People() {
             {/* ======================================================== */}
             {/* INCOMING CONNECTION REQUESTS SECTION */}
             {/* ======================================================== */}
+            {isLoadingRequests && incomingRequests.length === 0 && activeView === "all" && (
+              <View style={styles.incomingRequestsContainer}>
+                <View style={styles.requestsHeaderRow}>
+                  <Text style={styles.requestsSectionTitle}>Checking Requests...</Text>
+                </View>
+                <View style={[styles.incomingCard, { opacity: 0.6 }]}>
+                  <View style={styles.incomingCardContent}>
+                    <View style={styles.incomingAvatarPlaceholder}>
+                      <ActivityIndicator size="small" color="#9333EA" />
+                    </View>
+                    <View style={styles.incomingInfoWrap}>
+                      <View style={{ width: 120, height: 14, backgroundColor: "#E5E7EB", borderRadius: 4, marginBottom: 6 }} />
+                      <View style={{ width: 80, height: 10, backgroundColor: "#F3F4F6", borderRadius: 4 }} />
+                    </View>
+                  </View>
+                </View>
+              </View>
+            )}
+
             {incomingRequests.length > 0 && activeView === "all" && (
               <View style={styles.incomingRequestsContainer}>
                 <View style={styles.requestsHeaderRow}>

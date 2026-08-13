@@ -346,7 +346,8 @@ export default function StoriesFeed() {
         ListEmptyComponent={
           !loading ? (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No stories right now.</Text>
+              <Text style={styles.emptyText}>No stories from your network yet.</Text>
+              <Text style={styles.emptySubtext}>Connect with people to see what they're sharing.</Text>
               {!hasOwnStory && (
                 <TouchableOpacity
                   style={styles.emptyAddBtn}
@@ -446,9 +447,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   emptyText: {
-    color: "#9CA3AF",
+    color: "#6B7280",
     fontSize: 16,
-    marginBottom: 16,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 6,
+  },
+  emptySubtext: {
+    color: "#9CA3AF",
+    fontSize: 14,
+    textAlign: "center",
+    marginBottom: 20,
   },
   emptyAddBtn: {
     flexDirection: "row",
