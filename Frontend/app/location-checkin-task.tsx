@@ -185,22 +185,20 @@ export default function LocationCheckinTaskScreen() {
       setDisplayText('Check-in stamp activating...');
       setSubDisplayText(null);
     } else if (elapsedTime >= 300) {
-      // 5:00 - CHECKED IN Stamp animation & Final Cinematic
-      setIsCheckedIn(true);
-      setDisplayText('You were there.');
-      setSubDisplayText(`${selectedPlace.name} — Verified via GPS`);
+      // 5:00 - Location glowing bright cyan and emerald
+      setDisplayText('You completed your location check-in.');
+      setSubDisplayText(null);
 
-      // Trigger Stamp Animation
       Animated.parallel([
-        Animated.spring(stampScaleAnim, {
+        Animated.timing(cyanAuraFill, {
           toValue: 1,
-          friction: 6,
-          tension: 80,
+          duration: 3500,
           useNativeDriver: true,
         }),
-        Animated.timing(stampOpacityAnim, {
-          toValue: 1,
-          duration: 500,
+        Animated.timing(finalZoomAnim, {
+          toValue: 1.1,
+          duration: 3500,
+          easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
       ]).start();
@@ -225,19 +223,7 @@ export default function LocationCheckinTaskScreen() {
   }, [phase, isPaused, timeLeft]);
 
   // Start Challenge
-  const startChallenge = async () => {
-    if (hasPermission === false) {
-      Alert.alert(
-        'Location Required',
-        'AntiSocial needs live location to verify that you have reached a real social place. Please enable location permission.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Enable Location', onPress: requestGpsPermission },
-        ]
-      );
-      return;
-    }
-
+  const startChallenge = () => {
     saveProgressBackend({ session_started: true });
     setPhase('active');
 
@@ -256,7 +242,7 @@ export default function LocationCheckinTaskScreen() {
   };
 
   // ----------------------------------------------------
-  // FINAL CINEMATIC (Beacon Pulse -> Explorer Badge)
+  // FINAL CINEMATIC (Explorer Achievement)
   // ----------------------------------------------------
   const startFinalCinematic = () => {
     setPhase('cinematic');
@@ -310,7 +296,7 @@ export default function LocationCheckinTaskScreen() {
     if (isLoading) return;
     setIsLoading(true);
 
-    let pointsData = { pointsAdded: '200', totalPoints: '0', streak: '0' };
+    let pointsData = { pointsAdded: '300', totalPoints: '0', streak: '0' };
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
@@ -330,7 +316,7 @@ export default function LocationCheckinTaskScreen() {
             pointsAdded:
               data.points_rewarded?.toString() ||
               data.pointsAdded?.toString() ||
-              '200',
+              '300',
             totalPoints: data.totalPoints?.toString() || '0',
             streak: data.streak?.toString() || '0',
           };
@@ -349,25 +335,12 @@ export default function LocationCheckinTaskScreen() {
         points: pointsData.pointsAdded,
         totalPoints: pointsData.totalPoints,
         streak: pointsData.streak,
-        message: 'You were there.',
+        message: 'You arrived and stayed.',
         difficulty: 'medium',
         taskName: 'Location Check-in',
         badge: 'Explorer',
       },
     } as any);
-  };
-
-  // Developer Fast-Forward Helper
-  const lastPress = useRef(0);
-  const handleDevSkip = () => {
-    if (__DEV__ || true) {
-      const time = Date.now();
-      if (time - lastPress.current < 350) {
-        setTimeLeft(5); // Jump to 5s remaining
-        Alert.alert('Dev Skip Triggered', 'Skipped to final phase (5s remaining)');
-      }
-      lastPress.current = time;
-    }
   };
 
   const formatTimerDigits = (secs: number) => {
@@ -381,20 +354,51 @@ export default function LocationCheckinTaskScreen() {
     outputRange: ['0deg', '360deg'],
   });
 
+  const beaconRingScale1 = beaconRingsAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.6, 1.8],
+  });
+
+  const beaconRingOpacity1 = beaconRingsAnim.interpolate({
+    inputRange: [0, 0.7, 1],
+    outputRange: [0.8, 0.4, 0],
+  });
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
 
-      {/* Discovery Beacon Deep Blue & Neon Cyan Glassmorphism Environment */}
+      {/* Atmospheric Deep Ocean Navy & Cyan Beacon Glow */}
       <View style={StyleSheet.absoluteFillObject}>
-        {/* Deep Blue Base Gradient */}
+        {/* Base Midnight Navy Gradient */}
         <LinearGradient
-          colors={['#0f172a', '#1e293b', '#1e3a8a', '#0f172a']}
+          colors={['#030712', '#0f172a', '#082f49', '#030712']}
           style={StyleSheet.absoluteFillObject}
         />
 
-        {/* Map Grid Lines Visual */}
-        <View style={styles.mapGridOverlay} />
+        {/* Ambient Cyan Radar Pulse */}
+        <Animated.View
+          style={[
+            StyleSheet.absoluteFillObject,
+            {
+              opacity: radarPulseAnim,
+              backgroundColor: 'rgba(56, 189, 248, 0.12)',
+            },
+          ]}
+          pointerEvents="none"
+        />
+
+        {/* Full Emerald / Cyan Saturation at 5:00 */}
+        <Animated.View
+          style={[
+            StyleSheet.absoluteFillObject,
+            {
+              opacity: cyanAuraFill,
+              backgroundColor: 'rgba(52, 211, 153, 0.2)',
+            },
+          ]}
+          pointerEvents="none"
+        />
       </View>
 
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -439,105 +443,111 @@ export default function LocationCheckinTaskScreen() {
           style={[styles.detailsWrapper, { opacity: uiFadeAnim }]}
           pointerEvents={phase === 'details' ? 'auto' : 'none'}
         >
-          {/* Top Hero: Animated Radar Beacon Frame */}
-          <View style={styles.heroBeaconContainer}>
-            <View style={styles.heroBeaconFrame}>
-              <LinearGradient
-                colors={['rgba(56, 189, 248, 0.35)', 'rgba(15, 23, 42, 0.9)']}
-                style={StyleSheet.absoluteFillObject}
-              />
-              <Feather name="navigation" size={42} color="#38bdf8" />
-              <Text style={styles.heroBeaconLabel}>BEACON SEARCH</Text>
-            </View>
-          </View>
-
-          {/* Central Glass Card */}
-          <View style={styles.glassCard}>
-            <Text style={styles.taskTitle}>Location Check-in</Text>
-
-            {/* Badges Row */}
-            <View style={styles.badgesRow}>
-              <View style={styles.badgePill}>
-                <Feather name="clock" size={13} color="#38bdf8" />
-                <Text style={styles.badgeText}>5 Minutes</Text>
-              </View>
-              <View style={[styles.badgePill, styles.badgeMedium]}>
-                <Ionicons name="flame" size={13} color="#38bdf8" />
-                <Text style={[styles.badgeText, { color: '#38bdf8' }]}>
-                  ⭐⭐ Medium
-                </Text>
-              </View>
-              <View style={[styles.badgePill, styles.badgePoints]}>
-                <Ionicons name="trophy" size={13} color="#f59e0b" />
-                <Text style={[styles.badgeText, { color: '#f59e0b' }]}>
-                  200 Points
-                </Text>
+          <ScrollView
+            style={{ width: '100%' }}
+            contentContainerStyle={styles.detailsScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Top Hero: Animated Radar Beacon Frame */}
+            <View style={styles.heroBeaconContainer}>
+              <View style={styles.heroBeaconFrame}>
+                <LinearGradient
+                  colors={['rgba(56, 189, 248, 0.35)', 'rgba(15, 23, 42, 0.9)']}
+                  style={StyleSheet.absoluteFillObject}
+                />
+                <Feather name="navigation" size={42} color="#38bdf8" />
+                <Text style={styles.heroBeaconLabel}>BEACON SEARCH</Text>
               </View>
             </View>
 
-            {/* Description Text */}
-            <Text style={styles.descriptionText}>
-              Every place you visit expands your comfort zone.{'\n\n'}
-              Today, physically visit a real social place—a café, library, park, coworking space, mall, or campus—and remain present for at least 5 minutes.{'\n'}
-              The focus is showing up.
-            </Text>
+            {/* Central Glass Card */}
+            <View style={styles.glassCard}>
+              <Text style={styles.taskTitle}>Location Check-in</Text>
 
-            {/* Supported Places Row */}
-            <View style={styles.placesPillsRow}>
-              <View style={styles.placePill}>
-                <Text style={styles.placePillEmoji}>☕</Text>
-                <Text style={styles.placePillText}>Café</Text>
+              {/* Badges Row */}
+              <View style={styles.badgesRow}>
+                <View style={styles.badgePill}>
+                  <Feather name="clock" size={13} color="#38bdf8" />
+                  <Text style={styles.badgeText}>5 Minutes</Text>
+                </View>
+                <View style={[styles.badgePill, styles.badgeMedium]}>
+                  <Ionicons name="flame" size={13} color="#38bdf8" />
+                  <Text style={[styles.badgeText, { color: '#38bdf8' }]}>
+                    ⭐⭐ Medium
+                  </Text>
+                </View>
+                <View style={[styles.badgePill, styles.badgePoints]}>
+                  <Ionicons name="trophy" size={13} color="#f59e0b" />
+                  <Text style={[styles.badgeText, { color: '#f59e0b' }]}>
+                    300 Points
+                  </Text>
+                </View>
               </View>
-              <View style={styles.placePill}>
-                <Text style={styles.placePillEmoji}>📚</Text>
-                <Text style={styles.placePillText}>Library</Text>
-              </View>
-              <View style={styles.placePill}>
-                <Text style={styles.placePillEmoji}>🌳</Text>
-                <Text style={styles.placePillText}>Park</Text>
-              </View>
-              <View style={styles.placePill}>
-                <Text style={styles.placePillEmoji}>🏢</Text>
-                <Text style={styles.placePillText}>Coworking</Text>
-              </View>
-            </View>
 
-            {/* Quote Box */}
-            <View style={styles.quoteBox}>
-              <Feather name="compass" size={18} color="#38bdf8" style={{ marginRight: 8 }} />
-              <Text style={styles.quoteText}>
-                "Every place you visit expands your comfort zone."
+              {/* Description Text */}
+              <Text style={styles.descriptionText}>
+                Every place you visit expands your comfort zone.{'\n\n'}
+                Today, physically visit a real social place—a café, library, park, coworking space, mall, or campus—and remain present for at least 5 minutes.{'\n'}
+                The focus is showing up.
               </Text>
-            </View>
 
-            {/* Explorer Achievement Banner */}
-            <View style={styles.badgeBanner}>
-              <Text style={styles.badgeBannerEmoji}>🏅</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.badgeBannerTitle}>Explorer</Text>
-                <Text style={styles.badgeBannerSub}>
-                  Unlock achievement by showing up at a real social location
+              {/* Supported Places Row */}
+              <View style={styles.placesPillsRow}>
+                <View style={styles.placePill}>
+                  <Text style={styles.placePillEmoji}>☕</Text>
+                  <Text style={styles.placePillText}>Café</Text>
+                </View>
+                <View style={styles.placePill}>
+                  <Text style={styles.placePillEmoji}>📚</Text>
+                  <Text style={styles.placePillText}>Library</Text>
+                </View>
+                <View style={styles.placePill}>
+                  <Text style={styles.placePillEmoji}>🌳</Text>
+                  <Text style={styles.placePillText}>Park</Text>
+                </View>
+                <View style={styles.placePill}>
+                  <Text style={styles.placePillEmoji}>🏢</Text>
+                  <Text style={styles.placePillText}>Coworking</Text>
+                </View>
+              </View>
+
+              {/* Quote Box */}
+              <View style={styles.quoteBox}>
+                <Feather name="compass" size={18} color="#38bdf8" style={{ marginRight: 8 }} />
+                <Text style={styles.quoteText}>
+                  "Every place you visit expands your comfort zone."
                 </Text>
               </View>
-            </View>
 
-            {/* Start Button */}
-            <TouchableOpacity
-              style={styles.startButton}
-              onPress={startChallenge}
-              activeOpacity={0.88}
-            >
-              <LinearGradient
-                colors={['#0284c7', '#38bdf8']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.startBtnGradient}
+              {/* Explorer Achievement Banner */}
+              <View style={styles.badgeBanner}>
+                <Text style={styles.badgeBannerEmoji}>🏅</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.badgeBannerTitle}>Explorer</Text>
+                  <Text style={styles.badgeBannerSub}>
+                    Unlock achievement by showing up at a real social location
+                  </Text>
+                </View>
+              </View>
+
+              {/* Start Button */}
+              <TouchableOpacity
+                style={styles.startButton}
+                onPress={startChallenge}
+                activeOpacity={0.88}
               >
-                <Text style={styles.startBtnText}>ACTIVATE BEACON</Text>
-                <Feather name="arrow-right" size={20} color="#fff" />
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
+                <LinearGradient
+                  colors={['#0284c7', '#38bdf8']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.startBtnGradient}
+                >
+                  <Text style={styles.startBtnText}>ACTIVATE BEACON</Text>
+                  <Feather name="arrow-right" size={20} color="#fff" />
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </Animated.View>
 
         {/* ============================================================ */}
@@ -769,7 +779,13 @@ const styles = StyleSheet.create({
   // Phase 1: Onboarding Details Page
   detailsWrapper: {
     flex: 1,
+    width: '100%',
+  },
+  detailsScrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 24,
+    paddingTop: 10,
+    paddingBottom: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },

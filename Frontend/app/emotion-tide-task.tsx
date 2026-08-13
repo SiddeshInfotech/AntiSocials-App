@@ -9,6 +9,7 @@ import {
   Dimensions,
   Pressable,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -275,7 +276,7 @@ export default function EmotionTideTaskScreen() {
     if (isLoading) return;
     setIsLoading(true);
 
-    let pointsData = { pointsAdded: '300', totalPoints: '0', streak: '0' };
+    let pointsData = { pointsAdded: '600', totalPoints: '0', streak: '0' };
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
@@ -295,7 +296,7 @@ export default function EmotionTideTaskScreen() {
             pointsAdded:
               data.points_rewarded?.toString() ||
               data.pointsAdded?.toString() ||
-              '300',
+              '600',
             totalPoints: data.totalPoints?.toString() || '0',
             streak: data.streak?.toString() || '0',
           };
@@ -418,86 +419,92 @@ export default function EmotionTideTaskScreen() {
           style={[styles.detailsWrapper, { opacity: uiFadeAnim }]}
           pointerEvents={phase === 'details' ? 'auto' : 'none'}
         >
-          {/* Top Hero: Ocean Horizon & Waves Preview */}
-          <View style={styles.heroOceanContainer}>
-            <View style={styles.heroOceanFrame}>
-              <LinearGradient
-                colors={['rgba(56, 189, 248, 0.4)', 'rgba(3, 105, 161, 0.9)']}
-                style={StyleSheet.absoluteFillObject}
-              />
-              <Ionicons name="water" size={48} color="#e0f2fe" />
-              <Text style={styles.heroOceanLabel}>THE EMOTIONAL TIDE</Text>
-            </View>
-          </View>
-
-          {/* Central Glass Card */}
-          <View style={styles.glassCard}>
-            <Text style={styles.taskTitle}>Observe and Regulate</Text>
-            <Text style={styles.taskSubTitle}>Emotions</Text>
-
-            {/* Badges Row */}
-            <View style={styles.badgesRow}>
-              <View style={styles.badgePill}>
-                <Feather name="clock" size={13} color="#38bdf8" />
-                <Text style={styles.badgeText}>5 Minutes</Text>
-              </View>
-              <View style={[styles.badgePill, styles.badgeHard]}>
-                <Ionicons name="flame" size={13} color="#ef4444" />
-                <Text style={[styles.badgeText, { color: '#ef4444' }]}>
-                  ⭐⭐⭐ Hard
-                </Text>
-              </View>
-              <View style={[styles.badgePill, styles.badgePoints]}>
-                <Ionicons name="trophy" size={13} color="#f59e0b" />
-                <Text style={[styles.badgeText, { color: '#f59e0b' }]}>
-                  300 Points
-                </Text>
+          <ScrollView
+            style={{ width: '100%' }}
+            contentContainerStyle={styles.detailsScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Top Hero: Ocean Horizon & Waves Preview */}
+            <View style={styles.heroOceanContainer}>
+              <View style={styles.heroOceanFrame}>
+                <LinearGradient
+                  colors={['rgba(56, 189, 248, 0.4)', 'rgba(3, 105, 161, 0.9)']}
+                  style={StyleSheet.absoluteFillObject}
+                />
+                <Ionicons name="water" size={48} color="#e0f2fe" />
+                <Text style={styles.heroOceanLabel}>THE EMOTIONAL TIDE</Text>
               </View>
             </View>
 
-            {/* Description Text */}
-            <Text style={styles.descriptionText}>
-              Emotions are not enemies. They are temporary visitors.{'\n\n'}
-              You don't need to stop them. You only need to notice them before responding.{'\n\n'}
-              Today's challenge is to remain aware until the emotional wave naturally settles.
-            </Text>
+            {/* Central Glass Card */}
+            <View style={styles.glassCard}>
+              <Text style={styles.taskTitle}>Observe and Regulate</Text>
+              <Text style={styles.taskSubTitle}>Emotions</Text>
 
-            {/* Quote Box */}
-            <View style={styles.quoteBox}>
-              <Feather name="anchor" size={18} color="#38bdf8" style={{ marginRight: 8 }} />
-              <Text style={styles.quoteText}>
-                "You cannot stop every wave, but you can learn to stay steady as it passes."
+              {/* Badges Row */}
+              <View style={styles.badgesRow}>
+                <View style={styles.badgePill}>
+                  <Feather name="clock" size={13} color="#38bdf8" />
+                  <Text style={styles.badgeText}>5 Minutes</Text>
+                </View>
+                <View style={[styles.badgePill, styles.badgeHard]}>
+                  <Ionicons name="flame" size={13} color="#ef4444" />
+                  <Text style={[styles.badgeText, { color: '#ef4444' }]}>
+                    ⭐⭐⭐ Hard
+                  </Text>
+                </View>
+                <View style={[styles.badgePill, styles.badgePoints]}>
+                  <Ionicons name="trophy" size={13} color="#f59e0b" />
+                  <Text style={[styles.badgeText, { color: '#f59e0b' }]}>
+                    600 Points
+                  </Text>
+                </View>
+              </View>
+
+              {/* Description Text */}
+              <Text style={styles.descriptionText}>
+                Emotions are not enemies. They are temporary visitors.{'\n\n'}
+                You don't need to stop them. You only need to notice them before responding.{'\n\n'}
+                Today's challenge is to remain aware until the emotional wave naturally settles.
               </Text>
-            </View>
 
-            {/* Emotional Anchor Achievement Banner */}
-            <View style={styles.badgeBanner}>
-              <Text style={styles.badgeBannerEmoji}>🏅</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.badgeBannerTitle}>Emotional Anchor</Text>
-                <Text style={styles.badgeBannerSub}>
-                  Unlock achievement by discovering that awareness creates calm
+              {/* Quote Box */}
+              <View style={styles.quoteBox}>
+                <Feather name="anchor" size={18} color="#38bdf8" style={{ marginRight: 8 }} />
+                <Text style={styles.quoteText}>
+                  "You cannot stop every wave, but you can learn to stay steady as it passes."
                 </Text>
               </View>
-            </View>
 
-            {/* Start Button */}
-            <TouchableOpacity
-              style={styles.startButton}
-              onPress={startChallenge}
-              activeOpacity={0.88}
-            >
-              <LinearGradient
-                colors={['#0284c7', '#38bdf8']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.startBtnGradient}
+              {/* Emotional Anchor Achievement Banner */}
+              <View style={styles.badgeBanner}>
+                <Text style={styles.badgeBannerEmoji}>🏅</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.badgeBannerTitle}>Emotional Anchor</Text>
+                  <Text style={styles.badgeBannerSub}>
+                    Unlock achievement by discovering that awareness creates calm
+                  </Text>
+                </View>
+              </View>
+
+              {/* Start Button */}
+              <TouchableOpacity
+                style={styles.startButton}
+                onPress={startChallenge}
+                activeOpacity={0.88}
               >
-                <Text style={styles.startBtnText}>ENTER THE EMOTIONAL TIDE</Text>
-                <Feather name="arrow-right" size={20} color="#fff" />
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
+                <LinearGradient
+                  colors={['#0284c7', '#38bdf8']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.startBtnGradient}
+                >
+                  <Text style={styles.startBtnText}>ENTER THE EMOTIONAL TIDE</Text>
+                  <Feather name="arrow-right" size={20} color="#fff" />
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </Animated.View>
 
         {/* ============================================================ */}
@@ -729,7 +736,13 @@ const styles = StyleSheet.create({
   // Phase 1: Onboarding Details
   detailsWrapper: {
     flex: 1,
+    width: '100%',
+  },
+  detailsScrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 24,
+    paddingTop: 10,
+    paddingBottom: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },

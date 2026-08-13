@@ -9,6 +9,7 @@ import {
   Dimensions,
   Pressable,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -254,7 +255,7 @@ export default function CuriosityTaskScreen() {
     if (isLoading) return;
     setIsLoading(true);
 
-    let pointsData = { pointsAdded: '300', totalPoints: '0', streak: '0' };
+    let pointsData = { pointsAdded: '600', totalPoints: '0', streak: '0' };
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
@@ -274,7 +275,7 @@ export default function CuriosityTaskScreen() {
             pointsAdded:
               data.points_rewarded?.toString() ||
               data.pointsAdded?.toString() ||
-              '300',
+              '600',
             totalPoints: data.totalPoints?.toString() || '0',
             streak: data.streak?.toString() || '0',
           };
@@ -404,91 +405,97 @@ export default function CuriosityTaskScreen() {
           style={[styles.detailsWrapper, { opacity: uiFadeAnim }]}
           pointerEvents={phase === 'details' ? 'auto' : 'none'}
         >
-          {/* Top Animated Observatory Dome & Telescope Hero */}
-          <View style={styles.heroDomeContainer}>
-            <Animated.View
-              style={[
-                styles.heroDomeGlass,
-                { transform: [{ rotateZ: interpolatedTelescopeRotate }] },
-              ]}
-            >
-              <LinearGradient
-                colors={['rgba(59, 130, 246, 0.3)', 'rgba(11, 19, 43, 0.9)']}
-                style={StyleSheet.absoluteFillObject}
-              />
-              <MaterialCommunityIcons name="telescope" size={48} color="#93c5fd" />
-              <View style={styles.heroStarDot1} />
-              <View style={styles.heroStarDot2} />
-            </Animated.View>
-          </View>
-
-          {/* Central Glass Card */}
-          <View style={styles.glassCard}>
-            <Text style={styles.taskTitle}>Express Genuine Curiosity</Text>
-
-            {/* Badges Row */}
-            <View style={styles.badgesRow}>
-              <View style={styles.badgePill}>
-                <Feather name="clock" size={13} color="#93c5fd" />
-                <Text style={styles.badgeText}>7 Minutes</Text>
-              </View>
-              <View style={[styles.badgePill, styles.badgeHard]}>
-                <Ionicons name="flame" size={13} color="#ef4444" />
-                <Text style={[styles.badgeText, { color: '#ef4444' }]}>
-                  ⭐⭐⭐ Hard
-                </Text>
-              </View>
-              <View style={[styles.badgePill, styles.badgePoints]}>
-                <Ionicons name="trophy" size={13} color="#f59e0b" />
-                <Text style={[styles.badgeText, { color: '#f59e0b' }]}>
-                  300 Points
-                </Text>
-              </View>
-            </View>
-
-            {/* Description Text */}
-            <Text style={styles.descriptionText}>
-              Every person is like an unexplored world. Curiosity is the telescope.{'\n\n'}
-              The goal isn't to search for answers. It's to keep looking.{'\n'}
-              Become genuinely interested in another person's experiences, thoughts, and perspective.
-            </Text>
-
-            {/* Quote Box */}
-            <View style={styles.quoteBox}>
-              <Feather name="compass" size={18} color="#60a5fa" style={{ marginRight: 8 }} />
-              <Text style={styles.quoteText}>
-                "The deepest connections begin when we become more interested than impressive."
-              </Text>
-            </View>
-
-            {/* Deep Explorer Achievement Banner */}
-            <View style={styles.badgeBanner}>
-              <Text style={styles.badgeBannerEmoji}>🏅</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.badgeBannerTitle}>Deep Explorer</Text>
-                <Text style={styles.badgeBannerSub}>
-                  Unlock achievement by choosing understanding
-                </Text>
-              </View>
-            </View>
-
-            {/* Start Button */}
-            <TouchableOpacity
-              style={styles.startButton}
-              onPress={startChallenge}
-              activeOpacity={0.88}
-            >
-              <LinearGradient
-                colors={['#1d4ed8', '#3b82f6']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.startBtnGradient}
+          <ScrollView
+            style={{ width: '100%' }}
+            contentContainerStyle={styles.detailsScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Top Animated Observatory Dome & Telescope Hero */}
+            <View style={styles.heroDomeContainer}>
+              <Animated.View
+                style={[
+                  styles.heroDomeGlass,
+                  { transform: [{ rotateZ: interpolatedTelescopeRotate }] },
+                ]}
               >
-                <Text style={styles.startBtnText}>ENTER THE OBSERVATORY</Text>
-                <Feather name="arrow-right" size={20} color="#fff" />
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
+                <LinearGradient
+                  colors={['rgba(59, 130, 246, 0.3)', 'rgba(11, 19, 43, 0.9)']}
+                  style={StyleSheet.absoluteFillObject}
+                />
+                <MaterialCommunityIcons name="telescope" size={48} color="#93c5fd" />
+                <View style={styles.heroStarDot1} />
+                <View style={styles.heroStarDot2} />
+              </Animated.View>
+            </View>
+
+            {/* Central Glass Card */}
+            <View style={styles.glassCard}>
+              <Text style={styles.taskTitle}>Express Genuine Curiosity</Text>
+
+              {/* Badges Row */}
+              <View style={styles.badgesRow}>
+                <View style={styles.badgePill}>
+                  <Feather name="clock" size={13} color="#93c5fd" />
+                  <Text style={styles.badgeText}>7 Minutes</Text>
+                </View>
+                <View style={[styles.badgePill, styles.badgeHard]}>
+                  <Ionicons name="flame" size={13} color="#ef4444" />
+                  <Text style={[styles.badgeText, { color: '#ef4444' }]}>
+                    ⭐⭐⭐ Hard
+                  </Text>
+                </View>
+                <View style={[styles.badgePill, styles.badgePoints]}>
+                  <Ionicons name="trophy" size={13} color="#f59e0b" />
+                  <Text style={[styles.badgeText, { color: '#f59e0b' }]}>
+                    600 Points
+                  </Text>
+                </View>
+              </View>
+
+              {/* Description Text */}
+              <Text style={styles.descriptionText}>
+                Every person is like an unexplored world. Curiosity is the telescope.{'\n\n'}
+                The goal isn't to search for answers. It's to keep looking.{'\n'}
+                Become genuinely interested in another person's experiences, thoughts, and perspective.
+              </Text>
+
+              {/* Quote Box */}
+              <View style={styles.quoteBox}>
+                <Feather name="compass" size={18} color="#60a5fa" style={{ marginRight: 8 }} />
+                <Text style={styles.quoteText}>
+                  "The deepest connections begin when we become more interested than impressive."
+                </Text>
+              </View>
+
+              {/* Deep Explorer Achievement Banner */}
+              <View style={styles.badgeBanner}>
+                <Text style={styles.badgeBannerEmoji}>🏅</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.badgeBannerTitle}>Deep Explorer</Text>
+                  <Text style={styles.badgeBannerSub}>
+                    Unlock achievement by choosing understanding
+                  </Text>
+                </View>
+              </View>
+
+              {/* Start Button */}
+              <TouchableOpacity
+                style={styles.startButton}
+                onPress={startChallenge}
+                activeOpacity={0.88}
+              >
+                <LinearGradient
+                  colors={['#1d4ed8', '#3b82f6']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.startBtnGradient}
+                >
+                  <Text style={styles.startBtnText}>ENTER THE OBSERVATORY</Text>
+                  <Feather name="arrow-right" size={20} color="#fff" />
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </Animated.View>
 
         {/* ============================================================ */}
@@ -739,7 +746,13 @@ const styles = StyleSheet.create({
   // Phase 1: Details Page
   detailsWrapper: {
     flex: 1,
+    width: '100%',
+  },
+  detailsScrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 24,
+    paddingTop: 10,
+    paddingBottom: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },

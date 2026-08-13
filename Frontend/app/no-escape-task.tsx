@@ -11,6 +11,7 @@ import {
   Alert,
   Switch,
   Platform,
+  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -427,7 +428,7 @@ export default function NoEscapeTaskScreen() {
             pointsAdded:
               data.points_rewarded?.toString() ||
               data.pointsAdded?.toString() ||
-              '300',
+              '600',
             totalPoints: data.totalPoints?.toString() || '0',
             streak: data.streak?.toString() || '0',
           };
@@ -545,117 +546,123 @@ export default function NoEscapeTaskScreen() {
           style={[styles.detailsWrapper, { opacity: uiFadeAnim }]}
           pointerEvents={phase === 'details' ? 'auto' : 'none'}
         >
-          {/* Top Floating Smartphone Hero Icon */}
-          <View style={styles.detailHeroContainer}>
-            <Animated.View
-              style={[
-                styles.heroPhoneWrapper,
-                { transform: [{ translateY: phoneFloatAnim }] },
-              ]}
-            >
-              <LinearGradient
-                colors={['#1f2937', '#111827', '#030712']}
-                style={styles.heroPhoneBody}
+          <ScrollView
+            style={{ width: '100%' }}
+            contentContainerStyle={styles.detailsScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Top Floating Smartphone Hero Icon */}
+            <View style={styles.detailHeroContainer}>
+              <Animated.View
+                style={[
+                  styles.heroPhoneWrapper,
+                  { transform: [{ translateY: phoneFloatAnim }] },
+                ]}
               >
-                <View style={styles.heroPhoneNotch} />
-                <View style={styles.heroPhoneScreen}>
-                  <Feather name="shield" size={32} color="#00d2ff" />
-                  <Text style={styles.heroPhoneTitle}>TEMPTATION</Text>
+                <LinearGradient
+                  colors={['#1f2937', '#111827', '#030712']}
+                  style={styles.heroPhoneBody}
+                >
+                  <View style={styles.heroPhoneNotch} />
+                  <View style={styles.heroPhoneScreen}>
+                    <Feather name="shield" size={32} color="#00d2ff" />
+                    <Text style={styles.heroPhoneTitle}>TEMPTATION</Text>
+                  </View>
+                  <View style={styles.glassReflection} />
+                </LinearGradient>
+              </Animated.View>
+            </View>
+
+            {/* Central Glass Card */}
+            <View style={styles.glassCard}>
+              <Text style={styles.taskTitle}>No Escape Behavior</Text>
+              <Text style={styles.taskSubTitle}>(Phone Avoidance)</Text>
+
+              {/* Badges Row */}
+              <View style={styles.badgesRow}>
+                <View style={styles.badgePill}>
+                  <Feather name="clock" size={13} color="#38bdf8" />
+                  <Text style={styles.badgeText}>5 Minutes</Text>
                 </View>
-                <View style={styles.glassReflection} />
-              </LinearGradient>
-            </Animated.View>
-          </View>
-
-          {/* Central Glass Card */}
-          <View style={styles.glassCard}>
-            <Text style={styles.taskTitle}>No Escape Behavior</Text>
-            <Text style={styles.taskSubTitle}>(Phone Avoidance)</Text>
-
-            {/* Badges Row */}
-            <View style={styles.badgesRow}>
-              <View style={styles.badgePill}>
-                <Feather name="clock" size={13} color="#38bdf8" />
-                <Text style={styles.badgeText}>5 Minutes</Text>
+                <View style={[styles.badgePill, styles.badgeHard]}>
+                  <Ionicons name="flame" size={13} color="#ef4444" />
+                  <Text style={[styles.badgeText, { color: '#ef4444' }]}>
+                    ⭐⭐⭐ Hard
+                  </Text>
+                </View>
+                <View style={[styles.badgePill, styles.badgePoints]}>
+                  <Ionicons name="trophy" size={13} color="#f59e0b" />
+                  <Text style={[styles.badgeText, { color: '#f59e0b' }]}>
+                    600 Points
+                  </Text>
+                </View>
               </View>
-              <View style={[styles.badgePill, styles.badgeHard]}>
-                <Ionicons name="flame" size={13} color="#ef4444" />
-                <Text style={[styles.badgeText, { color: '#ef4444' }]}>
-                  ⭐⭐⭐ Hard
-                </Text>
-              </View>
-              <View style={[styles.badgePill, styles.badgePoints]}>
-                <Ionicons name="trophy" size={13} color="#f59e0b" />
-                <Text style={[styles.badgeText, { color: '#f59e0b' }]}>
-                  300 Points
-                </Text>
-              </View>
-            </View>
 
-            {/* Description Text */}
-            <Text style={styles.descriptionText}>
-              Most people don't unlock their phone because they need to.{'\n'}
-              They unlock it because they feel uncomfortable.{'\n\n'}
-              Today's challenge is different.{'\n'}
-              Notice the urge. Let it exist. Don't obey it. Stay present.
-            </Text>
-
-            {/* Quote Box */}
-            <View style={styles.quoteBox}>
-              <Feather name="shield" size={18} color="#00d2ff" style={{ marginRight: 8 }} />
-              <Text style={styles.quoteText}>
-                "Real freedom begins when every notification no longer controls your attention."
+              {/* Description Text */}
+              <Text style={styles.descriptionText}>
+                Most people don't unlock their phone because they need to.{'\n'}
+                They unlock it because they feel uncomfortable.{'\n\n'}
+                Today's challenge is different.{'\n'}
+                Notice the urge. Let it exist. Don't obey it. Stay present.
               </Text>
-            </View>
 
-            {/* Impulse Master Badge Banner */}
-            <View style={styles.badgeBanner}>
-              <Text style={styles.badgeBannerEmoji}>🏅</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.badgeBannerTitle}>Impulse Master</Text>
-                <Text style={styles.badgeBannerSub}>
-                  Unlock achievement by observing without reacting
+              {/* Quote Box */}
+              <View style={styles.quoteBox}>
+                <Feather name="shield" size={18} color="#00d2ff" style={{ marginRight: 8 }} />
+                <Text style={styles.quoteText}>
+                  "Real freedom begins when every notification no longer controls your attention."
                 </Text>
               </View>
-            </View>
 
-            {/* Focus Mode / DND Option Toggle */}
-            <View style={styles.focusToggleRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.focusToggleTitle}>
-                  Focus Mode / DND Suppress
-                </Text>
-                <Text style={styles.focusToggleSub}>
-                  {hasDndPermission
-                    ? 'Native DND suppression enabled'
-                    : 'Optionally suppresses native ringers during lab'}
-                </Text>
+              {/* Impulse Master Badge Banner */}
+              <View style={styles.badgeBanner}>
+                <Text style={styles.badgeBannerEmoji}>🏅</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.badgeBannerTitle}>Impulse Master</Text>
+                  <Text style={styles.badgeBannerSub}>
+                    Unlock achievement by observing without reacting
+                  </Text>
+                </View>
               </View>
-              <Switch
-                value={focusModeEnabled}
-                onValueChange={handleToggleFocusMode}
-                trackColor={{ false: '#374151', true: '#0066ff' }}
-                thumbColor={focusModeEnabled ? '#00d2ff' : '#9ca3af'}
-              />
-            </View>
 
-            {/* Start Button */}
-            <TouchableOpacity
-              style={styles.startButton}
-              onPress={startChallenge}
-              activeOpacity={0.88}
-            >
-              <LinearGradient
-                colors={['#0066ff', '#00d2ff']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.startBtnGradient}
+              {/* Focus Mode / DND Option Toggle */}
+              <View style={styles.focusToggleRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.focusToggleTitle}>
+                    Focus Mode / DND Suppress
+                  </Text>
+                  <Text style={styles.focusToggleSub}>
+                    {hasDndPermission
+                      ? 'Native DND suppression enabled'
+                      : 'Optionally suppresses native ringers during lab'}
+                  </Text>
+                </View>
+                <Switch
+                  value={focusModeEnabled}
+                  onValueChange={handleToggleFocusMode}
+                  trackColor={{ false: '#374151', true: '#0066ff' }}
+                  thumbColor={focusModeEnabled ? '#00d2ff' : '#9ca3af'}
+                />
+              </View>
+
+              {/* Start Button */}
+              <TouchableOpacity
+                style={styles.startButton}
+                onPress={startChallenge}
+                activeOpacity={0.88}
               >
-                <Text style={styles.startBtnText}>ENTER TEMPTATION LAB</Text>
-                <Feather name="arrow-right" size={20} color="#fff" />
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
+                <LinearGradient
+                  colors={['#0066ff', '#00d2ff']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.startBtnGradient}
+                >
+                  <Text style={styles.startBtnText}>START EXPERIMENT</Text>
+                  <Feather name="arrow-right" size={20} color="#fff" />
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </Animated.View>
 
         {/* ============================================================ */}
@@ -976,7 +983,13 @@ const styles = StyleSheet.create({
   // Phase 1: Onboarding / Details Page
   detailsWrapper: {
     flex: 1,
+    width: '100%',
+  },
+  detailsScrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 24,
+    paddingTop: 10,
+    paddingBottom: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },

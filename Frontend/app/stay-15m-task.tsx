@@ -9,6 +9,7 @@ import {
   Dimensions,
   Pressable,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -30,7 +31,7 @@ const SAND_GRAINS = Array.from({ length: 14 }, (_, i) => ({
   xOffset: (i % 5 - 2) * 3,
 }));
 
-export default function Stay15mTaskScreen() {
+export default function Stay15MTaskScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -41,55 +42,84 @@ export default function Stay15mTaskScreen() {
   const [isLoading, setIsLoading] = useState(false);
 
   // Dynamic Scene Text
-  const [displayText, setDisplayText] = useState("You don't need to leave immediately.");
+  const [displayText, setDisplayText] = useState('Staying is where presence begins.');
   const [subDisplayText, setSubDisplayText] = useState<string | null>(null);
 
   // Animation Refs
   const uiFadeAnim = useRef(new Animated.Value(1)).current;
   const sceneFadeAnim = useRef(new Animated.Value(0)).current;
 
-  // Hourglass Sand Level & Flip Animations
-  const topSandLevel = useRef(new Animated.Value(1)).current; // 1 = full, 0 = empty
-  const bottomSandLevel = useRef(new Animated.Value(0)).current; // 0 = empty, 1 = full
-  const hourglassFlipAnim = useRef(new Animated.Value(0)).current; // 0deg to 180deg flip
-  const ambientSunlightAnim = useRef(new Animated.Value(0.2)).current;
-  const sandParticleStreamAnim = useRef(new Animated.Value(0)).current;
+  // Hourglass & Golden Light Atmospheric Animations
+  const goldenAmbientGlow = useRef(new Animated.Value(0.2)).current;
+  const sandStreamPulse = useRef(new Animated.Value(0.4)).current;
+  const topBulbDrain = useRef(new Animated.Value(1)).current; // Top sand level (1 to 0)
+  const bottomBulbFill = useRef(new Animated.Value(0.1)).current; // Bottom dune rise (0.1 to 1)
+  const ambientWarmthFill = useRef(new Animated.Value(0)).current; // 15:00 full golden saturation
 
-  // Final Cinematic Golden Particles & Dissolve
-  const pureLightScaleAnim = useRef(new Animated.Value(1)).current;
-  const pureLightOpacityAnim = useRef(new Animated.Value(0)).current;
+  // Final Cinematic
+  const finalPulseAnim = useRef(new Animated.Value(1)).current;
   const shieldScaleAnim = useRef(new Animated.Value(0)).current;
   const shieldOpacityAnim = useRef(new Animated.Value(0)).current;
 
-  // Continuous Sand Stream & Ambient Light Shift Loops
-  useEffect(() => {
-    // Sand Grain Stream Movement
-    Animated.loop(
-      Animated.timing(sandParticleStreamAnim, {
-        toValue: 1,
-        duration: 1200,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
-    ).start();
+  // Continuous Golden Sand Particles dropping
+  const grainAnims = useRef(SAND_GRAINS.map(() => new Animated.Value(0))).current;
 
-    // Ambient Lighting Shift
+  // Ambient Golden Light Breathing
+  useEffect(() => {
     Animated.loop(
       Animated.sequence([
-        Animated.timing(ambientSunlightAnim, {
-          toValue: 0.6,
-          duration: 5000,
+        Animated.timing(goldenAmbientGlow, {
+          toValue: 0.7,
+          duration: 4000,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
-        Animated.timing(ambientSunlightAnim, {
-          toValue: 0.2,
-          duration: 5000,
+        Animated.timing(goldenAmbientGlow, {
+          toValue: 0.3,
+          duration: 4000,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
       ])
     ).start();
+
+    // Sand stream continuous pulse
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(sandStreamPulse, {
+          toValue: 0.9,
+          duration: 1200,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(sandStreamPulse, {
+          toValue: 0.4,
+          duration: 1200,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Start Sand Grain drop loops
+    grainAnims.forEach((anim, i) => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(SAND_GRAINS[i].delay),
+          Animated.timing(anim, {
+            toValue: 1,
+            duration: SAND_GRAINS[i].speed,
+            easing: Easing.linear,
+            useNativeDriver: true,
+          }),
+          Animated.timing(anim, {
+            toValue: 0,
+            duration: 0,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    });
   }, []);
 
   // ----------------------------------------------------
@@ -100,53 +130,67 @@ export default function Stay15mTaskScreen() {
   useEffect(() => {
     if (phase !== 'active' || isPaused) return;
 
-    // Smoothly update sand levels in top and bottom bulbs
-    const progressFraction = Math.min(1, elapsedTime / TOTAL_DURATION);
-    Animated.parallel([
-      Animated.timing(topSandLevel, {
-        toValue: 1 - progressFraction,
-        duration: 900,
-        useNativeDriver: false,
-      }),
-      Animated.timing(bottomSandLevel, {
-        toValue: progressFraction,
-        duration: 900,
-        useNativeDriver: false,
-      }),
-    ]).start();
+    // Smoothly interpolate hourglass sand drain & bottom dune accumulation
+    const progressRatio = Math.min(1, elapsedTime / TOTAL_DURATION);
+    topBulbDrain.setValue(Math.max(0.05, 1 - progressRatio * 0.95));
+    bottomBulbFill.setValue(0.1 + progressRatio * 0.9);
 
-    // Pacing Text Events
     if (elapsedTime === 0) {
-      setDisplayText("You don't need to leave immediately.");
+      // 0:00 - Upper chamber full of golden sand
+      setDisplayText('Staying is where presence begins.');
       setSubDisplayText(null);
     } else if (elapsedTime === 180) {
-      // 3:00
-      setDisplayText('Presence creates confidence.');
-      setSubDisplayText(null);
-    } else if (elapsedTime === 360) {
-      // 6:00
-      setDisplayText('Comfort grows when you stay.');
-      setSubDisplayText(null);
-    } else if (elapsedTime === 540) {
-      // 9:00
-      setDisplayText("You're becoming more comfortable.");
-      setSubDisplayText(null);
-    } else if (elapsedTime === 720) {
-      // 12:00
-      setDisplayText('Every minute builds your presence.');
-      setSubDisplayText(null);
-    } else if (elapsedTime >= 900) {
-      // 15:00 - Hourglass flips automatically, sand transforms into glowing golden particles
-      setDisplayText('You stayed longer than your fear.');
+      // 3:00 - Sand grains steadily flow through the center
+      setDisplayText('The impulse to leave is just a thought.');
       setSubDisplayText(null);
 
-      // Trigger Hourglass Flip Animation
-      Animated.timing(hourglassFlipAnim, {
-        toValue: 1,
-        duration: 2500,
-        easing: Easing.inOut(Easing.cubic),
+      Animated.timing(goldenAmbientGlow, {
+        toValue: 0.8,
+        duration: 3500,
         useNativeDriver: true,
       }).start();
+    } else if (elapsedTime === 360) {
+      // 6:00 - Golden sand creates a steady dune below
+      setDisplayText('You are letting time settle.');
+      setSubDisplayText(null);
+    } else if (elapsedTime === 540) {
+      // 9:00 - Lower chamber glowing warm amber
+      setDisplayText('Comfort is built one minute at a time.');
+      setSubDisplayText(null);
+
+      Animated.timing(ambientWarmthFill, {
+        toValue: 0.4,
+        duration: 4000,
+        useNativeDriver: true,
+      }).start();
+    } else if (elapsedTime === 720) {
+      // 12:00 - Soft ambient golden light surrounds the entire hourglass
+      setDisplayText('You stayed through the urge to escape.');
+      setSubDisplayText(null);
+
+      Animated.timing(ambientWarmthFill, {
+        toValue: 0.75,
+        duration: 4000,
+        useNativeDriver: true,
+      }).start();
+    } else if (elapsedTime >= 900) {
+      // 15:00 - Final grain drops, whole screen fills with warm golden light
+      setDisplayText('You chose presence over avoidance.');
+      setSubDisplayText(null);
+
+      Animated.parallel([
+        Animated.timing(ambientWarmthFill, {
+          toValue: 1,
+          duration: 3500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(finalPulseAnim, {
+          toValue: 1.15,
+          duration: 3500,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]).start();
 
       setTimeout(() => {
         startFinalCinematic();
@@ -187,23 +231,12 @@ export default function Stay15mTaskScreen() {
   };
 
   // ----------------------------------------------------
-  // FINAL CINEMATIC (Hourglass Dissolves -> Present Moment)
+  // FINAL CINEMATIC (Present Moment Achievement)
   // ----------------------------------------------------
   const startFinalCinematic = () => {
     setPhase('cinematic');
 
     Animated.parallel([
-      Animated.timing(pureLightOpacityAnim, {
-        toValue: 1,
-        duration: 2000,
-        useNativeDriver: true,
-      }),
-      Animated.timing(pureLightScaleAnim, {
-        toValue: 2.2,
-        duration: 3500,
-        easing: Easing.out(Easing.ease),
-        useNativeDriver: true,
-      }),
       Animated.spring(shieldScaleAnim, {
         toValue: 1,
         tension: 65,
@@ -246,7 +279,7 @@ export default function Stay15mTaskScreen() {
     if (isLoading) return;
     setIsLoading(true);
 
-    let pointsData = { pointsAdded: '200', totalPoints: '0', streak: '0' };
+    let pointsData = { pointsAdded: '300', totalPoints: '0', streak: '0' };
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
@@ -266,7 +299,7 @@ export default function Stay15mTaskScreen() {
             pointsAdded:
               data.points_rewarded?.toString() ||
               data.pointsAdded?.toString() ||
-              '200',
+              '300',
             totalPoints: data.totalPoints?.toString() || '0',
             streak: data.streak?.toString() || '0',
           };
@@ -285,7 +318,7 @@ export default function Stay15mTaskScreen() {
         points: pointsData.pointsAdded,
         totalPoints: pointsData.totalPoints,
         streak: pointsData.streak,
-        message: 'You stayed present.',
+        message: 'You chose to stay.',
         difficulty: 'medium',
         taskName: 'Stay for at Least 15 Minutes',
         badge: 'Present Moment',
@@ -312,46 +345,37 @@ export default function Stay15mTaskScreen() {
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
-  const hourglassRotate = hourglassFlipAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '180deg'],
-  });
-
-  const sandStreamY = sandParticleStreamAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [-30, 40],
-  });
-
-  // Height interpolation for sand levels (0 to 65px)
-  const topBulbHeight = topSandLevel.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 65],
-  });
-
-  const bottomBulbHeight = bottomSandLevel.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 65],
-  });
-
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
 
-      {/* The Hourglass Glassmorphic Environment */}
+      {/* Atmospheric Deep Espresso & Amber Glow Background */}
       <View style={StyleSheet.absoluteFillObject}>
-        {/* Base Walnut Brown & Sand Gold Gradient */}
+        {/* Base Rich Dark Amber Gradient */}
         <LinearGradient
           colors={['#1c1917', '#292524', '#451a03', '#1c1917']}
           style={StyleSheet.absoluteFillObject}
         />
 
-        {/* Warm Ambient Sunlight Shift */}
+        {/* Ambient Golden Light Breath */}
         <Animated.View
           style={[
             StyleSheet.absoluteFillObject,
             {
-              opacity: ambientSunlightAnim,
-              backgroundColor: 'rgba(251, 191, 36, 0.12)',
+              opacity: goldenAmbientGlow,
+              backgroundColor: 'rgba(245, 158, 11, 0.12)',
+            },
+          ]}
+          pointerEvents="none"
+        />
+
+        {/* Full Golden Saturation at 15:00 */}
+        <Animated.View
+          style={[
+            StyleSheet.absoluteFillObject,
+            {
+              opacity: ambientWarmthFill,
+              backgroundColor: 'rgba(251, 191, 36, 0.2)',
             },
           ]}
           pointerEvents="none"
@@ -386,9 +410,7 @@ export default function Stay15mTaskScreen() {
             <Feather name="chevron-left" size={24} color="#f59e0b" />
           </TouchableOpacity>
           <View style={styles.headerTag}>
-            <Text style={styles.headerTagText}>
-              {phase === 'details' ? 'THE HOURGLASS' : 'SOCIAL PRESENCE'}
-            </Text>
+            <Text style={styles.headerTagText}>15 MINUTES OF PRESENCE</Text>
           </View>
           <View style={{ width: 40 }} />
         </View>
@@ -400,86 +422,92 @@ export default function Stay15mTaskScreen() {
           style={[styles.detailsWrapper, { opacity: uiFadeAnim }]}
           pointerEvents={phase === 'details' ? 'auto' : 'none'}
         >
-          {/* Top Hero: Animated Glass Hourglass */}
-          <View style={styles.heroHourglassContainer}>
-            <View style={styles.heroHourglassFrame}>
-              <LinearGradient
-                colors={['rgba(245, 158, 11, 0.35)', 'rgba(69, 26, 3, 0.9)']}
-                style={StyleSheet.absoluteFillObject}
-              />
-              <Ionicons name="hourglass-outline" size={48} color="#fbbf24" />
-              <Text style={styles.heroHourglassLabel}>THE HOURGLASS</Text>
-            </View>
-          </View>
-
-          {/* Central Glass Card */}
-          <View style={styles.glassCard}>
-            <Text style={styles.taskTitle}>Stay for at Least</Text>
-            <Text style={styles.taskSubTitle}>15 Minutes</Text>
-
-            {/* Badges Row */}
-            <View style={styles.badgesRow}>
-              <View style={styles.badgePill}>
-                <Feather name="clock" size={13} color="#f59e0b" />
-                <Text style={styles.badgeText}>15 Minutes</Text>
-              </View>
-              <View style={[styles.badgePill, styles.badgeMedium]}>
-                <Ionicons name="flame" size={13} color="#f59e0b" />
-                <Text style={[styles.badgeText, { color: '#f59e0b' }]}>
-                  ⭐⭐ Medium
-                </Text>
-              </View>
-              <View style={[styles.badgePill, styles.badgePoints]}>
-                <Ionicons name="trophy" size={13} color="#f59e0b" />
-                <Text style={[styles.badgeText, { color: '#f59e0b' }]}>
-                  200 Points
-                </Text>
+          <ScrollView
+            style={{ width: '100%' }}
+            contentContainerStyle={styles.detailsScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Top Hero: Animated Glass Hourglass */}
+            <View style={styles.heroHourglassContainer}>
+              <View style={styles.heroHourglassFrame}>
+                <LinearGradient
+                  colors={['rgba(245, 158, 11, 0.35)', 'rgba(69, 26, 3, 0.9)']}
+                  style={StyleSheet.absoluteFillObject}
+                />
+                <Ionicons name="hourglass-outline" size={48} color="#fbbf24" />
+                <Text style={styles.heroHourglassLabel}>THE HOURGLASS</Text>
               </View>
             </View>
 
-            {/* Description Text */}
-            <Text style={styles.descriptionText}>
-              Sometimes growth doesn't come from doing more. It comes from leaving less.{'\n\n'}
-              Today, remain comfortably present in a social environment for at least 15 minutes—stay in a café, stay at a gathering, or stay in a park.{'\n'}
-              You don't have to impress anyone. Your only goal is to stay.
-            </Text>
+            {/* Central Glass Card */}
+            <View style={styles.glassCard}>
+              <Text style={styles.taskTitle}>Stay for at Least</Text>
+              <Text style={styles.taskSubTitle}>15 Minutes</Text>
 
-            {/* Quote Box */}
-            <View style={styles.quoteBox}>
-              <Feather name="clock" size={18} color="#f59e0b" style={{ marginRight: 8 }} />
-              <Text style={styles.quoteText}>
-                "Sometimes growth doesn't come from doing more. It comes from leaving less."
+              {/* Badges Row */}
+              <View style={styles.badgesRow}>
+                <View style={styles.badgePill}>
+                  <Feather name="clock" size={13} color="#f59e0b" />
+                  <Text style={styles.badgeText}>15 Minutes</Text>
+                </View>
+                <View style={[styles.badgePill, styles.badgeMedium]}>
+                  <Ionicons name="flame" size={13} color="#f59e0b" />
+                  <Text style={[styles.badgeText, { color: '#f59e0b' }]}>
+                    ⭐⭐ Medium
+                  </Text>
+                </View>
+                <View style={[styles.badgePill, styles.badgePoints]}>
+                  <Ionicons name="trophy" size={13} color="#f59e0b" />
+                  <Text style={[styles.badgeText, { color: '#f59e0b' }]}>
+                    300 Points
+                  </Text>
+                </View>
+              </View>
+
+              {/* Description Text */}
+              <Text style={styles.descriptionText}>
+                Sometimes growth doesn't come from doing more. It comes from leaving less.{'\n\n'}
+                Today, remain comfortably present in a social environment for at least 15 minutes—stay in a café, stay at a gathering, or stay in a park.{'\n'}
+                You don't have to impress anyone. Your only goal is to stay.
               </Text>
-            </View>
 
-            {/* Present Moment Achievement Banner */}
-            <View style={styles.badgeBanner}>
-              <Text style={styles.badgeBannerEmoji}>🏅</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.badgeBannerTitle}>Present Moment</Text>
-                <Text style={styles.badgeBannerSub}>
-                  Unlock achievement by discovering that staying is the bravest choice
+              {/* Quote Box */}
+              <View style={styles.quoteBox}>
+                <Feather name="clock" size={18} color="#f59e0b" style={{ marginRight: 8 }} />
+                <Text style={styles.quoteText}>
+                  "Sometimes growth doesn't come from doing more. It comes from leaving less."
                 </Text>
               </View>
-            </View>
 
-            {/* Start Button */}
-            <TouchableOpacity
-              style={styles.startButton}
-              onPress={startChallenge}
-              activeOpacity={0.88}
-            >
-              <LinearGradient
-                colors={['#d97706', '#f59e0b']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.startBtnGradient}
+              {/* Present Moment Achievement Banner */}
+              <View style={styles.badgeBanner}>
+                <Text style={styles.badgeBannerEmoji}>🏅</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.badgeBannerTitle}>Present Moment</Text>
+                  <Text style={styles.badgeBannerSub}>
+                    Unlock achievement by discovering that staying is the bravest choice
+                  </Text>
+                </View>
+              </View>
+
+              {/* Start Button */}
+              <TouchableOpacity
+                style={styles.startButton}
+                onPress={startChallenge}
+                activeOpacity={0.88}
               >
-                <Text style={styles.startBtnText}>ENTER THE HOURGLASS</Text>
-                <Feather name="arrow-right" size={20} color="#fff" />
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
+                <LinearGradient
+                  colors={['#d97706', '#f59e0b']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.startBtnGradient}
+                >
+                  <Text style={styles.startBtnText}>ENTER THE HOURGLASS</Text>
+                  <Feather name="arrow-right" size={20} color="#fff" />
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </Animated.View>
 
         {/* ============================================================ */}
@@ -727,7 +755,13 @@ const styles = StyleSheet.create({
   // Phase 1: Onboarding Details Page
   detailsWrapper: {
     flex: 1,
+    width: '100%',
+  },
+  detailsScrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 24,
+    paddingTop: 10,
+    paddingBottom: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },

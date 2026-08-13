@@ -9,6 +9,7 @@ import {
   Dimensions,
   Pressable,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,22 +23,9 @@ import { apiFetch, API_BASE_URL } from '../constants/Api';
 const { width, height } = Dimensions.get('window');
 const TOTAL_DURATION = 180; // 3 minutes = 180 seconds
 
-// Sample Interests for the Second Line animation
-const SAMPLE_INTERESTS = [
-  'Loves photography & coffee',
-  'Learning acoustic guitar',
-  'Enjoys weekend hiking',
-  'Coffee & tech enthusiast',
-  'Passionate about design',
-];
-
 export default function NameBadgeTaskScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-
-  const [sampleInterest] = useState(
-    () => SAMPLE_INTERESTS[Math.floor(Math.random() * SAMPLE_INTERESTS.length)]
-  );
 
   // States
   const [phase, setPhase] = useState<'details' | 'active' | 'cinematic'>('details');
@@ -46,57 +34,73 @@ export default function NameBadgeTaskScreen() {
   const [isLoading, setIsLoading] = useState(false);
 
   // Dynamic Scene Text
-  const [displayText, setDisplayText] = useState('Every connection begins with a name.');
+  const [displayText, setDisplayText] = useState('Your presence doesn’t need a defense.');
   const [subDisplayText, setSubDisplayText] = useState<string | null>(null);
 
   // Animation Refs
   const uiFadeAnim = useRef(new Animated.Value(1)).current;
   const sceneFadeAnim = useRef(new Animated.Value(0)).current;
 
-  // Name Badge Animations
-  const badgeFloatAnim = useRef(new Animated.Value(0)).current;
-  const badgeRotateAnim = useRef(new Animated.Value(0)).current; // 0deg to 180deg flip
-  const nameFadeAnim = useRef(new Animated.Value(0)).current; // Name appears at 0:45
-  const interestFadeAnim = useRef(new Animated.Value(0)).current; // 2nd line appears at 1:30
-  const jacketClipAnim = useRef(new Animated.Value(0)).current; // Clips to jacket at 2:15
-  const badgeGoldenGlow = useRef(new Animated.Value(0.2)).current;
+  // Badge & Atmospheric Animations
+  const lanyardSwayAnim = useRef(new Animated.Value(-1)).current; // Gentle pendulum sway
+  const holographicShiftAnim = useRef(new Animated.Value(0)).current; // Holographic rainbow sheen
+  const badgeGlowAnim = useRef(new Animated.Value(0.2)).current; // Soft aura glow
+  const goldLightFill = useRef(new Animated.Value(0)).current; // Full golden fill at 3:00
 
-  // Final Cinematic Transformation (Badge -> Golden Circle)
-  const goldenCircleScale = useRef(new Animated.Value(1)).current;
-  const goldenCircleOpacity = useRef(new Animated.Value(0)).current;
+  // Final Cinematic
+  const finalZoomAnim = useRef(new Animated.Value(1)).current;
   const shieldScaleAnim = useRef(new Animated.Value(0)).current;
   const shieldOpacityAnim = useRef(new Animated.Value(0)).current;
 
-  // Continuous Badge Float & Gold Ambient Glow Loops
+  // Pendulum Lanyard Sway Loop
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
-        Animated.timing(badgeFloatAnim, {
-          toValue: -12,
-          duration: 3500,
+        Animated.timing(lanyardSwayAnim, {
+          toValue: 1,
+          duration: 3000,
           easing: Easing.inOut(Easing.sin),
           useNativeDriver: true,
         }),
-        Animated.timing(badgeFloatAnim, {
-          toValue: 0,
-          duration: 3500,
+        Animated.timing(lanyardSwayAnim, {
+          toValue: -1,
+          duration: 3000,
           easing: Easing.inOut(Easing.sin),
           useNativeDriver: true,
         }),
       ])
     ).start();
 
+    // Holographic Foil Shift Loop
     Animated.loop(
       Animated.sequence([
-        Animated.timing(badgeGoldenGlow, {
-          toValue: 0.7,
+        Animated.timing(holographicShiftAnim, {
+          toValue: 1,
           duration: 4000,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
-        Animated.timing(badgeGoldenGlow, {
-          toValue: 0.2,
+        Animated.timing(holographicShiftAnim, {
+          toValue: 0,
           duration: 4000,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Ambient Glow Breath Loop
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(badgeGlowAnim, {
+          toValue: 0.7,
+          duration: 3500,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(badgeGlowAnim, {
+          toValue: 0.25,
+          duration: 3500,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
@@ -113,52 +117,45 @@ export default function NameBadgeTaskScreen() {
     if (phase !== 'active' || isPaused) return;
 
     if (elapsedTime === 0) {
-      // 0:00 - Blank name badge floats gently
-      setDisplayText('Every connection begins with a name.');
+      // 0:00 - Sleek conference name badge floating
+      setDisplayText('Your presence doesn’t need a defense.');
       setSubDisplayText(null);
     } else if (elapsedTime === 45) {
-      // 0:45 - Badge slowly rotates 180deg, first name appears
-      setDisplayText('Names create familiarity.');
+      // 0:45 - Gold clip catches light
+      setDisplayText('Name + one simple sentence is enough.');
+      setSubDisplayText(null);
+
+      Animated.timing(badgeGlowAnim, {
+        toValue: 0.8,
+        duration: 3000,
+        useNativeDriver: true,
+      }).start();
+    } else if (elapsedTime === 90) {
+      // 1:30 - Holographic foil reflects warm blue & gold
+      setDisplayText('People remember warmth, not perfection.');
+      setSubDisplayText(null);
+    } else if (elapsedTime === 135) {
+      // 2:15 - Badge settles steadily center screen
+      setDisplayText('Introduce yourself without rushing.');
+      setSubDisplayText(null);
+    } else if (elapsedTime >= 180) {
+      // 3:00 - Holographic badge dissolves into warm golden light
+      setDisplayText('You introduced yourself with quiet certainty.');
       setSubDisplayText(null);
 
       Animated.parallel([
-        Animated.timing(badgeRotateAnim, {
+        Animated.timing(goldLightFill, {
           toValue: 1,
-          duration: 2500,
-          easing: Easing.inOut(Easing.cubic),
+          duration: 3500,
           useNativeDriver: true,
         }),
-        Animated.timing(nameFadeAnim, {
-          toValue: 1,
-          duration: 2000,
+        Animated.timing(finalZoomAnim, {
+          toValue: 1.12,
+          duration: 3500,
+          easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
       ]).start();
-    } else if (elapsedTime === 90) {
-      // 1:30 - Second line fades onto badge, prompt to speak aloud
-      setDisplayText('Say your simple introduction aloud.');
-      setSubDisplayText('Name + One simple sentence');
-
-      Animated.timing(interestFadeAnim, {
-        toValue: 1,
-        duration: 2500,
-        useNativeDriver: true,
-      }).start();
-    } else if (elapsedTime === 135) {
-      // 2:15 - Badge gently clips onto jacket, group smiles
-      setDisplayText('You are no longer anonymous.');
-      setSubDisplayText(null);
-
-      Animated.timing(jacketClipAnim, {
-        toValue: 1,
-        duration: 3500,
-        easing: Easing.out(Easing.ease),
-        useNativeDriver: true,
-      }).start();
-    } else if (elapsedTime >= 180) {
-      // 3:00 - Badge glows softly with golden light
-      setDisplayText('Your introduction opened the door.');
-      setSubDisplayText(null);
 
       setTimeout(() => {
         startFinalCinematic();
@@ -199,23 +196,12 @@ export default function NameBadgeTaskScreen() {
   };
 
   // ----------------------------------------------------
-  // FINAL CINEMATIC (Badge -> Golden Circle Transformation)
+  // FINAL CINEMATIC (Clear Voice Achievement)
   // ----------------------------------------------------
   const startFinalCinematic = () => {
     setPhase('cinematic');
 
     Animated.parallel([
-      Animated.timing(goldenCircleOpacity, {
-        toValue: 1,
-        duration: 1500,
-        useNativeDriver: true,
-      }),
-      Animated.timing(goldenCircleScale, {
-        toValue: 2.2,
-        duration: 3500,
-        easing: Easing.out(Easing.ease),
-        useNativeDriver: true,
-      }),
       Animated.spring(shieldScaleAnim, {
         toValue: 1,
         tension: 65,
@@ -258,7 +244,7 @@ export default function NameBadgeTaskScreen() {
     if (isLoading) return;
     setIsLoading(true);
 
-    let pointsData = { pointsAdded: '300', totalPoints: '0', streak: '0' };
+    let pointsData = { pointsAdded: '600', totalPoints: '0', streak: '0' };
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
@@ -278,7 +264,7 @@ export default function NameBadgeTaskScreen() {
             pointsAdded:
               data.points_rewarded?.toString() ||
               data.pointsAdded?.toString() ||
-              '300',
+              '600',
             totalPoints: data.totalPoints?.toString() || '0',
             streak: data.streak?.toString() || '0',
           };
@@ -297,10 +283,10 @@ export default function NameBadgeTaskScreen() {
         points: pointsData.pointsAdded,
         totalPoints: pointsData.totalPoints,
         streak: pointsData.streak,
-        message: 'You entered the circle.',
+        message: 'You made yourself known.',
         difficulty: 'hard',
         taskName: 'Introduce Yourself (Name + 1 Line)',
-        badge: 'Circle Member',
+        badge: 'Clear Voice',
       },
     } as any);
   };
@@ -324,35 +310,42 @@ export default function NameBadgeTaskScreen() {
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
-  const badgeRotateY = badgeRotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '180deg'],
-  });
-
-  const jacketScale = jacketClipAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 0.88],
+  const lanyardRotate = lanyardSwayAnim.interpolate({
+    inputRange: [-1, 1],
+    outputRange: ['-3.5deg', '3.5deg'],
   });
 
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
 
-      {/* Modern Networking Lounge Environment */}
+      {/* Atmospheric Deep Indigo & Holographic Gold Glow */}
       <View style={StyleSheet.absoluteFillObject}>
-        {/* Deep Navy & Soft Silver Base Gradient */}
+        {/* Base Midnight Indigo Gradient */}
         <LinearGradient
-          colors={['#0f172a', '#1e293b', '#1e3a8a', '#0f172a']}
+          colors={['#090d16', '#0f172a', '#1e293b', '#090d16']}
           style={StyleSheet.absoluteFillObject}
         />
 
-        {/* Warm Golden Ambient Glow Overlay */}
+        {/* Holographic Blue Glow */}
         <Animated.View
           style={[
             StyleSheet.absoluteFillObject,
             {
-              opacity: badgeGoldenGlow,
-              backgroundColor: 'rgba(251, 191, 36, 0.12)',
+              opacity: badgeGlowAnim,
+              backgroundColor: 'rgba(59, 130, 246, 0.12)',
+            },
+          ]}
+          pointerEvents="none"
+        />
+
+        {/* Full Golden Saturation at 3:00 */}
+        <Animated.View
+          style={[
+            StyleSheet.absoluteFillObject,
+            {
+              opacity: goldLightFill,
+              backgroundColor: 'rgba(251, 191, 36, 0.22)',
             },
           ]}
           pointerEvents="none"
@@ -384,7 +377,7 @@ export default function NameBadgeTaskScreen() {
             style={styles.backBtn}
             activeOpacity={0.7}
           >
-            <Feather name="chevron-left" size={24} color="#fbbf24" />
+            <Feather name="chevron-left" size={24} color="#60a5fa" />
           </TouchableOpacity>
           <View style={styles.headerTag}>
             <Text style={styles.headerTagText}>
@@ -401,88 +394,94 @@ export default function NameBadgeTaskScreen() {
           style={[styles.detailsWrapper, { opacity: uiFadeAnim }]}
           pointerEvents={phase === 'details' ? 'auto' : 'none'}
         >
-          {/* Top Hero: Conference Name Badge with Golden Lanyard */}
-          <View style={styles.heroBadgeContainer}>
-            <View style={styles.heroLanyardClip} />
-            <View style={styles.heroBadgeFrame}>
-              <LinearGradient
-                colors={['rgba(255, 255, 255, 0.25)', 'rgba(30, 58, 138, 0.8)']}
-                style={StyleSheet.absoluteFillObject}
-              />
-              <Feather name="user-check" size={38} color="#fbbf24" />
-              <Text style={styles.heroBadgeName}>YOUR NAME</Text>
-              <Text style={styles.heroBadgeSub}>1 Simple Sentence</Text>
-            </View>
-          </View>
-
-          {/* Central Glass Card */}
-          <View style={styles.glassCard}>
-            <Text style={styles.taskTitle}>Introduce Yourself</Text>
-            <Text style={styles.taskSubTitle}>(Name + 1 Line)</Text>
-
-            {/* Badges Row */}
-            <View style={styles.badgesRow}>
-              <View style={styles.badgePill}>
-                <Feather name="clock" size={13} color="#fbbf24" />
-                <Text style={styles.badgeText}>3 Minutes</Text>
-              </View>
-              <View style={[styles.badgePill, styles.badgeHard]}>
-                <Ionicons name="flame" size={13} color="#ef4444" />
-                <Text style={[styles.badgeText, { color: '#ef4444' }]}>
-                  ⭐⭐⭐ Hard
-                </Text>
-              </View>
-              <View style={[styles.badgePill, styles.badgePoints]}>
-                <Ionicons name="trophy" size={13} color="#f59e0b" />
-                <Text style={[styles.badgeText, { color: '#f59e0b' }]}>
-                  300 Points
-                </Text>
+          <ScrollView
+            style={{ width: '100%' }}
+            contentContainerStyle={styles.detailsScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Top Hero: Conference Name Badge with Golden Lanyard */}
+            <View style={styles.heroBadgeContainer}>
+              <View style={styles.heroLanyardClip} />
+              <View style={styles.heroBadgeFrame}>
+                <LinearGradient
+                  colors={['rgba(255, 255, 255, 0.25)', 'rgba(30, 58, 138, 0.8)']}
+                  style={StyleSheet.absoluteFillObject}
+                />
+                <Feather name="user-check" size={38} color="#fbbf24" />
+                <Text style={styles.heroBadgeName}>YOUR NAME</Text>
+                <Text style={styles.heroBadgeSub}>1 Simple Sentence</Text>
               </View>
             </View>
 
-            {/* Description Text */}
-            <Text style={styles.descriptionText}>
-              People don't remember perfect introductions. They remember genuine ones.{'\n\n'}
-              Today, confidently introduce yourself using only your name and one simple sentence (e.g., 'Hi, I'm Alex. I enjoy photography.').{'\n'}
-              Keep it natural. Keep it simple.
-            </Text>
+            {/* Central Glass Card */}
+            <View style={styles.glassCard}>
+              <Text style={styles.taskTitle}>Introduce Yourself</Text>
+              <Text style={styles.taskSubTitle}>(Name + 1 Line)</Text>
 
-            {/* Quote Box */}
-            <View style={styles.quoteBox}>
-              <Feather name="award" size={18} color="#f59e0b" style={{ marginRight: 8 }} />
-              <Text style={styles.quoteText}>
-                "People don't remember perfect introductions. They remember genuine ones."
+              {/* Badges Row */}
+              <View style={styles.badgesRow}>
+                <View style={styles.badgePill}>
+                  <Feather name="clock" size={13} color="#fbbf24" />
+                  <Text style={styles.badgeText}>3 Minutes</Text>
+                </View>
+                <View style={[styles.badgePill, styles.badgeHard]}>
+                  <Ionicons name="flame" size={13} color="#ef4444" />
+                  <Text style={[styles.badgeText, { color: '#ef4444' }]}>
+                    ⭐⭐⭐ Hard
+                  </Text>
+                </View>
+                <View style={[styles.badgePill, styles.badgePoints]}>
+                  <Ionicons name="trophy" size={13} color="#f59e0b" />
+                  <Text style={[styles.badgeText, { color: '#f59e0b' }]}>
+                    600 Points
+                  </Text>
+                </View>
+              </View>
+
+              {/* Description Text */}
+              <Text style={styles.descriptionText}>
+                Your presence does not need an apology or a defense.{'\n\n'}
+                Today, simply introduce yourself to a new person or small group with your name and one sentence about why you're here.{'\n'}
+                Keep it grounded and direct. Connection starts with visibility.
               </Text>
-            </View>
 
-            {/* Circle Member Achievement Banner */}
-            <View style={styles.badgeBanner}>
-              <Text style={styles.badgeBannerEmoji}>🏅</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.badgeBannerTitle}>Circle Member</Text>
-                <Text style={styles.badgeBannerSub}>
-                  Unlock achievement by introducing yourself genuinely
+              {/* Quote Box */}
+              <View style={styles.quoteBox}>
+                <Feather name="user" size={18} color="#60a5fa" style={{ marginRight: 8 }} />
+                <Text style={styles.quoteText}>
+                  "Your presence does not need an apology. Just state your name and be here."
                 </Text>
               </View>
-            </View>
 
-            {/* Start Button */}
-            <TouchableOpacity
-              style={styles.startButton}
-              onPress={startChallenge}
-              activeOpacity={0.88}
-            >
-              <LinearGradient
-                colors={['#1d4ed8', '#fbbf24']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.startBtnGradient}
+              {/* Clear Voice Achievement Banner */}
+              <View style={styles.badgeBanner}>
+                <Text style={styles.badgeBannerEmoji}>🏅</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.badgeBannerTitle}>Clear Voice</Text>
+                  <Text style={styles.badgeBannerSub}>
+                    Unlock achievement by stepping out of hiding and stating your name
+                  </Text>
+                </View>
+              </View>
+
+              {/* Start Button */}
+              <TouchableOpacity
+                style={styles.startButton}
+                onPress={startChallenge}
+                activeOpacity={0.88}
               >
-                <Text style={styles.startBtnText}>ENTER THE CIRCLE</Text>
-                <Feather name="arrow-right" size={20} color="#fff" />
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
+                <LinearGradient
+                  colors={['#2563eb', '#3b82f6']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.startBtnGradient}
+                >
+                  <Text style={styles.startBtnText}>ENTER THE LOUNGE</Text>
+                  <Feather name="arrow-right" size={20} color="#fff" />
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </Animated.View>
 
         {/* ============================================================ */}
@@ -727,7 +726,13 @@ const styles = StyleSheet.create({
   // Phase 1: Onboarding Details Page
   detailsWrapper: {
     flex: 1,
+    width: '100%',
+  },
+  detailsScrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 24,
+    paddingTop: 10,
+    paddingBottom: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },

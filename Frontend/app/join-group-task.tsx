@@ -9,6 +9,7 @@ import {
   Dimensions,
   Pressable,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -245,7 +246,7 @@ export default function JoinGroupTaskScreen() {
     if (isLoading) return;
     setIsLoading(true);
 
-    let pointsData = { pointsAdded: '300', totalPoints: '0', streak: '0' };
+    let pointsData = { pointsAdded: '600', totalPoints: '0', streak: '0' };
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
@@ -265,7 +266,7 @@ export default function JoinGroupTaskScreen() {
             pointsAdded:
               data.points_rewarded?.toString() ||
               data.pointsAdded?.toString() ||
-              '300',
+              '600',
             totalPoints: data.totalPoints?.toString() || '0',
             streak: data.streak?.toString() || '0',
           };
@@ -395,92 +396,98 @@ export default function JoinGroupTaskScreen() {
           style={[styles.detailsWrapper, { opacity: uiFadeAnim }]}
           pointerEvents={phase === 'details' ? 'auto' : 'none'}
         >
-          {/* Top Hero: Elegant Empty Chair with Sunlight Rays */}
-          <View style={styles.heroChairContainer}>
-            <View style={styles.heroChairFrame}>
-              <LinearGradient
-                colors={['rgba(245, 158, 11, 0.35)', 'rgba(41, 37, 36, 0.9)']}
-                style={StyleSheet.absoluteFillObject}
-              />
-              <MaterialCommunityIcons name="chair-rolling" size={48} color="#fbbf24" />
-              <Text style={styles.heroChairLabel}>{setting.name}</Text>
-            </View>
-          </View>
-
-          {/* Central Glass Card */}
-          <View style={styles.glassCard}>
-            <Text style={styles.taskTitle}>Join a Small Group</Text>
-            <Text style={styles.taskSubTitle}>Activity</Text>
-
-            {/* Setting Pill */}
-            <View style={styles.settingPill}>
-              <Ionicons name={setting.icon as any} size={14} color="#fbbf24" />
-              <Text style={styles.settingPillText}>{setting.name}</Text>
-            </View>
-
-            {/* Badges Row */}
-            <View style={styles.badgesRow}>
-              <View style={styles.badgePill}>
-                <Feather name="clock" size={13} color="#fbbf24" />
-                <Text style={styles.badgeText}>10 Minutes</Text>
-              </View>
-              <View style={[styles.badgePill, styles.badgeHard]}>
-                <Ionicons name="flame" size={13} color="#ef4444" />
-                <Text style={[styles.badgeText, { color: '#ef4444' }]}>
-                  ⭐⭐⭐ Hard
-                </Text>
-              </View>
-              <View style={[styles.badgePill, styles.badgePoints]}>
-                <Ionicons name="trophy" size={13} color="#f59e0b" />
-                <Text style={[styles.badgeText, { color: '#f59e0b' }]}>
-                  300 Points
-                </Text>
+          <ScrollView
+            style={{ width: '100%' }}
+            contentContainerStyle={styles.detailsScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Top Hero: Elegant Empty Chair with Sunlight Rays */}
+            <View style={styles.heroChairContainer}>
+              <View style={styles.heroChairFrame}>
+                <LinearGradient
+                  colors={['rgba(245, 158, 11, 0.35)', 'rgba(41, 37, 36, 0.9)']}
+                  style={StyleSheet.absoluteFillObject}
+                />
+                <MaterialCommunityIcons name="chair-rolling" size={48} color="#fbbf24" />
+                <Text style={styles.heroChairLabel}>{setting.name}</Text>
               </View>
             </View>
 
-            {/* Description Text */}
-            <Text style={styles.descriptionText}>
-              Belonging doesn't begin when you're invited. It begins when you choose to arrive.{'\n\n'}
-              Today, comfortably join an existing small group activity—joining friends for a walk, sitting with people in a café, or joining classmates.{'\n'}
-              The emphasis is participation, not performance.
-            </Text>
+            {/* Central Glass Card */}
+            <View style={styles.glassCard}>
+              <Text style={styles.taskTitle}>Join a Small Group</Text>
+              <Text style={styles.taskSubTitle}>Activity</Text>
 
-            {/* Quote Box */}
-            <View style={styles.quoteBox}>
-              <Feather name="coffee" size={18} color="#f59e0b" style={{ marginRight: 8 }} />
-              <Text style={styles.quoteText}>
-                "Belonging doesn't begin when you're invited. It begins when you choose to arrive."
+              {/* Setting Pill */}
+              <View style={styles.settingPill}>
+                <Ionicons name={setting.icon as any} size={14} color="#fbbf24" />
+                <Text style={styles.settingPillText}>{setting.name}</Text>
+              </View>
+
+              {/* Badges Row */}
+              <View style={styles.badgesRow}>
+                <View style={styles.badgePill}>
+                  <Feather name="clock" size={13} color="#fbbf24" />
+                  <Text style={styles.badgeText}>10 Minutes</Text>
+                </View>
+                <View style={[styles.badgePill, styles.badgeHard]}>
+                  <Ionicons name="flame" size={13} color="#ef4444" />
+                  <Text style={[styles.badgeText, { color: '#ef4444' }]}>
+                    ⭐⭐⭐ Hard
+                  </Text>
+                </View>
+                <View style={[styles.badgePill, styles.badgePoints]}>
+                  <Ionicons name="trophy" size={13} color="#f59e0b" />
+                  <Text style={[styles.badgeText, { color: '#f59e0b' }]}>
+                    600 Points
+                  </Text>
+                </View>
+              </View>
+
+              {/* Description Text */}
+              <Text style={styles.descriptionText}>
+                Belonging doesn't begin when you're invited. It begins when you choose to arrive.{'\n\n'}
+                Today, comfortably join an existing small group activity—joining friends for a walk, sitting with people in a café, or joining classmates.{'\n'}
+                The emphasis is participation, not performance.
               </Text>
-            </View>
 
-            {/* Present Together Achievement Banner */}
-            <View style={styles.badgeBanner}>
-              <Text style={styles.badgeBannerEmoji}>🏅</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.badgeBannerTitle}>Present Together</Text>
-                <Text style={styles.badgeBannerSub}>
-                  Unlock achievement by discovering that belonging begins by showing up
+              {/* Quote Box */}
+              <View style={styles.quoteBox}>
+                <Feather name="coffee" size={18} color="#f59e0b" style={{ marginRight: 8 }} />
+                <Text style={styles.quoteText}>
+                  "Belonging doesn't begin when you're invited. It begins when you choose to arrive."
                 </Text>
               </View>
-            </View>
 
-            {/* Start Button */}
-            <TouchableOpacity
-              style={styles.startButton}
-              onPress={startChallenge}
-              activeOpacity={0.88}
-            >
-              <LinearGradient
-                colors={['#b45309', '#f59e0b']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.startBtnGradient}
+              {/* Present Together Achievement Banner */}
+              <View style={styles.badgeBanner}>
+                <Text style={styles.badgeBannerEmoji}>🏅</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.badgeBannerTitle}>Present Together</Text>
+                  <Text style={styles.badgeBannerSub}>
+                    Unlock achievement by discovering that belonging begins by showing up
+                  </Text>
+                </View>
+              </View>
+
+              {/* Start Button */}
+              <TouchableOpacity
+                style={styles.startButton}
+                onPress={startChallenge}
+                activeOpacity={0.88}
               >
-                <Text style={styles.startBtnText}>ENTER THE EMPTY CHAIR</Text>
-                <Feather name="arrow-right" size={20} color="#fff" />
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
+                <LinearGradient
+                  colors={['#b45309', '#f59e0b']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.startBtnGradient}
+                >
+                  <Text style={styles.startBtnText}>ENTER THE EMPTY CHAIR</Text>
+                  <Feather name="arrow-right" size={20} color="#fff" />
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </Animated.View>
 
         {/* ============================================================ */}
@@ -704,7 +711,13 @@ const styles = StyleSheet.create({
   // Phase 1: Details Page
   detailsWrapper: {
     flex: 1,
+    width: '100%',
+  },
+  detailsScrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 24,
+    paddingTop: 10,
+    paddingBottom: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },

@@ -9,6 +9,7 @@ import {
   Dimensions,
   Pressable,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -41,36 +42,56 @@ export default function SocialObserverTaskScreen() {
   const [isLoading, setIsLoading] = useState(false);
 
   // Dynamic Scene Text
-  const [displayText, setDisplayText] = useState('Before joining...');
+  const [displayText, setDisplayText] = useState('Quiet observation reveals invisible connections.');
   const [subDisplayText, setSubDisplayText] = useState<string | null>(null);
 
   // Animation Refs
   const uiFadeAnim = useRef(new Animated.Value(1)).current;
   const sceneFadeAnim = useRef(new Animated.Value(0)).current;
 
-  // Theatre Spotlight & Lighting Animations
-  const spotlightFocusNode = useRef(new Animated.Value(1)).current; // 1 to 4 focus target
-  const spotlightOpacity = useRef(new Animated.Value(0.4)).current;
-  const equalRoomLightAnim = useRef(new Animated.Value(0)).current; // Full equal illumination at 5:00
-  const nodePulseAnim = useRef(new Animated.Value(0)).current;
+  // Visual Atmosphere & Dynamic Node Connections
+  const spotlightGlowAnim = useRef(new Animated.Value(0.3)).current;
+  const nodePulseAnim = useRef(new Animated.Value(1)).current;
+  const connectionLineAnim = useRef(new Animated.Value(0)).current; // Fades in shared flow lines
+  const warmAmberFill = useRef(new Animated.Value(0)).current; // 5:00 full amber glow
 
   // Final Cinematic
+  const finalZoomAnim = useRef(new Animated.Value(1)).current;
   const shieldScaleAnim = useRef(new Animated.Value(0)).current;
   const shieldOpacityAnim = useRef(new Animated.Value(0)).current;
 
-  // Ambient Breathing & Spotlight Pulse Loops
+  // Ambient Spotlight & Node Breath Loops
   useEffect(() => {
+    // Spotlight Breathing
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(spotlightGlowAnim, {
+          toValue: 0.8,
+          duration: 3500,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(spotlightGlowAnim, {
+          toValue: 0.35,
+          duration: 3500,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Subtle pulsing of communicative nodes
     Animated.loop(
       Animated.sequence([
         Animated.timing(nodePulseAnim, {
-          toValue: 1,
-          duration: 3000,
+          toValue: 1.15,
+          duration: 2200,
           easing: Easing.inOut(Easing.sin),
           useNativeDriver: true,
         }),
         Animated.timing(nodePulseAnim, {
-          toValue: 0,
-          duration: 3000,
+          toValue: 1,
+          duration: 2200,
           easing: Easing.inOut(Easing.sin),
           useNativeDriver: true,
         }),
@@ -87,74 +108,42 @@ export default function SocialObserverTaskScreen() {
     if (phase !== 'active' || isPaused) return;
 
     if (elapsedTime === 0) {
-      // 0:00 - Lights slowly brighten over stage
-      setDisplayText('Before joining...');
+      // 0:00 - Theater stage spotlight illuminates the social space
+      setDisplayText('Quiet observation reveals invisible connections.');
       setSubDisplayText(null);
-
-      setTimeout(() => {
-        setSubDisplayText('Simply notice.');
-      }, 2500);
     } else if (elapsedTime === 60) {
-      // 1:00 - Spotlight on Node 1 (Speaker)
-      setDisplayText('Every group has its own rhythm.');
-      setSubDisplayText(null);
+      // 1:00 - Notice the flow of turns
+      setDisplayText('Notice the conversational rhythm.');
+      setSubDisplayText('Who speaks? Who listens? Where does attention flow?');
 
-      Animated.timing(spotlightFocusNode, {
+      Animated.timing(connectionLineAnim, {
         toValue: 1,
-        duration: 2500,
+        duration: 3000,
         useNativeDriver: true,
       }).start();
     } else if (elapsedTime === 120) {
-      // 2:00 - Spotlight shifts to Node 2 (Listener/Second Speaker)
-      setDisplayText('Not everyone leads.');
+      // 2:00 - Energy shifts
+      setDisplayText('Observe subtle shifts in tone and posture.');
       setSubDisplayText(null);
-
-      Animated.timing(spotlightFocusNode, {
-        toValue: 2,
-        duration: 3000,
-        easing: Easing.inOut(Easing.ease),
-        useNativeDriver: true,
-      }).start();
-
-      setTimeout(() => {
-        setSubDisplayText("And that's okay.");
-      }, 2500);
-    } else if (elapsedTime === 180) {
-      // 3:00 - Spotlight highlights non-verbal body language
-      setDisplayText("Connection isn't only words.");
-      setSubDisplayText(null);
-
-      Animated.timing(spotlightFocusNode, {
-        toValue: 3,
-        duration: 3000,
-        easing: Easing.inOut(Easing.ease),
-        useNativeDriver: true,
-      }).start();
     } else if (elapsedTime === 240) {
-      // 4:00 - Group conversation flows naturally across all participants
-      setDisplayText('Observe the flow before entering it.');
+      // 4:00 - Calm understanding settles
+      setDisplayText('You are attuned to the natural social rhythm.');
       setSubDisplayText(null);
-
-      Animated.timing(spotlightFocusNode, {
-        toValue: 4,
-        duration: 3000,
-        easing: Easing.inOut(Easing.ease),
-        useNativeDriver: true,
-      }).start();
     } else if (elapsedTime >= 300) {
-      // 5:00 - Theatre lights soften into full equal illumination
-      setDisplayText('You understand the space.');
+      // 5:00 - Complete harmony illumination
+      setDisplayText('Observation creates confidence.');
       setSubDisplayText(null);
 
       Animated.parallel([
-        Animated.timing(equalRoomLightAnim, {
+        Animated.timing(warmAmberFill, {
           toValue: 1,
           duration: 3500,
           useNativeDriver: true,
         }),
-        Animated.timing(spotlightOpacity, {
-          toValue: 0.1,
+        Animated.timing(finalZoomAnim, {
+          toValue: 1.12,
           duration: 3500,
+          easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
       ]).start();
@@ -198,7 +187,7 @@ export default function SocialObserverTaskScreen() {
   };
 
   // ----------------------------------------------------
-  // FINAL CINEMATIC (Spotlight Disappears -> Social Observer)
+  // FINAL CINEMATIC (Social Intuition Achievement)
   // ----------------------------------------------------
   const startFinalCinematic = () => {
     setPhase('cinematic');
@@ -246,7 +235,7 @@ export default function SocialObserverTaskScreen() {
     if (isLoading) return;
     setIsLoading(true);
 
-    let pointsData = { pointsAdded: '200', totalPoints: '0', streak: '0' };
+    let pointsData = { pointsAdded: '300', totalPoints: '0', streak: '0' };
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
@@ -266,7 +255,7 @@ export default function SocialObserverTaskScreen() {
             pointsAdded:
               data.points_rewarded?.toString() ||
               data.pointsAdded?.toString() ||
-              '200',
+              '300',
             totalPoints: data.totalPoints?.toString() || '0',
             streak: data.streak?.toString() || '0',
           };
@@ -285,10 +274,10 @@ export default function SocialObserverTaskScreen() {
         points: pointsData.pointsAdded,
         totalPoints: pointsData.totalPoints,
         streak: pointsData.streak,
-        message: 'You understood the space.',
+        message: 'You learned the rhythm of connection.',
         difficulty: 'medium',
         taskName: 'Observe Group Dynamics',
-        badge: 'Social Observer',
+        badge: 'Social Intuition',
       },
     } as any);
   };
@@ -316,21 +305,33 @@ export default function SocialObserverTaskScreen() {
     <View style={styles.container}>
       <StatusBar style="light" />
 
-      {/* The Social Stage Deep Burgundy & Theatre Lighting Environment */}
+      {/* Atmospheric Rich Burgundy & Golden Spotlight Atmosphere */}
       <View style={StyleSheet.absoluteFillObject}>
-        {/* Base Burgundy & Walnut Brown Gradient */}
+        {/* Base Wine & Dark Velvet Gradient */}
         <LinearGradient
-          colors={['#4c0519', '#881337', '#451a03', '#4c0519']}
+          colors={['#180509', '#2d0612', '#4c0519', '#180509']}
           style={StyleSheet.absoluteFillObject}
         />
 
-        {/* Full Equal Room Illumination at 5:00 */}
+        {/* Ambient Golden Stage Light */}
         <Animated.View
           style={[
             StyleSheet.absoluteFillObject,
             {
-              opacity: equalRoomLightAnim,
-              backgroundColor: 'rgba(254, 240, 138, 0.18)',
+              opacity: spotlightGlowAnim,
+              backgroundColor: 'rgba(251, 191, 36, 0.14)',
+            },
+          ]}
+          pointerEvents="none"
+        />
+
+        {/* Full Amber Light Saturation at 5:00 */}
+        <Animated.View
+          style={[
+            StyleSheet.absoluteFillObject,
+            {
+              opacity: warmAmberFill,
+              backgroundColor: 'rgba(245, 158, 11, 0.22)',
             },
           ]}
           pointerEvents="none"
@@ -379,84 +380,90 @@ export default function SocialObserverTaskScreen() {
           style={[styles.detailsWrapper, { opacity: uiFadeAnim }]}
           pointerEvents={phase === 'details' ? 'auto' : 'none'}
         >
-          {/* Top Hero: Theatre Stage Spotlight & Masks */}
-          <View style={styles.heroStageContainer}>
-            <View style={styles.heroStageFrame}>
-              <LinearGradient
-                colors={['rgba(251, 191, 36, 0.35)', 'rgba(76, 5, 25, 0.9)']}
-                style={StyleSheet.absoluteFillObject}
-              />
-              <MaterialCommunityIcons name="theater" size={48} color="#fbbf24" />
-              <Text style={styles.heroStageLabel}>THE SOCIAL STAGE</Text>
-            </View>
-          </View>
-
-          {/* Central Glass Card */}
-          <View style={styles.glassCard}>
-            <Text style={styles.taskTitle}>Observe Group Dynamics</Text>
-
-            {/* Badges Row */}
-            <View style={styles.badgesRow}>
-              <View style={styles.badgePill}>
-                <Feather name="clock" size={13} color="#fbbf24" />
-                <Text style={styles.badgeText}>5 Minutes</Text>
-              </View>
-              <View style={[styles.badgePill, styles.badgeMedium]}>
-                <Ionicons name="flame" size={13} color="#fbbf24" />
-                <Text style={[styles.badgeText, { color: '#fbbf24' }]}>
-                  ⭐⭐ Medium
-                </Text>
-              </View>
-              <View style={[styles.badgePill, styles.badgePoints]}>
-                <Ionicons name="trophy" size={13} color="#f59e0b" />
-                <Text style={[styles.badgeText, { color: '#f59e0b' }]}>
-                  200 Points
-                </Text>
+          <ScrollView
+            style={{ width: '100%' }}
+            contentContainerStyle={styles.detailsScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Top Hero: Theatre Stage Spotlight & Masks */}
+            <View style={styles.heroStageContainer}>
+              <View style={styles.heroStageFrame}>
+                <LinearGradient
+                  colors={['rgba(251, 191, 36, 0.35)', 'rgba(76, 5, 25, 0.9)']}
+                  style={StyleSheet.absoluteFillObject}
+                />
+                <MaterialCommunityIcons name="theater" size={48} color="#fbbf24" />
+                <Text style={styles.heroStageLabel}>THE SOCIAL STAGE</Text>
               </View>
             </View>
 
-            {/* Description Text */}
-            <Text style={styles.descriptionText}>
-              Those who understand the rhythm of a group rarely feel out of place.{'\n\n'}
-              Today, quietly observe how a small group naturally communicates—notice the rhythm, energy, body language, and turn-taking before participating.
-            </Text>
+            {/* Central Glass Card */}
+            <View style={styles.glassCard}>
+              <Text style={styles.taskTitle}>Observe Group Dynamics</Text>
 
-            {/* Quote Box */}
-            <View style={styles.quoteBox}>
-              <Feather name="eye" size={18} color="#fbbf24" style={{ marginRight: 8 }} />
-              <Text style={styles.quoteText}>
-                "Those who understand the rhythm of a group rarely feel out of place."
+              {/* Badges Row */}
+              <View style={styles.badgesRow}>
+                <View style={styles.badgePill}>
+                  <Feather name="clock" size={13} color="#fbbf24" />
+                  <Text style={styles.badgeText}>5 Minutes</Text>
+                </View>
+                <View style={[styles.badgePill, styles.badgeMedium]}>
+                  <Ionicons name="flame" size={13} color="#fbbf24" />
+                  <Text style={[styles.badgeText, { color: '#fbbf24' }]}>
+                    ⭐⭐ Medium
+                  </Text>
+                </View>
+                <View style={[styles.badgePill, styles.badgePoints]}>
+                  <Ionicons name="trophy" size={13} color="#f59e0b" />
+                  <Text style={[styles.badgeText, { color: '#f59e0b' }]}>
+                    300 Points
+                  </Text>
+                </View>
+              </View>
+
+              {/* Description Text */}
+              <Text style={styles.descriptionText}>
+                Those who understand the rhythm of a group rarely feel out of place.{'\n\n'}
+                Today, quietly observe how a small group naturally communicates—notice the rhythm, energy, body language, and turn-taking before participating.
               </Text>
-            </View>
 
-            {/* Social Observer Achievement Banner */}
-            <View style={styles.badgeBanner}>
-              <Text style={styles.badgeBannerEmoji}>🏅</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.badgeBannerTitle}>Social Observer</Text>
-                <Text style={styles.badgeBannerSub}>
-                  Unlock achievement by becoming a great observer of group rhythm
+              {/* Quote Box */}
+              <View style={styles.quoteBox}>
+                <Feather name="eye" size={18} color="#fbbf24" style={{ marginRight: 8 }} />
+                <Text style={styles.quoteText}>
+                  "Those who understand the rhythm of a group rarely feel out of place."
                 </Text>
               </View>
-            </View>
 
-            {/* Start Button */}
-            <TouchableOpacity
-              style={styles.startButton}
-              onPress={startChallenge}
-              activeOpacity={0.88}
-            >
-              <LinearGradient
-                colors={['#881337', '#fbbf24']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.startBtnGradient}
+              {/* Social Intuition Achievement Banner */}
+              <View style={styles.badgeBanner}>
+                <Text style={styles.badgeBannerEmoji}>🏅</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.badgeBannerTitle}>Social Intuition</Text>
+                  <Text style={styles.badgeBannerSub}>
+                    Unlock achievement by observing group conversation dynamics
+                  </Text>
+                </View>
+              </View>
+
+              {/* Start Button */}
+              <TouchableOpacity
+                style={styles.startButton}
+                onPress={startChallenge}
+                activeOpacity={0.88}
               >
-                <Text style={styles.startBtnText}>ENTER THE SOCIAL STAGE</Text>
-                <Feather name="arrow-right" size={20} color="#fff" />
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
+                <LinearGradient
+                  colors={['#b45309', '#f59e0b']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.startBtnGradient}
+                >
+                  <Text style={styles.startBtnText}>BEGIN OBSERVATION</Text>
+                  <Feather name="arrow-right" size={20} color="#fff" />
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </Animated.View>
 
         {/* ============================================================ */}
@@ -669,7 +676,13 @@ const styles = StyleSheet.create({
   // Phase 1: Onboarding Details Page
   detailsWrapper: {
     flex: 1,
+    width: '100%',
+  },
+  detailsScrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 24,
+    paddingTop: 10,
+    paddingBottom: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },

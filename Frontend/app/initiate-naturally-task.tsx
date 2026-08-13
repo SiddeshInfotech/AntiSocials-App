@@ -9,6 +9,7 @@ import {
   Dimensions,
   Pressable,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -317,7 +318,7 @@ export default function InitiateNaturallyTaskScreen() {
     if (isLoading) return;
     setIsLoading(true);
 
-    let pointsData = { pointsAdded: '300', totalPoints: '0', streak: '0' };
+    let pointsData = { pointsAdded: '600', totalPoints: '0', streak: '0' };
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
@@ -337,7 +338,7 @@ export default function InitiateNaturallyTaskScreen() {
             pointsAdded:
               data.points_rewarded?.toString() ||
               data.pointsAdded?.toString() ||
-              '300',
+              '600',
             totalPoints: data.totalPoints?.toString() || '0',
             streak: data.streak?.toString() || '0',
           };
@@ -477,101 +478,107 @@ export default function InitiateNaturallyTaskScreen() {
           style={[styles.detailsWrapper, { opacity: uiFadeAnim }]}
           pointerEvents={phase === 'details' ? 'auto' : 'none'}
         >
-          {/* Top Animated Open Window Hero */}
-          <View style={styles.heroWindowContainer}>
-            <View style={styles.heroWindowFrame}>
-              <View style={styles.heroSunbeamRay} />
+          <ScrollView
+            style={{ width: '100%' }}
+            contentContainerStyle={styles.detailsScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Top Animated Open Window Hero */}
+            <View style={styles.heroWindowContainer}>
+              <View style={styles.heroWindowFrame}>
+                <View style={styles.heroSunbeamRay} />
 
-              {/* Animated Sheer Curtains */}
-              <Animated.View
-                style={[
-                  styles.heroCurtainLeft,
-                  { transform: [{ rotateZ: curtainSwayLeft }] },
-                ]}
-              />
-              <Animated.View
-                style={[
-                  styles.heroCurtainRight,
-                  { transform: [{ rotateZ: curtainSwayRight }] },
-                ]}
-              />
+                {/* Animated Sheer Curtains */}
+                <Animated.View
+                  style={[
+                    styles.heroCurtainLeft,
+                    { transform: [{ rotateZ: curtainSwayLeft }] },
+                  ]}
+                />
+                <Animated.View
+                  style={[
+                    styles.heroCurtainRight,
+                    { transform: [{ rotateZ: curtainSwayRight }] },
+                  ]}
+                />
 
-              {/* Window Glass Pane & Leaves */}
-              <View style={styles.heroWindowCenter}>
-                <Ionicons name="leaf-outline" size={32} color="#84a98c" />
-                <Text style={styles.heroWindowLabel}>NATURAL OPENNESS</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Central Glass Panel */}
-          <View style={styles.glassCard}>
-            <Text style={styles.taskTitle}>Initiate Conversation</Text>
-            <Text style={styles.taskSubTitle}>Naturally</Text>
-
-            {/* Badges Row */}
-            <View style={styles.badgesRow}>
-              <View style={styles.badgePill}>
-                <Feather name="clock" size={13} color="#84a98c" />
-                <Text style={styles.badgeText}>5 Minutes</Text>
-              </View>
-              <View style={[styles.badgePill, styles.badgeHard]}>
-                <Ionicons name="flame" size={13} color="#ef4444" />
-                <Text style={[styles.badgeText, { color: '#ef4444' }]}>
-                  ⭐⭐⭐ Hard
-                </Text>
-              </View>
-              <View style={[styles.badgePill, styles.badgePoints]}>
-                <Ionicons name="trophy" size={13} color="#f59e0b" />
-                <Text style={[styles.badgeText, { color: '#f59e0b' }]}>
-                  300 Points
-                </Text>
+                {/* Window Glass Pane & Leaves */}
+                <View style={styles.heroWindowCenter}>
+                  <Ionicons name="leaf-outline" size={32} color="#84a98c" />
+                  <Text style={styles.heroWindowLabel}>NATURAL OPENNESS</Text>
+                </View>
               </View>
             </View>
 
-            {/* Description Text */}
-            <Text style={styles.descriptionText}>
-              Not every conversation needs planning.{'\n'}
-              Some simply begin because you're open enough to notice the moment.{'\n\n'}
-              Today's challenge is to recognize one natural opportunity and respond comfortably. Stay relaxed. Stay curious.
-            </Text>
+            {/* Central Glass Panel */}
+            <View style={styles.glassCard}>
+              <Text style={styles.taskTitle}>Initiate Conversation</Text>
+              <Text style={styles.taskSubTitle}>Naturally</Text>
 
-            {/* Quote Box */}
-            <View style={styles.quoteBox}>
-              <Feather name="sun" size={18} color="#84a98c" style={{ marginRight: 8 }} />
-              <Text style={styles.quoteText}>
-                "Real conversations rarely begin with perfect words. They begin with openness."
+              {/* Badges Row */}
+              <View style={styles.badgesRow}>
+                <View style={styles.badgePill}>
+                  <Feather name="clock" size={13} color="#84a98c" />
+                  <Text style={styles.badgeText}>5 Minutes</Text>
+                </View>
+                <View style={[styles.badgePill, styles.badgeHard]}>
+                  <Ionicons name="flame" size={13} color="#ef4444" />
+                  <Text style={[styles.badgeText, { color: '#ef4444' }]}>
+                    ⭐⭐⭐ Hard
+                  </Text>
+                </View>
+                <View style={[styles.badgePill, styles.badgePoints]}>
+                  <Ionicons name="trophy" size={13} color="#f59e0b" />
+                  <Text style={[styles.badgeText, { color: '#f59e0b' }]}>
+                    600 Points
+                  </Text>
+                </View>
+              </View>
+
+              {/* Description Text */}
+              <Text style={styles.descriptionText}>
+                Not every conversation needs planning.{'\n'}
+                Some simply begin because you're open enough to notice the moment.{'\n\n'}
+                Today's challenge is to recognize one natural opportunity and respond comfortably. Stay relaxed. Stay curious.
               </Text>
-            </View>
 
-            {/* Natural Connector Achievement Banner */}
-            <View style={styles.badgeBanner}>
-              <Text style={styles.badgeBannerEmoji}>🏅</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.badgeBannerTitle}>Natural Connector</Text>
-                <Text style={styles.badgeBannerSub}>
-                  Unlock achievement by entering conversation comfortably
+              {/* Quote Box */}
+              <View style={styles.quoteBox}>
+                <Feather name="sun" size={18} color="#84a98c" style={{ marginRight: 8 }} />
+                <Text style={styles.quoteText}>
+                  "Real conversations rarely begin with perfect words. They begin with openness."
                 </Text>
               </View>
-            </View>
 
-            {/* Start Button */}
-            <TouchableOpacity
-              style={styles.startButton}
-              onPress={startChallenge}
-              activeOpacity={0.88}
-            >
-              <LinearGradient
-                colors={['#52796f', '#84a98c']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.startBtnGradient}
+              {/* Natural Connector Achievement Banner */}
+              <View style={styles.badgeBanner}>
+                <Text style={styles.badgeBannerEmoji}>🏅</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.badgeBannerTitle}>Natural Connector</Text>
+                  <Text style={styles.badgeBannerSub}>
+                    Unlock achievement by entering conversation comfortably
+                  </Text>
+                </View>
+              </View>
+
+              {/* Start Button */}
+              <TouchableOpacity
+                style={styles.startButton}
+                onPress={startChallenge}
+                activeOpacity={0.88}
               >
-                <Text style={styles.startBtnText}>ENTER THE FLOW WINDOW</Text>
-                <Feather name="arrow-right" size={20} color="#fff" />
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
+                <LinearGradient
+                  colors={['#52796f', '#84a98c']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.startBtnGradient}
+                >
+                  <Text style={styles.startBtnText}>ENTER THE FLOW WINDOW</Text>
+                  <Feather name="arrow-right" size={20} color="#fff" />
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </Animated.View>
 
         {/* ============================================================ */}
@@ -811,7 +818,13 @@ const styles = StyleSheet.create({
   // Phase 1: Onboarding / Details Page
   detailsWrapper: {
     flex: 1,
+    width: '100%',
+  },
+  detailsScrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 24,
+    paddingTop: 10,
+    paddingBottom: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },

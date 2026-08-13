@@ -9,6 +9,7 @@ import {
   Dimensions,
   Pressable,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -275,7 +276,7 @@ export default function Stage2FinalTaskScreen() {
     if (isLoading) return;
     setIsLoading(true);
 
-    let pointsData = { pointsAdded: '300', totalPoints: '0', streak: '0' };
+    let pointsData = { pointsAdded: '600', totalPoints: '0', streak: '0' };
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
@@ -295,7 +296,7 @@ export default function Stage2FinalTaskScreen() {
             pointsAdded:
               data.points_rewarded?.toString() ||
               data.pointsAdded?.toString() ||
-              '300',
+              '600',
             totalPoints: data.totalPoints?.toString() || '0',
             streak: data.streak?.toString() || '0',
           };
@@ -442,86 +443,92 @@ export default function Stage2FinalTaskScreen() {
           style={[styles.detailsWrapper, { opacity: uiFadeAnim }]}
           pointerEvents={phase === 'details' ? 'auto' : 'none'}
         >
-          {/* Top Hero: Architectural Doorway with Sunlight Rays */}
-          <View style={styles.heroDoorContainer}>
-            <View style={styles.heroDoorFrame}>
-              <LinearGradient
-                colors={['rgba(245, 158, 11, 0.4)', 'rgba(41, 37, 36, 0.9)']}
-                style={StyleSheet.absoluteFillObject}
-              />
-              <MaterialCommunityIcons name="door-open" size={48} color="#f59e0b" />
-              <Text style={styles.heroDoorLabel}>STAGE 2 GRAND FINALE</Text>
-            </View>
-          </View>
-
-          {/* Central Glass Panel */}
-          <View style={styles.glassCard}>
-            <Text style={styles.taskTitle}>Final Reflection</Text>
-            <Text style={styles.taskSubTitle}>(Stage 2 Completion)</Text>
-
-            {/* Badges Row */}
-            <View style={styles.badgesRow}>
-              <View style={styles.badgePill}>
-                <Feather name="clock" size={13} color="#f59e0b" />
-                <Text style={styles.badgeText}>5 Minutes</Text>
-              </View>
-              <View style={[styles.badgePill, styles.badgeHard]}>
-                <Ionicons name="flame" size={13} color="#ef4444" />
-                <Text style={[styles.badgeText, { color: '#ef4444' }]}>
-                  ⭐⭐⭐ Hard
-                </Text>
-              </View>
-              <View style={[styles.badgePill, styles.badgePoints]}>
-                <Ionicons name="trophy" size={13} color="#f59e0b" />
-                <Text style={[styles.badgeText, { color: '#f59e0b' }]}>
-                  300 Points
-                </Text>
+          <ScrollView
+            style={{ width: '100%' }}
+            contentContainerStyle={styles.detailsScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Top Hero: Architectural Doorway with Sunlight Rays */}
+            <View style={styles.heroDoorContainer}>
+              <View style={styles.heroDoorFrame}>
+                <LinearGradient
+                  colors={['rgba(245, 158, 11, 0.4)', 'rgba(41, 37, 36, 0.9)']}
+                  style={StyleSheet.absoluteFillObject}
+                />
+                <MaterialCommunityIcons name="door-open" size={48} color="#f59e0b" />
+                <Text style={styles.heroDoorLabel}>STAGE 2 GRAND FINALE</Text>
               </View>
             </View>
 
-            {/* Description Text */}
-            <Text style={styles.descriptionText}>
-              You are no longer the same person who started this journey.{'\n\n'}
-              Over the past challenges you learned to face discomfort, stay present, speak honestly, connect with people, and build courage.{'\n\n'}
-              Today isn't about doing more. It's about recognizing who you've become.
-            </Text>
+            {/* Central Glass Panel */}
+            <View style={styles.glassCard}>
+              <Text style={styles.taskTitle}>Final Reflection</Text>
+              <Text style={styles.taskSubTitle}>(Stage 2 Completion)</Text>
 
-            {/* Quote Box */}
-            <View style={styles.quoteBox}>
-              <Feather name="sun" size={18} color="#f59e0b" style={{ marginRight: 8 }} />
-              <Text style={styles.quoteText}>
-                "The goal was never to become fearless. The goal was to stop letting fear decide."
+              {/* Badges Row */}
+              <View style={styles.badgesRow}>
+                <View style={styles.badgePill}>
+                  <Feather name="clock" size={13} color="#f59e0b" />
+                  <Text style={styles.badgeText}>5 Minutes</Text>
+                </View>
+                <View style={[styles.badgePill, styles.badgeHard]}>
+                  <Ionicons name="flame" size={13} color="#ef4444" />
+                  <Text style={[styles.badgeText, { color: '#ef4444' }]}>
+                    ⭐⭐⭐ Hard
+                  </Text>
+                </View>
+                <View style={[styles.badgePill, styles.badgePoints]}>
+                  <Ionicons name="trophy" size={13} color="#f59e0b" />
+                  <Text style={[styles.badgeText, { color: '#f59e0b' }]}>
+                    600 Points
+                  </Text>
+                </View>
+              </View>
+
+              {/* Description Text */}
+              <Text style={styles.descriptionText}>
+                You are no longer the same person who started this journey.{'\n\n'}
+                Over the past challenges you learned to face discomfort, stay present, speak honestly, connect with people, and build courage.{'\n\n'}
+                Today isn't about doing more. It's about recognizing who you've become.
               </Text>
-            </View>
 
-            {/* Stage 2 Completion Badge Banner */}
-            <View style={styles.badgeBanner}>
-              <Text style={styles.badgeBannerEmoji}>🏆</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.badgeBannerTitle}>Social Explorer</Text>
-                <Text style={styles.badgeBannerSub}>
-                  Complete Stage 2 & automatically unlock Stage 3
+              {/* Quote Box */}
+              <View style={styles.quoteBox}>
+                <Feather name="sun" size={18} color="#f59e0b" style={{ marginRight: 8 }} />
+                <Text style={styles.quoteText}>
+                  "The goal was never to become fearless. The goal was to stop letting fear decide."
                 </Text>
               </View>
-            </View>
 
-            {/* Start Button */}
-            <TouchableOpacity
-              style={styles.startButton}
-              onPress={startChallenge}
-              activeOpacity={0.88}
-            >
-              <LinearGradient
-                colors={['#d97706', '#f59e0b']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.startBtnGradient}
+              {/* Stage 2 Completion Badge Banner */}
+              <View style={styles.badgeBanner}>
+                <Text style={styles.badgeBannerEmoji}>🏆</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.badgeBannerTitle}>Social Explorer</Text>
+                  <Text style={styles.badgeBannerSub}>
+                    Complete Stage 2 & automatically unlock Stage 3
+                  </Text>
+                </View>
+              </View>
+
+              {/* Start Button */}
+              <TouchableOpacity
+                style={styles.startButton}
+                onPress={startChallenge}
+                activeOpacity={0.88}
               >
-                <Text style={styles.startBtnText}>ENTER THE RETURN GATE</Text>
-                <Feather name="arrow-right" size={20} color="#fff" />
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
+                <LinearGradient
+                  colors={['#d97706', '#f59e0b']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.startBtnGradient}
+                >
+                  <Text style={styles.startBtnText}>ENTER THE RETURN GATE</Text>
+                  <Feather name="arrow-right" size={20} color="#fff" />
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </Animated.View>
 
         {/* ============================================================ */}
@@ -766,7 +773,13 @@ const styles = StyleSheet.create({
   // Phase 1: Onboarding Details
   detailsWrapper: {
     flex: 1,
+    width: '100%',
+  },
+  detailsScrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 24,
+    paddingTop: 10,
+    paddingBottom: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },
