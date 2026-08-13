@@ -177,7 +177,7 @@ export default function ConnectionGraph({
             toValue: item.baseRadius,
             friction: 7,
             tension: 40,
-            useNativeDriver: true,
+            useNativeDriver: false,
           }),
           Animated.spring(lineRadiusAnim, {
             toValue: item.baseRadius,
@@ -253,7 +253,7 @@ export default function ConnectionGraph({
           toValue: targetR,
           friction: 8,
           tension: 40,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
         Animated.spring(node.scaleAnim, {
           toValue: isSelected ? 1.3 : isDimmed ? 0.8 : 1,
