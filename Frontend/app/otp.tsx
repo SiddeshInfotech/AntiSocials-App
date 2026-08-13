@@ -80,10 +80,6 @@ export default function OTPScreen() {
   const confirmationOpacity = useRef(new Animated.Value(0)).current;
   const confirmationTranslateY = useRef(new Animated.Value(8)).current;
 
-  // 4. Cinematic App Transition Values (Zoom & Dissolve)
-  const screenScale = useRef(new Animated.Value(1)).current;
-  const screenOpacity = useRef(new Animated.Value(1)).current;
-
   // Resend cooldown timer
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
@@ -95,7 +91,7 @@ export default function OTPScreen() {
     return () => clearInterval(interval);
   }, [timer]);
 
-  const triggerSuccessAnimation = (destination: string) => {
+  const triggerSuccessAnimation = (destination: string = '/(tabs)') => {
     setIsAnimating(true);
 
     // Reset all animated properties
@@ -115,22 +111,20 @@ export default function OTPScreen() {
 
     confirmationOpacity.setValue(0);
     confirmationTranslateY.setValue(8);
-    screenScale.setValue(1);
-    screenOpacity.setValue(1);
 
     // =========================================================================
-    // STEP 1: FLUID DETACHMENT & MOVE INTO CIRCULAR ORBIT (0 - 450ms)
+    // STEP 1: FLUID DETACHMENT & MOVE INTO CIRCULAR ORBIT (0 - 400ms)
     // =========================================================================
     Animated.parallel([
       Animated.timing(formProgress, {
         toValue: 1,
-        duration: 450,
+        duration: 400,
         easing: Easing.bezier(0.16, 1, 0.3, 1),
         useNativeDriver: true,
       }),
       Animated.timing(trailGlowOpacity, {
         toValue: 0.35,
-        duration: 500,
+        duration: 450,
         useNativeDriver: true,
       }),
       Animated.timing(colorProgress, {
@@ -142,7 +136,7 @@ export default function OTPScreen() {
     ]).start();
 
     // =========================================================================
-    // STEP 2: 3-SECOND CINEMATIC ORBIT ROTATION (400ms - 3400ms)
+    // STEP 2: 3-SECOND CINEMATIC ORBIT ROTATION (380ms - 3380ms)
     // =========================================================================
     setTimeout(() => {
       Animated.timing(orbitRotation, {
@@ -151,10 +145,10 @@ export default function OTPScreen() {
         easing: Easing.bezier(0.25, 0.1, 0.15, 1),
         useNativeDriver: true,
       }).start();
-    }, 400);
+    }, 380);
 
     // =========================================================================
-    // STEP 3: DECELERATE, MERGE INWARD & REVEAL SUCCESS BADGE (3400ms)
+    // STEP 3: DECELERATE, MERGE INWARD & REVEAL SUCCESS BADGE (3380ms)
     // =========================================================================
     setTimeout(() => {
       setIsVerifiedState(true);
@@ -166,25 +160,25 @@ export default function OTPScreen() {
         // Digits smoothly move toward center & fade
         Animated.timing(digitsCollapse, {
           toValue: 0.1,
-          duration: 240,
+          duration: 220,
           easing: Easing.bezier(0.4, 0, 0.2, 1),
           useNativeDriver: true,
         }),
         Animated.timing(digitsOpacity, {
           toValue: 0,
-          duration: 200,
+          duration: 180,
           useNativeDriver: true,
         }),
         Animated.timing(trailGlowOpacity, {
           toValue: 0,
-          duration: 200,
+          duration: 180,
           useNativeDriver: true,
         }),
 
         // Green verification circle springs into center
         Animated.timing(successOpacity, {
           toValue: 1,
-          duration: 200,
+          duration: 180,
           useNativeDriver: true,
         }),
         Animated.spring(successScale, {
@@ -200,7 +194,7 @@ export default function OTPScreen() {
           Animated.parallel([
             Animated.timing(checkOpacity, {
               toValue: 1,
-              duration: 200,
+              duration: 180,
               useNativeDriver: true,
             }),
             Animated.spring(checkScale, {
@@ -218,13 +212,13 @@ export default function OTPScreen() {
           Animated.parallel([
             Animated.timing(auraRippleScale, {
               toValue: 1.6,
-              duration: 700,
+              duration: 650,
               easing: Easing.out(Easing.cubic),
               useNativeDriver: true,
             }),
             Animated.timing(auraRippleOpacity, {
               toValue: 0,
-              duration: 700,
+              duration: 650,
               useNativeDriver: true,
             }),
           ]),
@@ -232,44 +226,30 @@ export default function OTPScreen() {
 
         // "Verified Successfully" text
         Animated.sequence([
-          Animated.delay(120),
+          Animated.delay(100),
           Animated.parallel([
             Animated.timing(confirmationOpacity, {
               toValue: 1,
-              duration: 260,
+              duration: 220,
               useNativeDriver: true,
             }),
             Animated.timing(confirmationTranslateY, {
               toValue: 0,
-              duration: 260,
+              duration: 220,
               easing: Easing.out(Easing.cubic),
               useNativeDriver: true,
             }),
           ]),
         ]),
       ]).start();
-    }, 3400);
+    }, 3380);
 
     // =========================================================================
-    // STEP 4: CINEMATIC ZOOM/FADE APP TRANSITION (4600ms)
+    // STEP 4: DIRECTLY OPEN ANTISOCIAL HOME (NO INTERMEDIATE SCREEN)
     // =========================================================================
     setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(screenScale, {
-          toValue: 1.04,
-          duration: 280,
-          easing: Easing.bezier(0.4, 0, 0.2, 1),
-          useNativeDriver: true,
-        }),
-        Animated.timing(screenOpacity, {
-          toValue: 0,
-          duration: 260,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        router.replace(destination as any);
-      });
-    }, 4600);
+      router.replace(destination as any);
+    }, 4150);
   };
 
   const handleResend = async () => {
@@ -361,7 +341,7 @@ export default function OTPScreen() {
         return;
       }
 
-      // 2. Perform Login or Register
+      // 2. Perform Login or Register (Both navigate directly to Home tabs)
       if (purpose === 'signup') {
         const regRes = await apiFetch('/auth/register', {
           method: "POST",
@@ -389,7 +369,7 @@ export default function OTPScreen() {
           await SecureStore.setItemAsync('userId', regData.user.id.toString());
         }
         setIsLoading(false);
-        triggerSuccessAnimation('/onboarding');
+        triggerSuccessAnimation('/(tabs)');
       } else {
         // purpose === 'login'
         const loginRes = await apiFetch('/auth/login', {
@@ -460,15 +440,7 @@ export default function OTPScreen() {
         style={styles.keyboardView}
       >
         <SafeAreaView style={styles.safeArea}>
-          <Animated.View
-            style={[
-              styles.card,
-              {
-                opacity: screenOpacity,
-                transform: [{ scale: screenScale }],
-              },
-            ]}
-          >
+          <View style={styles.card}>
             {/* Security Shield Icon */}
             <View style={styles.iconContainer}>
               <Feather
@@ -557,7 +529,6 @@ export default function OTPScreen() {
                       ]}
                     >
                       {DIGIT_TRANSITIONS.map((item, index) => {
-                        // Fluid detachment from input position to circular orbit coordinate
                         const translateX = formProgress.interpolate({
                           inputRange: [0, 1],
                           outputRange: [item.xStart, item.xCircle],
@@ -688,7 +659,7 @@ export default function OTPScreen() {
                 )}
               </>
             )}
-          </Animated.View>
+          </View>
         </SafeAreaView>
       </KeyboardAvoidingView>
     </View>

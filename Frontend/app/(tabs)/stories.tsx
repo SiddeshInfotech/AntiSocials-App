@@ -56,14 +56,18 @@ export default function StoriesFeed() {
         return;
       }
 
-      if (response.ok && data.stories) {
-        const unexpiredStories = (data.stories || []).filter((s: any) => !isStoryExpired(s.expires_at));
+      if (response.ok && Array.isArray(data.stories)) {
+        // Filter out stories with missing media URLs
+        const validStories = data.stories.filter(
+          (s: any) => s && s.media_url && typeof s.media_url === "string" && s.media_url.trim() !== ""
+        );
+
         const userHasActive = currentUserId 
-          ? unexpiredStories.some((s: any) => Number(s.user_id) === currentUserId)
+          ? validStories.some((s: any) => Number(s.user_id) === currentUserId)
           : false;
         setHasOwnStory(userHasActive);
 
-        const formattedStories: StoryType[] = unexpiredStories.map((s: any) => ({
+        const formattedStories: StoryType[] = validStories.map((s: any) => ({
           id: s.id.toString(),
           user: {
             name: s.username || "User",
@@ -72,6 +76,8 @@ export default function StoriesFeed() {
           time: formatTimeAgo(s.created_at),
           tag: "Story",
           image: resolveImageUrl(s.media_url),
+          media_type: s.media_type || "image",
+          mediaType: s.media_type || "image",
           likes: s.likes_count ?? s.view_count ?? 0,
           likes_count: s.likes_count ?? 0,
           comments_count: s.comments_count ?? 0,
@@ -220,6 +226,8 @@ export default function StoriesFeed() {
           time: "Just now",
           tag: "Story",
           image: resolveImageUrl(s.media_url),
+          media_type: s.media_type || mediaType || "image",
+          mediaType: s.media_type || mediaType || "image",
           likes: 0,
           likes_count: 0,
           comments_count: 0,
@@ -233,6 +241,8 @@ export default function StoriesFeed() {
         setHasOwnStory(true);
         setStories((prev) => [newStory, ...prev.filter((item) => item.id !== newStory.id)]);
         Alert.alert("Success", "Story uploaded successfully!");
+        // Refresh feed in background to ensure sync
+        fetchStories();
       } else {
         Alert.alert("Upload Blocked", data?.error || "Failed to create story.");
       }

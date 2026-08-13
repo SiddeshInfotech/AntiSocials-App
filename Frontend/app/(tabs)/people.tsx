@@ -458,18 +458,19 @@ export default function People() {
     Animated.timing(focusAnim, {
       toValue: isSearchFocused ? 1 : 0,
       duration: 200,
+      easing: Easing.out(Easing.ease),
       useNativeDriver: false,
     }).start();
   }, [isSearchFocused, focusAnim]);
 
-  const searchBorderColor = focusAnim.interpolate({
+  const searchScale = focusAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ["#E9D5FF", "#9333EA"],
+    outputRange: [1, 1.015],
   });
 
-  const searchBgColor = focusAnim.interpolate({
+  const searchBorderColor = focusAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ["rgba(250, 245, 255, 0.75)", "rgba(255, 255, 255, 0.98)"],
+    outputRange: ["#7E22CE", "#D8B4FE"],
   });
 
   // Debounce query (350ms)
@@ -750,45 +751,111 @@ export default function People() {
           </View>
 
           {/* ======================================================== */}
-          {/* SEARCH BAR */}
+          {/* SEARCH BAR - PRO MAX PURPLE GLASSMORPHISM */}
           {/* ======================================================== */}
           <Animated.View
             style={[
-              styles.searchContainer,
+              styles.searchOuterWrapper,
               {
-                borderColor: searchBorderColor,
-                backgroundColor: searchBgColor,
+                transform: [{ scale: searchScale }],
               },
             ]}
           >
-            <Feather
-              name="search"
-              size={18}
-              color="#9333EA"
-              style={styles.searchIcon}
-            />
-            <TextInput
-              ref={searchInputRef}
-              style={styles.searchInput}
-              placeholder="Search people..."
-              placeholderTextColor="#9CA3AF"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              onFocus={() => setIsSearchFocused(true)}
-              onBlur={() => setIsSearchFocused(false)}
-              autoCapitalize="none"
-              autoCorrect={false}
-              returnKeyType="search"
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity
-                onPress={handleClearSearch}
-                style={styles.clearBtn}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            <Animated.View
+              style={[
+                styles.searchGlassContainer,
+                {
+                  borderColor: searchBorderColor,
+                },
+              ]}
+            >
+              {/* Dark Purple Glassmorphism Base Gradient */}
+              <LinearGradient
+                colors={[
+                  "rgba(35, 14, 60, 0.90)",
+                  "rgba(20, 8, 38, 0.95)",
+                  "rgba(38, 16, 68, 0.92)",
+                ]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={StyleSheet.absoluteFillObject}
+              />
+
+              {/* Specular Glass Reflection / Top Rim Light Highlight */}
+              <LinearGradient
+                colors={[
+                  "rgba(255, 255, 255, 0.22)",
+                  "rgba(255, 255, 255, 0.04)",
+                  "transparent",
+                ]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 0, y: 1 }}
+                style={styles.searchGlassSpecular}
+                pointerEvents="none"
+              />
+
+              {/* Active Ambient Violet Glow Layer on Focus */}
+              <Animated.View
+                style={[
+                  StyleSheet.absoluteFillObject,
+                  styles.searchActiveGlowLayer,
+                  { opacity: focusAnim },
+                ]}
+                pointerEvents="none"
               >
-                <Feather name="x" size={18} color="#9CA3AF" />
-              </TouchableOpacity>
-            )}
+                <LinearGradient
+                  colors={[
+                    "rgba(168, 85, 247, 0.25)",
+                    "rgba(147, 51, 234, 0.15)",
+                    "rgba(126, 34, 206, 0.30)",
+                  ]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={StyleSheet.absoluteFillObject}
+                />
+              </Animated.View>
+
+              {/* Modern Glowing Search Icon Pod */}
+              <View style={styles.searchIconBadge}>
+                <Feather
+                  name="search"
+                  size={17}
+                  color="#E9D5FF"
+                  style={styles.searchIcon}
+                />
+              </View>
+
+              {/* Premium Typography & Placeholder */}
+              <TextInput
+                ref={searchInputRef}
+                style={styles.searchInput}
+                placeholder="Search people..."
+                placeholderTextColor="rgba(216, 180, 254, 0.65)"
+                selectionColor="#C084FC"
+                keyboardAppearance="dark"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                onFocus={() => setIsSearchFocused(true)}
+                onBlur={() => setIsSearchFocused(false)}
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="search"
+              />
+
+              {/* Glass Clear Button */}
+              {searchQuery.length > 0 && (
+                <TouchableOpacity
+                  onPress={handleClearSearch}
+                  style={styles.searchClearBtn}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.searchClearInner}>
+                    <Feather name="x" size={13} color="#FAF5FF" />
+                  </View>
+                </TouchableOpacity>
+              )}
+            </Animated.View>
           </Animated.View>
 
           <View style={styles.dividerLine} />
@@ -1896,35 +1963,78 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 22,
   },
-  // --- CONNECT SEARCH STYLES ---
-  searchContainer: {
+  // --- CONNECT SEARCH STYLES (PRO MAX PURPLE GLASSMORPHISM) ---
+  searchOuterWrapper: {
     marginHorizontal: 20,
     marginTop: 10,
-    marginBottom: 10,
-    height: 48,
-    borderRadius: 16,
+    marginBottom: 12,
+    shadowColor: "#9333EA",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    elevation: 6,
+  },
+  searchGlassContainer: {
+    height: 52,
+    borderRadius: 26,
     borderWidth: 1.5,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 14,
-    shadowColor: "#9333EA",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
+    paddingHorizontal: 10,
+    overflow: "hidden",
+    position: "relative",
+  },
+  searchGlassSpecular: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 24,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+  },
+  searchActiveGlowLayer: {
+    borderRadius: 26,
+  },
+  searchIconBadge: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "rgba(168, 85, 247, 0.22)",
+    borderColor: "rgba(192, 132, 252, 0.35)",
+    borderWidth: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#C084FC",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.7,
+    shadowRadius: 6,
   },
   searchIcon: {
-    marginRight: 8,
+    // centered in badge
   },
   searchInput: {
     flex: 1,
     fontSize: 15,
-    color: "#111827",
-    fontWeight: "400",
+    color: "#FFFFFF",
+    fontWeight: "500",
+    letterSpacing: 0.2,
     paddingVertical: 0,
+    paddingHorizontal: 10,
   },
-  clearBtn: {
+  searchClearBtn: {
     padding: 4,
+    marginRight: 2,
+  },
+  searchClearInner: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.16)",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
   },
   searchResultsContainer: {
     paddingHorizontal: 20,

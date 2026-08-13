@@ -43,6 +43,7 @@ interface AnimatedNodeItem extends ConnectedUserNode {
   angleDeg: number;
   angleRad: number;
   radiusAnim: Animated.Value;
+  lineRadiusAnim: Animated.Value;
   scaleAnim: Animated.Value;
   opacityAnim: Animated.Value;
 }
@@ -123,7 +124,7 @@ export default function ConnectionGraph({
     3: new Animated.Value(290),
   }).current;
 
-  // Pulse animation for loading / empty state rings
+  // Pulse animation for loading / empty state rings (Native driver)
   const pulseAnim = useRef(new Animated.Value(0.4)).current;
   useEffect(() => {
     const loop = Animated.loop(
@@ -155,21 +156,30 @@ export default function ConnectionGraph({
       const existing = prevNodesRef.current[nodeKey];
 
       let radiusAnim: Animated.Value;
+      let lineRadiusAnim: Animated.Value;
       let scaleAnim: Animated.Value;
       let opacityAnim: Animated.Value;
 
       if (existing) {
         radiusAnim = existing.radiusAnim;
+        lineRadiusAnim = existing.lineRadiusAnim;
         scaleAnim = existing.scaleAnim;
         opacityAnim = existing.opacityAnim;
       } else {
         // New node: animate outward from center
         radiusAnim = new Animated.Value(0);
+        lineRadiusAnim = new Animated.Value(0);
         scaleAnim = new Animated.Value(0.2);
         opacityAnim = new Animated.Value(0);
 
         Animated.parallel([
           Animated.spring(radiusAnim, {
+            toValue: item.baseRadius,
+            friction: 7,
+            tension: 40,
+            useNativeDriver: true,
+          }),
+          Animated.spring(lineRadiusAnim, {
             toValue: item.baseRadius,
             friction: 7,
             tension: 40,
@@ -193,6 +203,7 @@ export default function ConnectionGraph({
         ...item,
         nodeKey,
         radiusAnim,
+        lineRadiusAnim,
         scaleAnim,
         opacityAnim,
       };
@@ -225,7 +236,8 @@ export default function ConnectionGraph({
       tier3Target = 300;
     }
 
-    const animations: Animated.CompositeAnimation[] = [
+    const nativeAnimations: Animated.CompositeAnimation[] = [];
+    const jsAnimations: Animated.CompositeAnimation[] = [
       Animated.spring(tierRadii[1], { toValue: tier1Target, friction: 8, tension: 40, useNativeDriver: false }),
       Animated.spring(tierRadii[2], { toValue: tier2Target, friction: 8, tension: 40, useNativeDriver: false }),
       Animated.spring(tierRadii[3], { toValue: tier3Target, friction: 8, tension: 40, useNativeDriver: false }),
@@ -236,12 +248,12 @@ export default function ConnectionGraph({
       const isSelected = selectedNodeId === node.id;
       const isDimmed = selectedNodeId !== null && !isSelected;
 
-      animations.push(
+      nativeAnimations.push(
         Animated.spring(node.radiusAnim, {
           toValue: targetR,
           friction: 8,
           tension: 40,
-          useNativeDriver: false,
+          useNativeDriver: true,
         }),
         Animated.spring(node.scaleAnim, {
           toValue: isSelected ? 1.3 : isDimmed ? 0.8 : 1,
@@ -255,9 +267,18 @@ export default function ConnectionGraph({
           useNativeDriver: true,
         })
       );
+
+      jsAnimations.push(
+        Animated.spring(node.lineRadiusAnim, {
+          toValue: targetR,
+          friction: 8,
+          tension: 40,
+          useNativeDriver: false,
+        })
+      );
     });
 
-    Animated.parallel(animations).start();
+    Animated.parallel([...nativeAnimations, ...jsAnimations]).start();
   }, [expandedTier, selectedNodeId, animatedNodes]);
 
   const handleNodePress = (node: AnimatedNodeItem) => {
@@ -325,8 +346,8 @@ export default function ConnectionGraph({
 
         {/* Floating Connection Lines between YOU and Connected Users */}
         {animatedNodes.map((node) => {
-          const nodeX = Animated.add(CENTER_X, Animated.multiply(node.radiusAnim, Math.cos(node.angleRad)));
-          const nodeY = Animated.add(CENTER_Y, Animated.multiply(node.radiusAnim, Math.sin(node.angleRad)));
+          const nodeX = Animated.add(CENTER_X, Animated.multiply(node.lineRadiusAnim, Math.cos(node.angleRad)));
+          const nodeY = Animated.add(CENTER_Y, Animated.multiply(node.lineRadiusAnim, Math.sin(node.angleRad)));
 
           const isSelected = selectedNodeId === node.id;
 

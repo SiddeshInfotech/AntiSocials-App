@@ -9,10 +9,12 @@ import {
   Dimensions,
   Share,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as SecureStore from "expo-secure-store";
+import { Video, ResizeMode } from "expo-av";
 import { resolveImageUrl } from "../constants/ImageUtils";
 import { apiFetch, API_BASE_URL } from "../constants/Api";
 
@@ -27,6 +29,8 @@ export type StoryType = {
   time: string;
   tag: string;
   image: string;
+  media_type?: string;
+  mediaType?: string;
   likes: number;
   likes_count?: number;
   comments_count?: number;
@@ -52,6 +56,8 @@ export default function StoryCard({
   const scaleValue = useRef(new Animated.Value(1)).current;
   const likeScale = useRef(new Animated.Value(1)).current;
   const [avatarError, setAvatarError] = useState(false);
+  const [mediaLoading, setMediaLoading] = useState(true);
+  const [mediaError, setMediaError] = useState(false);
 
   // Local optimistic state for likes, comments, and shares
   const initialLiked = !!(story.isLiked ?? story.is_liked_by_user);
@@ -64,6 +70,12 @@ export default function StoryCard({
   const [commentsCount, setCommentsCount] = useState<number>(initialCommentsCount);
   const [sharesCount, setSharesCount] = useState<number>(initialSharesCount);
   const [likeInProgress, setLikeInProgress] = useState<boolean>(false);
+
+  // Reset media states on story change
+  useEffect(() => {
+    setMediaLoading(true);
+    setMediaError(false);
+  }, [story.id, story.image]);
 
   // Sync state when story props update (e.g. after refresh or comment modal update)
   useEffect(() => {
@@ -240,7 +252,13 @@ export default function StoryCard({
       console.error("Share story error:", error);
     }
   };
+
   const resolvedAvatar = resolveImageUrl(story.user.avatarUrl);
+  const resolvedMedia = resolveImageUrl(story.image);
+  const isVideoMedia =
+    story.media_type === "video" ||
+    story.mediaType === "video" ||
+    (typeof story.image === "string" && story.image.toLowerCase().endsWith(".mp4"));
 
   return (
     <Animated.View
@@ -289,32 +307,55 @@ export default function StoryCard({
           </View>
         </View>
 
-        {/* Story Image */}
-        {story.image &&
-        !story.image.startsWith("file://") &&
-        !story.image.startsWith("data:image") ? (
-          <Image
-            source={{ uri: story.image }}
-            style={styles.storyImage}
-            resizeMode="cover"
-          />
-        ) : (
-          <View
-            style={[
-              styles.storyImage,
-              {
-                justifyContent: "center",
-                alignItems: "center",
-                backgroundColor: "#F3E8FF",
-              },
-            ]}
-          >
-            <Feather name="image" size={40} color="#A855F7" />
-            <Text style={{ marginTop: 10, color: "#A855F7" }}>
-              Update needed
-            </Text>
-          </View>
-        )}
+        {/* Story Media Area */}
+        <View style={styles.storyMediaWrapper}>
+          {resolvedMedia && !mediaError ? (
+            isVideoMedia ? (
+              <Video
+                source={{ uri: resolvedMedia }}
+                style={styles.storyImage}
+                resizeMode={ResizeMode.COVER}
+                isLooping
+                shouldPlay={false}
+                useNativeControls
+                onLoadStart={() => setMediaLoading(true)}
+                onLoad={() => setMediaLoading(false)}
+                onError={(e) => {
+                  console.log(`❌ [StoryCard] Video error: ${resolvedMedia}`, e);
+                  setMediaLoading(false);
+                  setMediaError(true);
+                }}
+              />
+            ) : (
+              <Image
+                source={{ uri: resolvedMedia }}
+                style={styles.storyImage}
+                resizeMode="cover"
+                onLoadStart={() => setMediaLoading(true)}
+                onLoadEnd={() => setMediaLoading(false)}
+                onError={(e) => {
+                  console.log(`❌ [StoryCard] Image error: ${resolvedMedia}`, e.nativeEvent);
+                  setMediaLoading(false);
+                  setMediaError(true);
+                }}
+              />
+            )
+          ) : (
+            <View style={styles.storyFallback}>
+              <Feather name="image" size={38} color="#A855F7" />
+              <Text style={styles.storyFallbackText}>
+                {mediaError ? "Media unavailable" : "No media"}
+              </Text>
+            </View>
+          )}
+
+          {/* Loading Overlay */}
+          {mediaLoading && !mediaError && (
+            <View style={styles.mediaLoadingOverlay}>
+              <ActivityIndicator size="small" color="#9333EA" />
+            </View>
+          )}
+        </View>
 
         {/* Footer actions */}
         <View style={styles.footerContainer}>
@@ -439,10 +480,36 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     color: "#A855F7",
   },
-  storyImage: {
+  storyMediaWrapper: {
     width: "100%",
     height: width * 1.1,
     backgroundColor: "#F3E8FF",
+    position: "relative",
+    overflow: "hidden",
+  },
+  storyImage: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: "#F3E8FF",
+  },
+  storyFallback: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#F3E8FF",
+  },
+  storyFallbackText: {
+    marginTop: 8,
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#A855F7",
+  },
+  mediaLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(243, 232, 255, 0.6)",
   },
   footerContainer: {
     padding: 16,
