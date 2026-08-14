@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Native Android build artifacts & caches
+android/.gradle/
+android/build/
+android/app/build/
+android/.cxx/
+.gradle/
+**/.gradle/
+**/build/
+**/.cxx/
+**/.kotlin/
+
+# Expo & Web
+.expo/
+**/.expo/
+dist/
+**/dist/
+web-build/
+
+# Logs & Dumps
+*.log
+**/*.log
+build-error.txt
+gradle-build.log
+typescript_errors.log
+diff.txt
+
+# Backup media
+assets/images/backup/
+**/assets/images/backup/
+
+# Non-Frontend repository assets
+Backend/
+NoticeFearMockup/
+otp.txt
+pinggy_tunnel*.log
+start_tunnel.ps1
+run_tunnel.js
