@@ -1,9 +1,57 @@
+# Dependencies
 node_modules/
+**/node_modules/
+
+# Android generated files
 android/.gradle/
 android/build/
 android/app/build/
 android/.cxx/
-.gradle/
+android/.idea/
+android/.kotlin/
+
+# Any nested Android/Gradle generated files
+**/.gradle/
+**/.cxx/
+**/.kotlin/
+
+# Expo / Metro generated files
 .expo/
+**/.expo/
 dist/
+**/dist/
+web-build/
+
+# IDE / OS
+.vscode/
+**/.vscode/
+.idea/
+**/.idea/
+.DS_Store
+
+# Secrets / signing files
+.env
+.env.local
+.env.*.local
+*.pem
+*.jks
+*.keystore
+
+# Logs / temporary files
 *.log
+**/*.log
+build-error.txt
+gradle-build.log
+typescript_errors.log
+diff.txt
+
+# Temporary backups
+assets/images/backup/
+
+# Backend / workspace-only files
+Backend/
+NoticeFearMockup/
+otp.txt
+pinggy_tunnel*.log
+start_tunnel.ps1
+run_tunnel.js
