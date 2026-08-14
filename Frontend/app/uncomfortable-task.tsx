@@ -177,7 +177,7 @@ export default function UncomfortableTaskScreen() {
       {/* Background Image with scale animation */}
       <Animated.View style={[StyleSheet.absoluteFillObject, { transform: [{ scale: breathAnim }] }]}>
         <Image 
-          source={require('../assets/images/uncomfortable-bg.png')}
+          source={require('../assets/images/uncomfortable-bg.jpg')}
           style={StyleSheet.absoluteFillObject}
           resizeMode="cover"
         />
@@ -186,7 +186,7 @@ export default function UncomfortableTaskScreen() {
       {/* Blurred image overlay when timer starts */}
       <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: timerFadeAnim }]}>
         <Image 
-          source={require('../assets/images/uncomfortable-bg.png')}
+          source={require('../assets/images/uncomfortable-bg.jpg')}
           style={StyleSheet.absoluteFillObject}
           resizeMode="cover"
           blurRadius={20}

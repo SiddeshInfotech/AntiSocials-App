@@ -221,7 +221,7 @@ export default function EyeRestTaskScreen() {
       {/* Calming nature landscape background with subtle breathing animation */}
       <Animated.View style={[StyleSheet.absoluteFillObject, { transform: [{ scale: breathAnim }] }]}>
         <Image 
-          source={require('../assets/images/eye-rest-bg.png')}
+          source={require('../assets/images/eye-rest-bg.jpg')}
           style={StyleSheet.absoluteFillObject}
           resizeMode="cover"
         />

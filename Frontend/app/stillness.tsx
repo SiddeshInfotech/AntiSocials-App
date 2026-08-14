@@ -529,7 +529,7 @@ export default function StillnessWelcomeScreen() {
       {/* ── Animated Background & Silhouette Canvas ── */}
       <Animated.View style={[StyleSheet.absoluteFillObject, backgroundAnimatedStyle]}>
         <Image
-          source={require('../assets/images/stillness_meditation.png')}
+          source={require('../assets/images/stillness_meditation.jpg')}
           style={StyleSheet.absoluteFillObject}
           resizeMode="cover"
         />
