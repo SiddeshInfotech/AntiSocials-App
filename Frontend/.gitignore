@@ -31,7 +31,15 @@ yarn-error.*
 *.pem
 
 # local env files
-.env*.local
+.env
+.env.*
+!.env.example
+
+# Android / Gradle generated files
+.gradle/
+**/.gradle/
+build/
+**/build/
 
 # typescript
 *.tsbuildinfo

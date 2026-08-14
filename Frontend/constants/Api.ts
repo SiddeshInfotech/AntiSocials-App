@@ -1,7 +1,14 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
-const configuredUrl = (typeof process !== 'undefined' && process?.env?.EXPO_PUBLIC_API_BASE_URL ? process.env.EXPO_PUBLIC_API_BASE_URL : '').trim();
+export const PRODUCTION_API_URL = 'https://antisocials-app.onrender.com';
+export const DEVELOPMENT_API_URL = 'http://localhost:5000';
+
+const configuredUrl = (
+  typeof process !== 'undefined'
+    ? (process?.env?.EXPO_PUBLIC_API_URL || process?.env?.EXPO_PUBLIC_API_BASE_URL || '')
+    : ''
+).trim();
 
 // Try hostUri (Expo CLI host)
 const expoHost = Constants.expoConfig?.hostUri
@@ -21,19 +28,15 @@ const debuggerHostUrl = debuggerHostIp ? `http://${debuggerHostIp}:5000` : '';
 
 const candidateBases = [
   configuredUrl,
+  PRODUCTION_API_URL,
   expoHost,
   linkingHost,
   debuggerHostUrl,
-  'http://192.168.1.103:5000',
-  'http://192.168.1.5:5000',
-  'http://192.168.1.102:5000',
+  DEVELOPMENT_API_URL,
   Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://127.0.0.1:5000',
-  'http://10.0.2.2:5000',
-  'http://localhost:5000',
-  'http://127.0.0.1:5000',
 ].filter((value, index, self) => Boolean(value) && self.indexOf(value) === index) as string[];
 
-let activeBaseUrl = candidateBases[0] || (Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://127.0.0.1:5000');
+let activeBaseUrl = candidateBases[0] || PRODUCTION_API_URL;
 
 export let API_BASE_URL = activeBaseUrl;
 console.log('[API] Candidate Bases:', candidateBases);
@@ -98,4 +101,42 @@ export const apiFetch = async (path: string, options: ApiFetchOptions = {}) => {
 
   throw new Error('Network request failed. Please check your connection.');
 };
+
+export interface HealthCheckResult {
+  ok: boolean;
+  status?: string;
+  service?: string;
+  url?: string;
+  error?: string;
+}
+
+/**
+ * Utility to verify API connectivity with GET /health
+ */
+export const checkApiHealth = async (): Promise<HealthCheckResult> => {
+  try {
+    const response = await apiFetch('/health', { method: 'GET', timeoutMs: 5000 });
+    if (response.ok) {
+      const data = await response.json();
+      return {
+        ok: true,
+        status: data.status,
+        service: data.service,
+        url: getApiBaseUrl(),
+      };
+    }
+    return {
+      ok: false,
+      url: getApiBaseUrl(),
+      error: `HTTP ${response.status} ${response.statusText}`,
+    };
+  } catch (error: any) {
+    return {
+      ok: false,
+      url: getApiBaseUrl(),
+      error: error?.message || 'Health check failed',
+    };
+  }
+};
+
 
