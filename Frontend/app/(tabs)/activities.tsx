@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, RefreshControl, ActivityIndicator, Image, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, RefreshControl, ActivityIndicator, Image, Alert, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -18,6 +18,9 @@ export interface MemberPreview {
 
 interface Activity {
   id: string;
+  creatorId?: string;
+  creator_id?: string;
+  isCreator?: boolean;
   category: string;
   title: string;
   date: string;
@@ -33,6 +36,7 @@ interface Activity {
   };
   imageColor: string;
   imageUrl: string | null;
+  image_url?: string | null;
   emoji: string;
   pincode?: string;
   city?: string;
@@ -53,6 +57,19 @@ const CATEGORY_COLORS: { [key: string]: string } = {
   "Food & Dining": "#E64A19"
 };
 
+const CATEGORY_EMOJIS: { [key: string]: string } = {
+  "Sports & Fitness": "⚽",
+  "Music & Jamming": "🎸",
+  "Reading & Book Club": "📚",
+  "Study Groups": "📖",
+  "Tech & Coding": "💻",
+  "Networking & Meetups": "🤝",
+  "Arts & Creativity": "🎨",
+  "Gaming": "🎮",
+  "Movies & Entertainment": "🎬",
+  "Food & Dining": "🍕"
+};
+
 const AVATAR_COLORS = [
   '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD',
   '#D4A5A5', '#9B59B6', '#3498DB', '#E67E22', '#2ECC71'
@@ -68,6 +85,93 @@ const getAvatarColor = (name: string, index: number): string => {
   return AVATAR_COLORS[colorIndex];
 };
 
+const MONTH_MAP: Record<string, string> = {
+  jan: '01', january: '01',
+  feb: '02', february: '02',
+  mar: '03', march: '03',
+  apr: '04', april: '04',
+  may: '05',
+  jun: '06', june: '06',
+  jul: '07', july: '07',
+  aug: '08', august: '08',
+  sep: '09', sept: '09', september: '09',
+  oct: '10', october: '10',
+  nov: '11', november: '11',
+  dec: '12', december: '12'
+};
+
+const formatToNumericDate = (rawDate?: string): string => {
+  if (!rawDate) return '';
+  const trimmed = rawDate.trim();
+  if (!trimmed) return '';
+
+  // Handle DD/MM/YYYY or D/M/YYYY
+  const dmySlashMatch = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (dmySlashMatch) {
+    const [, d, m, y] = dmySlashMatch;
+    if (parseInt(m, 10) > 12 && parseInt(d, 10) <= 12) {
+      // MM/DD/YYYY to DD/MM/YYYY
+      return `${m.padStart(2, '0')}/${d.padStart(2, '0')}/${y}`;
+    }
+    return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`;
+  }
+
+  // Handle DD-MM-YYYY or D-M-YYYY
+  const dmyDashMatch = trimmed.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if (dmyDashMatch) {
+    const [, d, m, y] = dmyDashMatch;
+    if (parseInt(m, 10) > 12 && parseInt(d, 10) <= 12) {
+      return `${m.padStart(2, '0')}/${d.padStart(2, '0')}/${y}`;
+    }
+    return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`;
+  }
+
+  // Handle YYYY-MM-DD or YYYY/MM/DD
+  const ymdMatch = trimmed.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (ymdMatch) {
+    const [, y, m, d] = ymdMatch;
+    return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`;
+  }
+
+  const currentYear = new Date().getFullYear();
+
+  // Pattern 1: "Aug 12" or "Aug 12, 2026" or "August 12 2026"
+  const monthFirstMatch = trimmed.match(/^([A-Za-z]+)\s+(\d{1,2})(?:[,\s]+(\d{4}))?/i);
+  if (monthFirstMatch) {
+    const monthKey = monthFirstMatch[1].toLowerCase();
+    if (MONTH_MAP[monthKey]) {
+      const month = MONTH_MAP[monthKey];
+      const day = monthFirstMatch[2].padStart(2, '0');
+      const year = monthFirstMatch[3] || String(currentYear);
+      return `${day}/${month}/${year}`;
+    }
+  }
+
+  // Pattern 2: "12 Aug" or "12 Aug, 2026" or "12 August 2026"
+  const dayFirstMatch = trimmed.match(/^(\d{1,2})\s+([A-Za-z]+)(?:[,\s]+(\d{4}))?/i);
+  if (dayFirstMatch) {
+    const monthKey = dayFirstMatch[2].toLowerCase();
+    if (MONTH_MAP[monthKey]) {
+      const month = MONTH_MAP[monthKey];
+      const day = dayFirstMatch[1].padStart(2, '0');
+      const year = dayFirstMatch[3] || String(currentYear);
+      return `${day}/${month}/${year}`;
+    }
+  }
+
+  // Try parsing standard Date string
+  const parsed = Date.parse(trimmed.includes(' ') || trimmed.includes(',') || trimmed.length > 6 ? trimmed : `${trimmed} ${currentYear}`);
+  if (!isNaN(parsed)) {
+    const d = new Date(parsed);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  }
+
+  return trimmed;
+};
+
 export default function ActivitiesScreen() {
   const router = useRouter();
   const isFocused = useIsFocused();
@@ -77,12 +181,25 @@ export default function ActivitiesScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [isLocating, setIsLocating] = useState(true);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [activityToDelete, setActivityToDelete] = useState<Activity | null>(null);
+  const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
 
   const fetchActivities = async () => {
     try {
       setLoading(true);
       const token = await SecureStore.getItemAsync('token');
-      const response = await apiFetch('/api/activities', {
+      if (token && !currentUserId) {
+        const meRes = await apiFetch('/api/me', { headers: { 'Authorization': `Bearer ${token}` } }).catch(() => null);
+        if (meRes && meRes.ok) {
+          const meData = await meRes.json();
+          if (meData?.id) setCurrentUserId(meData.id.toString());
+        }
+      }
+      const endpoint = activeTab === 'joined' ? '/api/activities/joined' : '/api/activities';
+      const response = await apiFetch(endpoint, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -132,6 +249,7 @@ export default function ActivitiesScreen() {
         const meResponse = await apiFetch('/api/me', { headers: { 'Authorization': `Bearer ${token}` } });
         if (meResponse.ok) {
           const meData = await meResponse.json();
+          if (meData?.id) setCurrentUserId(meData.id.toString());
           await apiFetch(`/user/${meData.id}`, {
             method: 'PATCH',
             headers: {
@@ -155,6 +273,7 @@ export default function ActivitiesScreen() {
           const meResponse = await apiFetch('/api/me', { headers: { 'Authorization': `Bearer ${token}` } });
           if (meResponse.ok) {
             const meData = await meResponse.json();
+            if (meData?.id) setCurrentUserId(meData.id.toString());
             await apiFetch(`/user/${meData.id}`, {
               method: 'PATCH',
               headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -166,11 +285,50 @@ export default function ActivitiesScreen() {
     }
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (isFocused) {
       requestLocationAndFetch();
     }
   }, [isFocused]);
+
+  useEffect(() => {
+    fetchActivities();
+  }, [activeTab]);
+
+  const handleOpenDeleteDialog = (activity: Activity) => {
+    setActivityToDelete(activity);
+    setDeleteModalVisible(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!activityToDelete) return;
+    const actId = activityToDelete.id;
+    try {
+      setDeletingId(actId);
+      const token = await SecureStore.getItemAsync('token');
+      const response = await apiFetch(`/api/activities/${actId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        // Instantly remove from feed
+        setActivities(prev => prev.filter(a => a.id !== actId));
+        setDeleteModalVisible(false);
+        setActivityToDelete(null);
+      } else {
+        const data = await response.json().catch(() => ({}));
+        Alert.alert("Error", data.error || "Failed to delete activity. Please try again.");
+      }
+    } catch (err) {
+      console.error("Error deleting activity:", err);
+      Alert.alert("Error", "Network error while deleting activity.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const handleToggleJoin = async (activity: Activity) => {
     try {
@@ -229,9 +387,11 @@ export default function ActivitiesScreen() {
         </View>
 
         {isLocating ? (
-          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <ActivityIndicator size="large" color="#EA580C" />
-            <Text style={{ marginTop: 16, color: '#6B7280', fontSize: 16 }}>Detecting location...</Text>
+          <View style={styles.locatingContainer}>
+            <View style={styles.locatingContent}>
+              <ActivityIndicator size="large" color="#EA580C" />
+              <Text style={styles.locatingText}>Detecting location...</Text>
+            </View>
           </View>
         ) : locationError ? (
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 }}>
@@ -300,22 +460,65 @@ export default function ActivitiesScreen() {
               </TouchableOpacity>
             </View>
           ) : displayedActivities.map((activity) => {
+            const rawImageUrl = (activity.imageUrl || activity.image_url || '').trim();
+            const isImageInvalid = 
+              !rawImageUrl || 
+              rawImageUrl.toLowerCase() === 'null' || 
+              rawImageUrl.toLowerCase() === 'undefined' || 
+              rawImageUrl === '[object Object]' ||
+              rawImageUrl === 'uploads/' || 
+              rawImageUrl === '/uploads/' ||
+              rawImageUrl.endsWith('/null') ||
+              rawImageUrl.endsWith('/undefined');
+            
+            const hasValidImage = !isImageInvalid && !imageErrors[activity.id];
+            const resolvedUri = hasValidImage ? resolveImageUrl(rawImageUrl) : null;
+            const defaultBgColor = CATEGORY_COLORS[activity.category] || activity.imageColor || '#EA580C';
+            const defaultEmoji = CATEGORY_EMOJIS[activity.category] || activity.emoji || '🎯';
+
+            const isOwner = Boolean(
+              activity.isCreator || 
+              (currentUserId && activity.creatorId && String(activity.creatorId) === String(currentUserId)) ||
+              (currentUserId && (activity as any).creator_id && String((activity as any).creator_id) === String(currentUserId))
+            );
+
             return (
             <View key={activity.id} style={styles.card}>
               {/* Card Image Placeholder */}
-              <View style={[styles.cardImage, { backgroundColor: activity.imageColor || '#f3f4f6' }]}>
-                {activity.imageUrl ? (
-                  <Image source={{ uri: resolveImageUrl(activity.imageUrl) }} style={{ width: '100%', height: '100%' }} />
+              <View style={[styles.cardImage, { backgroundColor: hasValidImage ? '#f3f4f6' : defaultBgColor }]}>
+                {hasValidImage && resolvedUri ? (
+                  <Image 
+                    source={{ uri: resolvedUri }} 
+                    style={styles.cardImageInner} 
+                    resizeMode="cover"
+                    onError={() => {
+                      setImageErrors(prev => ({ ...prev, [activity.id]: true }));
+                    }}
+                  />
                 ) : (
-                  <Text style={styles.emojiPlaceholder}>{activity.emoji}</Text>
+                  <View style={styles.defaultPlaceholderContainer}>
+                    <Text style={styles.emojiPlaceholder}>{defaultEmoji}</Text>
+                  </View>
                 )}
               </View>
 
               {/* Card Content */}
               <View style={styles.cardContent}>
-                {/* Category Pill */}
-                <View style={styles.categoryPill}>
-                  <Text style={styles.categoryText}>{activity.category}</Text>
+                {/* Header Row: Category Pill & Three-Dot Menu (Creator Only) */}
+                <View style={styles.cardHeaderRow}>
+                  <View style={styles.categoryPill}>
+                    <Text style={styles.categoryText}>{activity.category}</Text>
+                  </View>
+                  {isOwner ? (
+                    <TouchableOpacity 
+                      style={styles.moreMenuButton}
+                      onPress={() => handleOpenDeleteDialog(activity)}
+                      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                      accessibilityLabel="Activity options"
+                    >
+                      <Feather name="more-vertical" size={18} color="#6B7280" />
+                    </TouchableOpacity>
+                  ) : null}
                 </View>
 
                 {/* Title */}
@@ -325,8 +528,14 @@ export default function ActivitiesScreen() {
                 <View style={styles.detailsContainer}>
                   <View style={styles.detailRow}>
                     <Feather name="calendar" size={16} color="#6B7280" style={styles.detailIcon} />
-                    <Text style={styles.detailText}>{activity.date} • {activity.time}</Text>
+                    <Text style={styles.detailText}>{formatToNumericDate(activity.date)}</Text>
                   </View>
+                  {activity.time ? (
+                    <View style={styles.detailRow}>
+                      <Feather name="clock" size={16} color="#6B7280" style={styles.detailIcon} />
+                      <Text style={styles.detailText}>{activity.time}</Text>
+                    </View>
+                  ) : null}
                   <View style={styles.detailRow}>
                     <Feather name="map-pin" size={16} color="#6B7280" style={styles.detailIcon} />
                     <Text style={styles.detailText}>
@@ -346,17 +555,10 @@ export default function ActivitiesScreen() {
                     <View style={styles.memberPreviewContainer}>
                       <View style={styles.memberChipsRow}>
                         {activity.memberPreview.slice(0, 3).map((member, idx) => {
-                          const imageUri = member.profileImage ? resolveImageUrl(member.profileImage) : null;
-                          const initial = (member.name || 'U').charAt(0).toUpperCase();
+                          const imageUri = resolveImageUrl(member.profileImage);
                           return (
                             <View key={member.id || `member-${idx}`} style={styles.memberChip}>
-                              {imageUri ? (
-                                <Image source={{ uri: imageUri }} style={styles.memberAvatarImage} />
-                              ) : (
-                                <View style={[styles.memberAvatarFallback, { backgroundColor: getAvatarColor(member.name, idx) }]}>
-                                  <Text style={styles.memberAvatarInitial}>{initial}</Text>
-                                </View>
-                              )}
+                              <Image source={{ uri: imageUri }} style={styles.memberAvatarImage} />
                               <Text style={styles.memberName} numberOfLines={1}>
                                 {member.name}
                               </Text>
@@ -414,6 +616,70 @@ export default function ActivitiesScreen() {
         </>
         )}
       </View>
+
+      {/* Delete Confirmation Dialog */}
+      <Modal
+        visible={deleteModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (!deletingId) {
+            setDeleteModalVisible(false);
+            setActivityToDelete(null);
+          }
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalIconContainer}>
+              <Feather name="trash-2" size={26} color="#EF4444" />
+            </View>
+            
+            <Text style={styles.modalTitle}>Delete Activity?</Text>
+            <Text style={styles.modalMessage}>
+              This action cannot be undone.
+            </Text>
+
+            {activityToDelete && (
+              <View style={styles.modalActivityPreview}>
+                <Text style={styles.modalActivityTitle} numberOfLines={1}>
+                  {activityToDelete.title}
+                </Text>
+                <Text style={styles.modalActivityMeta}>
+                  {activityToDelete.category} • {activityToDelete.joined}/{activityToDelete.capacity} members
+                </Text>
+              </View>
+            )}
+
+            <View style={styles.modalButtonRow}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalCancelButton]}
+                onPress={() => {
+                  setDeleteModalVisible(false);
+                  setActivityToDelete(null);
+                }}
+                disabled={Boolean(deletingId)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.modalCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalDeleteButton]}
+                onPress={handleConfirmDelete}
+                disabled={Boolean(deletingId)}
+                activeOpacity={0.8}
+              >
+                {deletingId ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.modalDeleteButtonText}>Delete</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -433,19 +699,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 20,
-    marginHorizontal: -20, // To stretch the background color to edges
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: '400',
+    fontSize: 24,
+    fontWeight: '700',
     color: '#000',
   },
   addButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: '#EA580C',
     justifyContent: 'center',
     alignItems: 'center',
@@ -453,41 +716,49 @@ const styles = StyleSheet.create({
   tabContainer: {
     flexDirection: 'row',
     backgroundColor: '#F3F4F6',
-    borderRadius: 24,
+    borderRadius: 25,
     padding: 4,
-    marginVertical: 16,
+    marginBottom: 16,
   },
   tabButton: {
     flex: 1,
     paddingVertical: 10,
     alignItems: 'center',
-    borderRadius: 20,
+    borderRadius: 21,
   },
   tabButtonActive: {
-    backgroundColor: '#EA580C',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   tabText: {
-    fontSize: 15,
-    fontWeight: '400',
-    color: '#4B5563',
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
   },
   tabTextActive: {
-    color: '#FFFFFF',
+    color: '#EA580C',
   },
   filterButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    marginBottom: 20,
+    alignSelf: 'flex-start',
+    marginBottom: 16,
   },
   filterText: {
     marginLeft: 8,
+    color: '#4B5563',
     fontSize: 14,
-    color: '#111827',
+    fontWeight: '500',
   },
   listContainer: {
     flex: 1,
@@ -495,26 +766,44 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    marginBottom: 20,
+    marginBottom: 16,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
   },
   cardImage: {
     height: 140,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  cardImageInner: {
+    width: '100%',
+    height: '100%',
+  },
+  defaultPlaceholderContainer: {
+    width: '100%',
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
   },
   emojiPlaceholder: {
-    fontSize: 60,
+    fontSize: 54,
   },
   cardContent: {
     padding: 20,
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
   },
   categoryPill: {
     alignSelf: 'flex-start',
@@ -522,7 +811,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
-    marginBottom: 12,
+  },
+  moreMenuButton: {
+    padding: 6,
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   categoryText: {
     color: '#EA580C',
@@ -578,19 +873,6 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     marginRight: 6,
-  },
-  memberAvatarFallback: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 6,
-  },
-  memberAvatarInitial: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '700',
   },
   memberName: {
     fontSize: 12,
@@ -705,5 +987,113 @@ const styles = StyleSheet.create({
     color: '#4B5563',
     lineHeight: 22,
   },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalContainer: {
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  modalIconContainer: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#FEE2E2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  modalTitle: {
+    fontSize: 19,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  modalMessage: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  modalActivityPreview: {
+    width: '100%',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 12,
+    marginBottom: 20,
+  },
+  modalActivityTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 2,
+  },
+  modalActivityMeta: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  modalButtonRow: {
+    flexDirection: 'row',
+    width: '100%',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCancelButton: {
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  modalCancelButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
+  modalDeleteButton: {
+    backgroundColor: '#EF4444',
+  },
+  modalDeleteButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  locatingContainer: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  locatingContent: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  locatingText: {
+    marginTop: 16,
+    color: '#6B7280',
+    fontSize: 16,
+    textAlign: 'center',
+  },
 });
-

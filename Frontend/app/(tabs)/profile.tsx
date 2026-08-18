@@ -18,7 +18,7 @@ import { useIsFocused } from "@react-navigation/native";
 import * as SecureStore from 'expo-secure-store';
 import LifeDomainsChart from "../../components/LifeDomainsChart";
 import { API_BASE_URL, apiFetch } from "../../constants/Api";
-import { resolveImageUrl } from "../../constants/ImageUtils";
+import { resolveImageUrl, DEFAULT_AVATAR } from "../../constants/ImageUtils";
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -125,15 +125,11 @@ export default function ProfileScreen() {
         <View style={styles.headerBackground}>
           <View style={styles.avatarContainer}>
             <View style={styles.avatarPlaceholder}>
-              {profilePic && !imageError ? (
-                <Image 
-                  source={{ uri: resolveImageUrl(profilePic) }} 
-                  style={{ width: '100%', height: '100%', borderRadius: 45 }} 
-                  onError={() => setImageError(true)}
-                />
-              ) : (
-                <Feather name="user" size={40} color="#4B2488" />
-              )}
+              <Image 
+                source={{ uri: !imageError ? resolveImageUrl(profilePic) : DEFAULT_AVATAR }} 
+                style={{ width: '100%', height: '100%', borderRadius: 45 }} 
+                onError={() => setImageError(true)}
+              />
             </View>
             <View style={styles.verifiedBadge}>
               <Feather name="check" size={12} color="#FFF" />

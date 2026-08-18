@@ -22,7 +22,7 @@ async function deactivateExpiredStories() {
         const result = await db.query(`
             UPDATE stories 
             SET is_active = FALSE 
-            WHERE is_active = TRUE AND expires_at <= NOW()
+            WHERE is_active = TRUE AND expires_at <= CURRENT_TIMESTAMP
             RETURNING id, user_id, expires_at
         `);
 
@@ -48,7 +48,7 @@ async function purgeOldExpiredStories(retentionHours = 48) {
     try {
         const query = `
             SELECT id, media_url FROM stories 
-            WHERE expires_at <= NOW() - ($1 || ' hours')::INTERVAL
+            WHERE expires_at <= CURRENT_TIMESTAMP - ($1 || ' hours')::INTERVAL
         `;
         const oldStories = await db.query(query, [retentionHours]);
 

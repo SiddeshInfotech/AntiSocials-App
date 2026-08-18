@@ -19,7 +19,7 @@ import StoryCommentModal from "../../components/StoryCommentModal";
 import * as SecureStore from "expo-secure-store";
 import * as ImagePicker from "expo-image-picker";
 import { apiFetch } from "../../constants/Api";
-import { resolveImageUrl } from "../../constants/ImageUtils";
+import { resolveImageUrl, resolveAvatarUrl, resolveStoryMediaUrl } from "../../constants/ImageUtils";
 import { formatTimeAgo, isStoryExpired } from "../../constants/DateUtils";
 
 export default function StoriesFeed() {
@@ -37,9 +37,28 @@ export default function StoriesFeed() {
   const fetchStories = async () => {
     try {
       const token = await SecureStore.getItemAsync("token");
-      const currentUserIdStr = await SecureStore.getItemAsync("userId");
-      const currentUserId = currentUserIdStr ? parseInt(currentUserIdStr, 10) : null;
+      let currentUserIdStr = await SecureStore.getItemAsync("userId");
+      let currentUserId = currentUserIdStr ? parseInt(currentUserIdStr, 10) : null;
       if (!token) return;
+
+      // Fallback: If userId is missing from SecureStore, fetch from /api/profile/me and persist
+      if (!currentUserId) {
+        try {
+          const meRes = await apiFetch("/api/profile/me", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (meRes.ok) {
+            const meData = await meRes.json();
+            const retrievedId = meData?.user?.id || meData?.id;
+            if (retrievedId) {
+              currentUserId = parseInt(retrievedId, 10);
+              await SecureStore.setItemAsync("userId", currentUserId.toString());
+            }
+          }
+        } catch (meErr) {
+          console.log("Could not fetch /api/profile/me for userId fallback:", meErr);
+        }
+      }
 
       const response = await apiFetch("/api/stories", {
         headers: { Authorization: `Bearer ${token}` },
@@ -67,25 +86,32 @@ export default function StoriesFeed() {
           : false;
         setHasOwnStory(userHasActive);
 
-        const formattedStories: StoryType[] = validStories.map((s: any) => ({
-          id: s.id.toString(),
-          user: {
-            name: s.username || "User",
-            avatarUrl: resolveImageUrl(s.profile_image),
-          },
-          time: formatTimeAgo(s.created_at),
-          tag: "Story",
-          image: resolveImageUrl(s.media_url),
-          media_type: s.media_type || "image",
-          mediaType: s.media_type || "image",
-          likes: s.likes_count ?? s.view_count ?? 0,
-          likes_count: s.likes_count ?? 0,
-          comments_count: s.comments_count ?? 0,
-          shares_count: s.shares_count ?? 0,
-          isLiked: !!s.is_liked_by_user,
-          is_liked_by_user: !!s.is_liked_by_user,
-          caption: s.caption || s.text_content || "",
-        }));
+        const formattedStories: StoryType[] = validStories.map((s: any) => {
+          const resolvedMedia = resolveStoryMediaUrl(s.media_url) || "";
+          const resolvedAvatar = resolveAvatarUrl(s.profile_image);
+          const isVideo = s.media_type === "video" || (typeof s.media_url === "string" && s.media_url.toLowerCase().endsWith(".mp4"));
+          const mediaTypeVal = isVideo ? "video" : "image";
+
+          return {
+            id: s.id.toString(),
+            user: {
+              name: s.display_name || s.username || "User",
+              avatarUrl: resolvedAvatar,
+            },
+            time: formatTimeAgo(s.created_at),
+            tag: "Story",
+            image: resolvedMedia,
+            media_type: mediaTypeVal,
+            mediaType: mediaTypeVal,
+            likes: s.likes_count ?? s.view_count ?? 0,
+            likes_count: s.likes_count ?? 0,
+            comments_count: s.comments_count ?? 0,
+            shares_count: s.shares_count ?? 0,
+            isLiked: !!s.is_liked_by_user,
+            is_liked_by_user: !!s.is_liked_by_user,
+            caption: s.caption || s.text_content || "",
+          };
+        });
         setStories(formattedStories);
       }
     } catch (e) {
@@ -217,17 +243,22 @@ export default function StoriesFeed() {
       const data = await res.json();
       if (res.ok && data.story) {
         const s = data.story;
+        const resolvedMedia = resolveStoryMediaUrl(s.media_url) || "";
+        const resolvedAvatar = resolveAvatarUrl(s.profile_image);
+        const isVideo = s.media_type === "video" || mediaType === "video" || (typeof s.media_url === "string" && s.media_url.toLowerCase().endsWith(".mp4"));
+        const mediaTypeVal = isVideo ? "video" : "image";
+
         const newStory: StoryType = {
           id: s.id.toString(),
           user: {
-            name: s.username || "User",
-            avatarUrl: resolveImageUrl(s.profile_image),
+            name: s.display_name || s.username || "User",
+            avatarUrl: resolvedAvatar,
           },
           time: "Just now",
           tag: "Story",
-          image: resolveImageUrl(s.media_url),
-          media_type: s.media_type || mediaType || "image",
-          mediaType: s.media_type || mediaType || "image",
+          image: resolvedMedia,
+          media_type: mediaTypeVal,
+          mediaType: mediaTypeVal,
           likes: 0,
           likes_count: 0,
           comments_count: 0,

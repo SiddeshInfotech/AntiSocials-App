@@ -3,10 +3,7 @@ import { Animated, View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndi
 import Svg, { Circle, Line } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { Feather, Ionicons } from '@expo/vector-icons';
-import { resolveImageUrl } from '../constants/ImageUtils';
-
-const AnimatedLine = Animated.createAnimatedComponent(Line);
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+import { resolveImageUrl, DEFAULT_AVATAR } from '../constants/ImageUtils';
 
 const CENTER_X = 400;
 const CENTER_Y = 400;
@@ -17,6 +14,8 @@ export interface ConnectedUserNode {
   username: string;
   display_name?: string;
   profile_image?: string | null;
+  image_url?: string | null;
+  avatar_url?: string | null;
   profession?: string;
   about?: string;
   connection_status?: string;
@@ -309,7 +308,8 @@ export default function ConnectionGraph({
     setExpandedTier(null);
   };
 
-  const userAvatarUri = currentUser?.profile_image ? resolveImageUrl(currentUser.profile_image) : null;
+  const rawUserAvatar = currentUser?.profile_image || (currentUser as any)?.image_url || (currentUser as any)?.avatar_url;
+  const userAvatarUri = resolveImageUrl(rawUserAvatar);
 
   return (
     <View style={styles.container}>
@@ -317,32 +317,32 @@ export default function ConnectionGraph({
       <Svg height="800" width="800" style={StyleSheet.absoluteFill}>
         {connections.length > 0 && (
           <>
-            <AnimatedCircle
+            <Circle
               cx={CENTER_X}
               cy={CENTER_Y}
-              r={tierRadii[1]}
-              stroke="rgba(255,255,255,0.08)"
+              r={130}
+              stroke="rgba(168, 85, 247, 0.25)"
               strokeDasharray="4 6"
               strokeWidth={1.5}
               fill="none"
             />
             {connections.length > 5 && (
-              <AnimatedCircle
+              <Circle
                 cx={CENTER_X}
                 cy={CENTER_Y}
-                r={tierRadii[2]}
-                stroke="rgba(255,255,255,0.08)"
+                r={220}
+                stroke="rgba(168, 85, 247, 0.2)"
                 strokeDasharray="4 6"
                 strokeWidth={1.5}
                 fill="none"
               />
             )}
             {connections.length > 13 && (
-              <AnimatedCircle
+              <Circle
                 cx={CENTER_X}
                 cy={CENTER_Y}
-                r={tierRadii[3]}
-                stroke="rgba(255,255,255,0.08)"
+                r={290}
+                stroke="rgba(168, 85, 247, 0.15)"
                 strokeDasharray="4 6"
                 strokeWidth={1.5}
                 fill="none"
@@ -353,20 +353,19 @@ export default function ConnectionGraph({
 
         {/* Floating Connection Lines between YOU and Connected Users */}
         {animatedNodes.map((node) => {
-          const nodeX = Animated.add(CENTER_X, Animated.multiply(node.lineRadiusAnim, Math.cos(node.angleRad)));
-          const nodeY = Animated.add(CENTER_Y, Animated.multiply(node.lineRadiusAnim, Math.sin(node.angleRad)));
-
+          const nodeX = CENTER_X + node.baseRadius * Math.cos(node.angleRad);
+          const nodeY = CENTER_Y + node.baseRadius * Math.sin(node.angleRad);
           const isSelected = selectedNodeId === node.id;
 
           return (
-            <AnimatedLine
+            <Line
               key={`line-${node.nodeKey}`}
               x1={CENTER_X}
               y1={CENTER_Y}
               x2={nodeX}
               y2={nodeY}
               stroke={isSelected ? '#c084fc' : 'rgba(168, 85, 247, 0.35)'}
-              strokeWidth={isSelected ? '2.5' : '1.2'}
+              strokeWidth={isSelected ? 2.5 : 1.2}
             />
           );
         })}
@@ -374,10 +373,11 @@ export default function ConnectionGraph({
 
       {/* Render Dynamic Connected User Nodes */}
       {animatedNodes.map((node) => {
-        const translateX = Animated.add(CENTER_X - 24, Animated.multiply(node.radiusAnim, Math.cos(node.angleRad)));
-        const translateY = Animated.add(CENTER_Y - 24, Animated.multiply(node.radiusAnim, Math.sin(node.angleRad)));
+        const translateX = Animated.add(CENTER_X - 21, Animated.multiply(node.radiusAnim, Math.cos(node.angleRad)));
+        const translateY = Animated.add(CENTER_Y - 21, Animated.multiply(node.radiusAnim, Math.sin(node.angleRad)));
         const isSelected = selectedNodeId === node.id;
-        const avatarUri = node.profile_image ? resolveImageUrl(node.profile_image) : null;
+        const rawNodeAvatar = node.profile_image || (node as any).image_url || (node as any).avatar_url;
+        const avatarUri = resolveImageUrl(rawNodeAvatar);
         const displayName = node.display_name || node.username || 'User';
 
         return (
@@ -397,11 +397,7 @@ export default function ConnectionGraph({
               onPress={() => handleNodePress(node)}
               style={[styles.avatarCircle, isSelected && styles.avatarSelected]}
             >
-              {avatarUri ? (
-                <Image source={{ uri: avatarUri }} style={styles.nodeAvatarImage} />
-              ) : (
-                <Text style={styles.nodeInitials}>{displayName.charAt(0).toUpperCase()}</Text>
-              )}
+              <Image source={{ uri: avatarUri || DEFAULT_AVATAR }} style={styles.nodeAvatarImage} />
             </TouchableOpacity>
             <Text style={[styles.nodeLabel, isSelected && styles.nodeLabelSelected]} numberOfLines={1}>
               {displayName}

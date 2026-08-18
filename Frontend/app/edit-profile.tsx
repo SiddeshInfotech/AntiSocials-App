@@ -223,13 +223,7 @@ export default function EditProfileScreen() {
             {/* Avatar Edit */}
             <View style={styles.avatarSection}>
               <TouchableOpacity onPress={showImageOptions} style={styles.avatarPlaceholderContainer}>
-                {profileImage && !profileImage.startsWith('file://') && !profileImage.startsWith('data:image') ? (
-                  <Image source={{ uri: resolveImageUrl(profileImage) }} style={styles.avatarImage} />
-                ) : (
-                  <View style={styles.avatarPlaceholder}>
-                    <Feather name="user" size={40} color="#4B2488" />
-                  </View>
-                )}
+                <Image source={{ uri: resolveImageUrl(profileImage) }} style={styles.avatarImage} />
                 <View style={styles.editAvatarBadge}>
                   <Feather name="camera" size={14} color="#FFF" />
                 </View>

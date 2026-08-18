@@ -255,6 +255,8 @@ exports.searchUsers = async (req, res) => {
                 username: row.username,
                 display_name: row.display_name,
                 profile_image: row.image_url,
+                image_url: row.image_url,
+                avatar_url: row.image_url,
                 profession: row.profession,
                 about: row.about,
                 connection_status
@@ -354,7 +356,9 @@ exports.getConnections = async (req, res) => {
                 COALESCE(u.profile_name, u.username) AS display_name,
                 u.profession,
                 u.about,
-                u.image_url AS profile_image
+                u.image_url AS profile_image,
+                u.image_url AS image_url,
+                u.image_url AS avatar_url
             FROM user_connections c
             JOIN users u ON u.id = CASE WHEN c.user_id = $1 THEN c.friend_id ELSE c.user_id END
             WHERE (c.user_id = $1 OR c.friend_id = $1)
@@ -369,7 +373,9 @@ exports.getConnections = async (req, res) => {
             user_id: row.user_id,
             username: row.username,
             display_name: row.display_name,
-            profile_image: row.profile_image,
+            profile_image: row.profile_image || row.image_url,
+            image_url: row.image_url || row.profile_image,
+            avatar_url: row.avatar_url || row.profile_image,
             profession: row.profession,
             about: row.about,
             connection_status: 'connected'
@@ -414,6 +420,8 @@ exports.getIncomingRequests = async (req, res) => {
                 username: row.username,
                 display_name: row.display_name,
                 profile_image: row.profile_image,
+                image_url: row.profile_image,
+                avatar_url: row.profile_image,
                 profession: row.profession,
                 about: row.about,
                 connection_status: 'incoming'

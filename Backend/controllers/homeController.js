@@ -18,28 +18,24 @@ function isMediaFileValid(mediaUrl) {
     return true;
 }
 
-// Helper to verify if story exists, is active, and is accessible by user (own story or accepted connection)
-const verifyStoryAccess = async (storyId, userId) => {
+// Helper to verify if story exists, is active, unexpired, and accessible to viewer
+const verifyStoryAccess = async (storyId, viewerId) => {
     const sId = parseInt(storyId, 10);
-    const uId = parseInt(userId, 10);
-    if (!sId || !uId || isNaN(sId) || isNaN(uId)) return null;
+    const vId = parseInt(viewerId, 10);
+    if (!sId || isNaN(sId) || !vId || isNaN(vId)) return null;
 
     const res = await db.query(`
         SELECT s.id, s.user_id 
         FROM stories s
         WHERE s.id = $1 
           AND s.is_active = TRUE 
-          AND s.expires_at > NOW()
+          AND s.expires_at > CURRENT_TIMESTAMP
           AND (
-              s.user_id = $2 
-              OR s.user_id IN (
-                  SELECT CASE WHEN c.user_id = $2 THEN c.friend_id ELSE c.user_id END
-                  FROM user_connections c
-                  WHERE (c.user_id = $2 OR c.friend_id = $2)
-                    AND (LOWER(c.status) = 'accepted' OR LOWER(c.status) = 'connected')
-              )
+            s.user_id = $2
+            OR EXISTS (SELECT 1 FROM follows f WHERE f.follower_id = $2 AND f.following_id = s.user_id)
+            OR EXISTS (SELECT 1 FROM user_connections c WHERE ((c.user_id = $2 AND c.friend_id = s.user_id) OR (c.friend_id = $2 AND c.user_id = s.user_id)) AND (c.status = 'accepted' OR c.status = 'connected'))
           )
-    `, [sId, uId]);
+    `, [sId, vId]);
 
     return res.rows.length > 0 ? res.rows[0] : null;
 };
@@ -64,19 +60,10 @@ exports.getHomeData = async (req, res) => {
         await db.query(`
             UPDATE stories 
             SET is_active = FALSE 
-            WHERE is_active = TRUE AND (expires_at <= NOW() OR media_url IS NULL OR TRIM(media_url) = '')
+            WHERE is_active = TRUE AND (expires_at <= CURRENT_TIMESTAMP OR media_url IS NULL OR TRIM(media_url) = '')
         `);
 
-        // Fetch accepted connection IDs for debug log
-        const connRes = await db.query(`
-            SELECT CASE WHEN c.user_id = $1 THEN c.friend_id ELSE c.user_id END as conn_id
-            FROM user_connections c
-            WHERE (c.user_id = $1 OR c.friend_id = $1)
-              AND (LOWER(c.status) = 'accepted' OR LOWER(c.status) = 'connected')
-        `, [userId]);
-        const acceptedConnIds = connRes.rows.map(r => r.conn_id);
-
-        // Active stories query with full interaction counts and user details (ONLY own stories OR stories from ACCEPTED connections)
+        // Active stories query: Return ONLY current user's stories OR stories from users the current user follows/is connected with
         const storiesRes = await db.query(`
             SELECT 
                 s.id, 
@@ -91,9 +78,9 @@ exports.getHomeData = async (req, res) => {
                 s.created_at, 
                 s.expires_at, 
                 s.view_count, 
-                u.username, 
-                COALESCE(u.profile_name, u.username) AS display_name,
-                u.image_url as profile_image,
+                COALESCE(u.username, 'User') AS username, 
+                COALESCE(u.profile_name, u.username, 'User') AS display_name,
+                COALESCE(u.image_url, '') as profile_image,
                 COALESCE((SELECT COUNT(*)::INTEGER FROM story_likes sl WHERE sl.story_id = s.id), 0) as likes_count,
                 COALESCE((SELECT COUNT(*)::INTEGER FROM story_comments sc WHERE sc.story_id = s.id), 0) as comments_count,
                 COALESCE((SELECT COUNT(*)::INTEGER FROM story_shares ss WHERE ss.story_id = s.id), 0) as shares_count,
@@ -101,40 +88,25 @@ exports.getHomeData = async (req, res) => {
             FROM stories s
             JOIN users u ON s.user_id = u.id
             WHERE s.is_active = TRUE 
-              AND s.expires_at > NOW() 
+              AND s.expires_at > CURRENT_TIMESTAMP 
               AND s.media_url IS NOT NULL 
               AND TRIM(s.media_url) != ''
               AND (
-                  s.user_id = $1 
-                  OR s.user_id IN (
-                      SELECT CASE WHEN c.user_id = $1 THEN c.friend_id ELSE c.user_id END
-                      FROM user_connections c
-                      WHERE (c.user_id = $1 OR c.friend_id = $1)
-                        AND (LOWER(c.status) = 'accepted' OR LOWER(c.status) = 'connected')
-                  )
+                s.user_id = $1
+                OR EXISTS (SELECT 1 FROM follows f WHERE f.follower_id = $1 AND f.following_id = s.user_id)
+                OR EXISTS (SELECT 1 FROM user_connections c WHERE ((c.user_id = $1 AND c.friend_id = s.user_id) OR (c.friend_id = $1 AND c.user_id = s.user_id)) AND (c.status = 'accepted' OR c.status = 'connected'))
               )
             ORDER BY s.created_at ASC
         `, [userId]);
 
-        // Filter valid stories and auto-deactivate any missing local files
-        const validStories = [];
-        for (const story of storiesRes.rows) {
-            if (isMediaFileValid(story.media_url)) {
-                validStories.push(story);
-            } else {
-                console.log(`⚠️ [Home Story Cleanup] Deactivating story ${story.id} because local file ${story.media_url} does not exist`);
-                db.query('UPDATE stories SET is_active = FALSE WHERE id = $1', [story.id]).catch(() => {});
-            }
-        }
+        const validStories = storiesRes.rows.filter(s => s && s.media_url && typeof s.media_url === 'string' && s.media_url.trim() !== '');
 
-        // Split own story vs others
+        // Split own story vs followed users' active stories
         const ownStories = validStories.filter(s => Number(s.user_id) === userId);
         const activeStories = validStories.filter(s => Number(s.user_id) !== userId);
         const returnedOwners = [...new Set(validStories.map(s => `${s.username} (ID: ${s.user_id})`))];
 
-        console.log(`🔒 [STORY ACCESS DEBUG GET /api/home] Viewer: ${user.username} (ID: ${userId}) | Accepted Conns: [${acceptedConnIds.join(', ')}] | Returned Story Owners: [${returnedOwners.join(', ')}]`);
-
-        console.log(`🔒 [STORY ACCESS DEBUG GET /api/home] Viewer: ${user.username} (ID: ${userId}) | Accepted Conns: [${acceptedConnIds.join(', ')}] | Returned Story Owners: [${returnedOwners.join(', ')}]`);
+        console.log(`📌 [Backend GET /api/home] Viewer: ${user.username} (ID: ${userId}) | Own Stories: ${ownStories.length} | Followed Active Stories: ${activeStories.length} | Owners: [${returnedOwners.join(', ')}]`);
 
         // Tasks with completion status mapped directly for the user and strictly sorted by difficulty (EASY -> MEDIUM -> HARD)
         const tasksRes = await db.query(`
@@ -215,41 +187,44 @@ exports.uploadStory = async (req, res) => {
             return res.status(400).json({ error: 'media_url is required' });
         }
 
-        // Normalize media_url format
-        media_url = media_url.trim().replace(/\\/g, '/');
-        if (media_url.startsWith('uploads/')) {
-            media_url = '/' + media_url;
+        // Normalize media_url format to clean relative path
+        let cleanMediaUrl = media_url.trim().replace(/\\/g, '/');
+        const uploadsIdx = cleanMediaUrl.indexOf('/uploads/');
+        if (uploadsIdx !== -1) {
+            cleanMediaUrl = cleanMediaUrl.substring(uploadsIdx);
+        } else if (cleanMediaUrl.startsWith('uploads/')) {
+            cleanMediaUrl = '/' + cleanMediaUrl;
+        }
+
+        // Auto-detect media type if video extension
+        let determinedMediaType = (media_type || 'image').toLowerCase();
+        if (cleanMediaUrl.match(/\.(mp4|mov|m4v|webm)$/i)) {
+            determinedMediaType = 'video';
         }
 
         // Deactivate any expired or invalid stories first
         await db.query(
-            'UPDATE stories SET is_active = FALSE WHERE user_id = $1 AND (expires_at <= NOW() OR media_url IS NULL OR TRIM(media_url) = \'\')',
+            'UPDATE stories SET is_active = FALSE WHERE user_id = $1 AND (expires_at <= CURRENT_TIMESTAMP OR media_url IS NULL OR TRIM(media_url) = \'\')',
             [userId]
         );
 
         // Enforce 1 active story per user rule: check if user already has a valid active unexpired story
         const existingStoryRes = await db.query(
-            'SELECT id, media_url FROM stories WHERE user_id = $1 AND is_active = TRUE AND expires_at > NOW() LIMIT 1',
+            'SELECT id, media_url FROM stories WHERE user_id = $1 AND is_active = TRUE AND expires_at > CURRENT_TIMESTAMP LIMIT 1',
             [userId]
         );
 
         if (existingStoryRes.rows.length > 0) {
             const existing = existingStoryRes.rows[0];
-            // If existing story file is missing, deactivate it and allow new upload
-            if (!isMediaFileValid(existing.media_url)) {
-                console.log(`⚠️ [Story Upload] Existing story ${existing.id} had invalid media file, deactivating it to allow fresh upload.`);
-                await db.query('UPDATE stories SET is_active = FALSE WHERE id = $1', [existing.id]);
-            } else {
-                console.log(`❌ [Story Upload Blocked] User ${userId} already has an active story (id: ${existing.id})`);
-                return res.status(400).json({ 
-                    error: 'You already have an active story.',
-                    hasActiveStory: true,
-                    existingStoryId: existing.id
-                });
-            }
+            console.log(`❌ [Story Upload Blocked] User ${userId} already has an active story (id: ${existing.id})`);
+            return res.status(400).json({ 
+                error: 'You already have an active story.',
+                hasActiveStory: true,
+                existingStoryId: existing.id
+            });
         }
 
-        console.log(`📤 [Story Upload] Processing story upload for userId: ${userId}, media_type: ${media_type}, url: ${media_url}`);
+        console.log(`📤 [Story Upload] Processing story upload for userId: ${userId}, media_type: ${determinedMediaType}, url: ${cleanMediaUrl}`);
 
         const result = await db.query(
             `INSERT INTO stories (
@@ -264,11 +239,11 @@ exports.uploadStory = async (req, res) => {
                 created_at, 
                 expires_at, 
                 is_active
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW() + INTERVAL '24 hours', TRUE) RETURNING *`,
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '24 hours', TRUE) RETURNING *`,
             [
                 userId, 
-                media_url, 
-                media_type, 
+                cleanMediaUrl, 
+                determinedMediaType, 
                 JSON.stringify(text_elements || []), 
                 text_content || null,
                 JSON.stringify(text_position || {}),
@@ -295,7 +270,8 @@ exports.uploadStory = async (req, res) => {
                 s.expires_at, 
                 s.view_count, 
                 COALESCE(u.username, 'User') as username, 
-                u.image_url as profile_image,
+                COALESCE(u.profile_name, u.username, 'User') AS display_name,
+                COALESCE(u.image_url, '') as profile_image,
                 0 as likes_count,
                 0 as comments_count,
                 0 as shares_count,
@@ -307,7 +283,7 @@ exports.uploadStory = async (req, res) => {
 
         const fullStory = fullStoryRes.rows[0] || newStory;
 
-        console.log(`✅ [Story Upload Success] userId: ${userId}, storyId: ${newStory.id}, media_url: ${media_url}, expires_at: ${newStory.expires_at}`);
+        console.log(`✅ [Story Upload Success] userId: ${userId}, storyId: ${newStory.id}, media_url: ${cleanMediaUrl}, created_at: ${newStory.created_at}, expires_at: ${newStory.expires_at}`);
 
         return res.status(201).json({ 
             success: true, 
@@ -332,34 +308,8 @@ exports.getStories = async (req, res) => {
         await db.query(`
             UPDATE stories 
             SET is_active = FALSE 
-            WHERE is_active = TRUE AND (expires_at <= NOW() OR media_url IS NULL OR TRIM(media_url) = '')
+            WHERE is_active = TRUE AND (expires_at <= CURRENT_TIMESTAMP OR media_url IS NULL OR TRIM(media_url) = '')
         `);
-
-        // Fetch accepted connection IDs for debug log
-        const connRes = await db.query(`
-            SELECT CASE WHEN c.user_id = $1 THEN c.friend_id ELSE c.user_id END as conn_id
-            FROM user_connections c
-            WHERE (c.user_id = $1 OR c.friend_id = $1)
-              AND (LOWER(c.status) = 'accepted' OR LOWER(c.status) = 'connected')
-        `, [currentUserId]);
-        const acceptedConnIds = connRes.rows.map(r => r.conn_id);
-
-        // If target userId parameter is passed, verify it is either current user or an accepted connection
-        if (userId) {
-            const targetId = parseInt(userId, 10);
-            if (targetId !== currentUserId) {
-                const connCheck = await db.query(
-                    `SELECT id FROM user_connections 
-                     WHERE ((user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1))
-                       AND (LOWER(status) = 'accepted' OR LOWER(status) = 'connected')`,
-                    [currentUserId, targetId]
-                );
-                if (connCheck.rows.length === 0) {
-                    console.log(`🔒 [STORY ACCESS DENIED GET /api/stories] Viewer: ${currentUserId} requested Target: ${targetId} - NOT CONNECTED`);
-                    return res.status(200).json({ stories: [] });
-                }
-            }
-        }
 
         let query = `
             SELECT 
@@ -375,9 +325,9 @@ exports.getStories = async (req, res) => {
                 s.created_at, 
                 s.expires_at, 
                 s.view_count, 
-                u.username, 
-                COALESCE(u.profile_name, u.username) AS display_name,
-                u.image_url as profile_image,
+                COALESCE(u.username, 'User') as username, 
+                COALESCE(u.profile_name, u.username, 'User') AS display_name,
+                COALESCE(u.image_url, '') as profile_image,
                 COALESCE((SELECT COUNT(*)::INTEGER FROM story_likes sl WHERE sl.story_id = s.id), 0) as likes_count,
                 COALESCE((SELECT COUNT(*)::INTEGER FROM story_comments sc WHERE sc.story_id = s.id), 0) as comments_count,
                 COALESCE((SELECT COUNT(*)::INTEGER FROM story_shares ss WHERE ss.story_id = s.id), 0) as shares_count,
@@ -385,41 +335,35 @@ exports.getStories = async (req, res) => {
             FROM stories s
             JOIN users u ON s.user_id = u.id
             WHERE s.is_active = TRUE 
-              AND s.expires_at > NOW() 
+              AND s.expires_at > CURRENT_TIMESTAMP 
               AND s.media_url IS NOT NULL 
               AND TRIM(s.media_url) != ''
-              AND (
-                  s.user_id = $1 
-                  OR s.user_id IN (
-                      SELECT CASE WHEN c.user_id = $1 THEN c.friend_id ELSE c.user_id END
-                      FROM user_connections c
-                      WHERE (c.user_id = $1 OR c.friend_id = $1)
-                        AND (LOWER(c.status) = 'accepted' OR LOWER(c.status) = 'connected')
-                  )
-              )
         `;
         const params = [currentUserId];
+
         if (userId) {
-            query += ' AND s.user_id = $2';
-            params.push(parseInt(userId, 10));
+            const targetUserId = parseInt(userId, 10);
+            query += ` AND s.user_id = $2 AND (
+                s.user_id = $1 
+                OR EXISTS (SELECT 1 FROM follows f WHERE f.follower_id = $1 AND f.following_id = s.user_id)
+                OR EXISTS (SELECT 1 FROM user_connections c WHERE ((c.user_id = $1 AND c.friend_id = s.user_id) OR (c.friend_id = $1 AND c.user_id = s.user_id)) AND (c.status = 'accepted' OR c.status = 'connected'))
+            )`;
+            params.push(targetUserId);
+        } else {
+            query += ` AND (
+                s.user_id = $1
+                OR EXISTS (SELECT 1 FROM follows f WHERE f.follower_id = $1 AND f.following_id = s.user_id)
+                OR EXISTS (SELECT 1 FROM user_connections c WHERE ((c.user_id = $1 AND c.friend_id = s.user_id) OR (c.friend_id = $1 AND c.user_id = s.user_id)) AND (c.status = 'accepted' OR c.status = 'connected'))
+            )`;
         }
+
         query += ' ORDER BY s.created_at DESC';
 
         const result = await db.query(query, params);
-
-        // Validate local media existence and auto-deactivate broken files
-        const validStories = [];
-        for (const story of result.rows) {
-            if (isMediaFileValid(story.media_url)) {
-                validStories.push(story);
-            } else {
-                console.log(`⚠️ [Stories Feed Cleanup] Deactivating story ${story.id} because local file ${story.media_url} does not exist`);
-                db.query('UPDATE stories SET is_active = FALSE WHERE id = $1', [story.id]).catch(() => {});
-            }
-        }
+        const validStories = result.rows.filter(s => s && s.media_url && typeof s.media_url === 'string' && s.media_url.trim() !== '');
 
         const returnedOwners = [...new Set(validStories.map(s => `${s.username} (ID: ${s.user_id})`))];
-        console.log(`🔒 [STORY ACCESS DEBUG GET /api/stories] Viewer ID: ${currentUserId} | Accepted Conns: [${acceptedConnIds.join(', ')}] | Returned Story Owners: [${returnedOwners.join(', ')}] | Count: ${validStories.length}`);
+        console.log(`📌 [Backend GET /api/stories] Viewer ID: ${currentUserId} | Returned Stories Count: ${validStories.length} | Story Owners: [${returnedOwners.join(', ')}]`);
         return res.status(200).json({ stories: validStories });
     } catch (err) {
         console.error('getStories error:', err);
@@ -438,9 +382,9 @@ exports.getStoryById = async (req, res) => {
         const result = await db.query(`
             SELECT 
                 s.*, 
-                u.username, 
-                COALESCE(u.profile_name, u.username) AS display_name,
-                u.image_url as profile_image,
+                COALESCE(u.username, 'User') as username, 
+                COALESCE(u.profile_name, u.username, 'User') AS display_name,
+                COALESCE(u.image_url, '') as profile_image,
                 COALESCE((SELECT COUNT(*)::INTEGER FROM story_likes sl WHERE sl.story_id = s.id), 0) as likes_count,
                 COALESCE((SELECT COUNT(*)::INTEGER FROM story_comments sc WHERE sc.story_id = s.id), 0) as comments_count,
                 COALESCE((SELECT COUNT(*)::INTEGER FROM story_shares ss WHERE ss.story_id = s.id), 0) as shares_count,
@@ -449,26 +393,68 @@ exports.getStoryById = async (req, res) => {
             JOIN users u ON s.user_id = u.id
             WHERE s.id = $1 
               AND s.is_active = TRUE 
-              AND s.expires_at > NOW()
+              AND s.expires_at > CURRENT_TIMESTAMP
               AND (
-                  s.user_id = $2 
-                  OR s.user_id IN (
-                      SELECT CASE WHEN c.user_id = $2 THEN c.friend_id ELSE c.user_id END
-                      FROM user_connections c
-                      WHERE (c.user_id = $2 OR c.friend_id = $2)
-                        AND (c.status = 'accepted' OR c.status = 'connected')
-                  )
+                s.user_id = $2
+                OR EXISTS (SELECT 1 FROM follows f WHERE f.follower_id = $2 AND f.following_id = s.user_id)
+                OR EXISTS (SELECT 1 FROM user_connections c WHERE ((c.user_id = $2 AND c.friend_id = s.user_id) OR (c.friend_id = $2 AND c.user_id = s.user_id)) AND (c.status = 'accepted' OR c.status = 'connected'))
               )
         `, [storyId, currentUserId]);
 
         if (result.rows.length === 0) {
-            console.log(`📌 [Backend GET /api/stories/:id] storyId: ${storyId} not found, expired, or access denied`);
+            console.log(`📌 [Backend GET /api/stories/:id] storyId: ${storyId} not found, expired, or access denied for viewer ${currentUserId}`);
             return res.status(404).json({ error: 'This story is no longer available.' });
         }
         console.log(`📌 [Backend GET /api/stories/:id] storyId: ${storyId} found`);
         return res.status(200).json({ story: result.rows[0] });
     } catch (err) {
         console.error('getStoryById error:', err);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+exports.deleteStory = async (req, res) => {
+    try {
+        const userId = parseInt(req.user.id, 10);
+        const storyId = parseInt(req.params.id, 10);
+
+        if (!storyId || isNaN(storyId)) {
+            return res.status(400).json({ error: 'Invalid story ID' });
+        }
+
+        const storyRes = await db.query('SELECT id, user_id, media_url FROM stories WHERE id = $1', [storyId]);
+        if (storyRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Story not found' });
+        }
+
+        const story = storyRes.rows[0];
+        if (Number(story.user_id) !== userId) {
+            return res.status(403).json({ error: 'You are not authorized to delete this story' });
+        }
+
+        // Delete from database
+        await db.query('DELETE FROM stories WHERE id = $1 AND user_id = $2', [storyId, userId]);
+
+        // If local file exists, remove from disk
+        if (story.media_url && typeof story.media_url === 'string') {
+            const cleanUrl = story.media_url.replace(/\\/g, '/');
+            if (cleanUrl.startsWith('/uploads/')) {
+                const filename = path.basename(cleanUrl);
+                const filePath = path.join(uploadDir, filename);
+                if (fs.existsSync(filePath)) {
+                    try {
+                        fs.unlinkSync(filePath);
+                    } catch (e) {
+                        console.error('Error removing deleted story file:', e);
+                    }
+                }
+            }
+        }
+
+        console.log(`🗑️ [Backend DELETE /api/stories/:id] Story ${storyId} deleted by user ${userId}`);
+        return res.status(200).json({ success: true, message: 'Story deleted successfully' });
+    } catch (err) {
+        console.error('deleteStory error:', err);
         return res.status(500).json({ error: 'Internal server error' });
     }
 };
@@ -633,8 +619,8 @@ exports.addStoryComment = async (req, res) => {
     try {
         const userId = parseInt(req.user.id, 10);
         const storyId = parseInt(req.params.storyId, 10);
-        const { text, comment_text } = req.body;
-        const commentContent = (text || comment_text || '').trim();
+        const { text, comment_text, content, comment } = req.body;
+        const commentContent = (content || text || comment_text || comment || '').trim();
 
         if (!storyId || isNaN(storyId)) {
             return res.status(400).json({ error: 'Invalid story ID' });
@@ -849,6 +835,8 @@ exports.getStoryViewers = async (req, res) => {
                 u.id as user_id, 
                 u.username, 
                 u.image_url as profile_image, 
+                u.image_url as image_url,
+                u.image_url as avatar_url,
                 sv.viewed_at
             FROM story_views sv
             JOIN users u ON sv.viewer_user_id = u.id
@@ -871,8 +859,12 @@ exports.getStoryViewers = async (req, res) => {
 
 exports.deleteStory = async (req, res) => {
     try {
-        const userId = req.user.id;
-        const storyId = req.params.id;
+        const userId = parseInt(req.user.id, 10);
+        const storyId = parseInt(req.params.id, 10);
+
+        if (!storyId || isNaN(storyId)) {
+            return res.status(400).json({ error: 'Invalid story ID' });
+        }
 
         // Verify story ownership
         const storyRes = await db.query('SELECT user_id FROM stories WHERE id = $1', [storyId]);
@@ -880,7 +872,7 @@ exports.deleteStory = async (req, res) => {
             return res.status(404).json({ error: 'Story not found' });
         }
 
-        if (storyRes.rows[0].user_id !== userId) {
+        if (parseInt(storyRes.rows[0].user_id, 10) !== userId) {
             return res.status(403).json({ error: 'You can only delete your own stories' });
         }
 

@@ -13,6 +13,111 @@ const parseMemberPreview = (raw) => {
     }));
 };
 
+const parseActivityDate = (dateStr, createdAt) => {
+    if (!dateStr || typeof dateStr !== 'string') {
+        if (createdAt) {
+            const cd = new Date(createdAt);
+            if (!isNaN(cd.getTime())) return cd;
+        }
+        return null;
+    }
+    const trimmed = dateStr.trim();
+    if (!trimmed) return null;
+
+    // DD/MM/YYYY or D/M/YYYY
+    const dmySlash = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (dmySlash) {
+        const [, d, m, y] = dmySlash;
+        let day = parseInt(d, 10);
+        let month = parseInt(m, 10);
+        const year = parseInt(y, 10);
+        if (month > 12 && day <= 12) {
+            const temp = day;
+            day = month;
+            month = temp;
+        }
+        return new Date(year, month - 1, day, 23, 59, 59, 999);
+    }
+
+    // DD-MM-YYYY or D-M-YYYY
+    const dmyDash = trimmed.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+    if (dmyDash) {
+        const [, d, m, y] = dmyDash;
+        let day = parseInt(d, 10);
+        let month = parseInt(m, 10);
+        const year = parseInt(y, 10);
+        if (month > 12 && day <= 12) {
+            const temp = day;
+            day = month;
+            month = temp;
+        }
+        return new Date(year, month - 1, day, 23, 59, 59, 999);
+    }
+
+    // YYYY-MM-DD or YYYY/MM/DD
+    const ymd = trimmed.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+    if (ymd) {
+        const [, y, m, d] = ymd;
+        return new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10), 23, 59, 59, 999);
+    }
+
+    // Month names like "Aug 12" or "Aug 12, 2026" or "12 Aug 2026"
+    const MONTH_MAP = {
+        jan: 0, january: 0,
+        feb: 1, february: 1,
+        mar: 2, march: 2,
+        apr: 3, april: 3,
+        may: 4,
+        jun: 5, june: 5,
+        jul: 6, july: 6,
+        aug: 7, august: 7,
+        sep: 8, sept: 8, september: 8,
+        oct: 9, october: 9,
+        nov: 10, november: 10,
+        dec: 11, december: 11
+    };
+
+    const currentYear = new Date().getFullYear();
+
+    const mFirst = trimmed.match(/^([A-Za-z]+)\s+(\d{1,2})(?:[,\s]+(\d{4}))?/i);
+    if (mFirst) {
+        const mKey = mFirst[1].toLowerCase();
+        if (MONTH_MAP[mKey] !== undefined) {
+            const m = MONTH_MAP[mKey];
+            const d = parseInt(mFirst[2], 10);
+            const y = mFirst[3] ? parseInt(mFirst[3], 10) : currentYear;
+            return new Date(y, m, d, 23, 59, 59, 999);
+        }
+    }
+
+    const dFirst = trimmed.match(/^(\d{1,2})\s+([A-Za-z]+)(?:[,\s]+(\d{4}))?/i);
+    if (dFirst) {
+        const mKey = dFirst[2].toLowerCase();
+        if (MONTH_MAP[mKey] !== undefined) {
+            const m = MONTH_MAP[mKey];
+            const d = parseInt(dFirst[1], 10);
+            const y = dFirst[3] ? parseInt(dFirst[3], 10) : currentYear;
+            return new Date(y, m, d, 23, 59, 59, 999);
+        }
+    }
+
+    const parsed = Date.parse(trimmed.includes(' ') || trimmed.includes(',') || trimmed.length > 6 ? trimmed : `${trimmed} ${currentYear}`);
+    if (!isNaN(parsed)) {
+        const pd = new Date(parsed);
+        pd.setHours(23, 59, 59, 999);
+        return pd;
+    }
+
+    return null;
+};
+
+const isActivityExpired = (dateStr, createdAt) => {
+    const activityDate = parseActivityDate(dateStr, createdAt);
+    if (!activityDate) return false;
+    const now = new Date();
+    return activityDate.getTime() < now.getTime();
+};
+
 const getActivityMemberInfo = async (activityId) => {
     const res = await db.query(`
         SELECT 
@@ -117,8 +222,19 @@ exports.getActivities = async (req, res) => {
 
         const result = await db.query(query, params);
         
-        const activities = result.rows.map(row => ({
+        // Filter out expired activities
+        const activeRows = result.rows.filter(row => !isActivityExpired(row.date_str, row.created_at));
+
+        // Mark expired activities in database asynchronously for record tracking
+        const expiredIds = result.rows.filter(row => isActivityExpired(row.date_str, row.created_at)).map(r => r.id);
+        if (expiredIds.length > 0) {
+            db.query("UPDATE activities SET status = 'expired' WHERE id = ANY($1)", [expiredIds]).catch(() => {});
+        }
+        
+        const activities = activeRows.map(row => ({
             id: row.id.toString(),
+            creatorId: row.creator_id ? row.creator_id.toString() : null,
+            isCreator: parseInt(row.creator_id, 10) === parseInt(userId, 10),
             category: row.category,
             title: row.title,
             description: row.description,
@@ -140,6 +256,7 @@ exports.getActivities = async (req, res) => {
             },
             imageColor: row.image_url ? null : (row.category_color || '#EA580C'),
             imageUrl: row.image_url,
+            image_url: row.image_url,
             emoji: row.emoji || '📅',
             memberPreview: parseMemberPreview(row.member_preview)
         }));
@@ -184,8 +301,13 @@ exports.getJoinedActivities = async (req, res) => {
         `;
         const result = await db.query(query, [userId]);
         
-        const activities = result.rows.map(row => ({
+        // Filter out expired activities
+        const activeRows = result.rows.filter(row => !isActivityExpired(row.date_str, row.created_at));
+
+        const activities = activeRows.map(row => ({
             id: row.id.toString(),
+            creatorId: row.creator_id ? row.creator_id.toString() : null,
+            isCreator: parseInt(row.creator_id, 10) === parseInt(userId, 10),
             category: row.category,
             title: row.title,
             description: row.description,
@@ -203,6 +325,7 @@ exports.getJoinedActivities = async (req, res) => {
             },
             imageColor: row.image_url ? null : (row.category_color || '#EA580C'),
             imageUrl: row.image_url,
+            image_url: row.image_url,
             emoji: row.emoji || '📅',
             memberPreview: parseMemberPreview(row.member_preview)
         }));
@@ -253,6 +376,8 @@ exports.getActivityById = async (req, res) => {
         const row = result.rows[0];
         const activity = {
             id: row.id.toString(),
+            creatorId: row.creator_id ? row.creator_id.toString() : null,
+            isCreator: parseInt(row.creator_id, 10) === parseInt(userId, 10),
             category: row.category,
             title: row.title,
             description: row.description,
@@ -270,6 +395,7 @@ exports.getActivityById = async (req, res) => {
             },
             imageColor: row.image_url ? null : '#EA580C',
             imageUrl: row.image_url,
+            image_url: row.image_url,
             emoji: row.emoji || '📅',
             memberPreview: parseMemberPreview(row.member_preview)
         };
@@ -298,14 +424,17 @@ exports.createActivity = async (req, res) => {
             return res.status(400).json({ error: 'Please enter a valid Indian pincode.' });
         }
 
+        const parsedDate = parseActivityDate(date);
+        const eventDateSQL = parsedDate ? parsedDate.toISOString().split('T')[0] : null;
+
         const query = `
             INSERT INTO activities (
-                creator_id, category, title, description, date_str, time_str, location, capacity, image_url, emoji, pincode, city, latitude, longitude, location_name
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+                creator_id, category, title, description, date_str, time_str, location, capacity, image_url, emoji, pincode, city, latitude, longitude, location_name, event_date, status
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, 'active')
             RETURNING *
         `;
         const result = await db.query(query, [
-            creator_id, category, title, description || '', date, time, location, capacity, image_url || null, emoji || '📅', pincode || null, city || null, latitude || null, longitude || null, location_name || null
+            creator_id, category, title, description || '', date, time, location, capacity, image_url || null, emoji || '📅', pincode || null, city || null, latitude || null, longitude || null, location_name || null, eventDateSQL
         ]);
 
         const newActivity = result.rows[0];
@@ -323,6 +452,12 @@ exports.createActivity = async (req, res) => {
             activity: {
                 ...newActivity,
                 id: newActivity.id.toString(),
+                creatorId: creator_id.toString(),
+                isCreator: true,
+                imageUrl: newActivity.image_url,
+                image_url: newActivity.image_url,
+                date: newActivity.date_str,
+                time: newActivity.time_str,
                 joined: memberInfo.joined,
                 isJoined: true,
                 memberPreview: memberInfo.memberPreview
@@ -349,6 +484,9 @@ exports.updateActivity = async (req, res) => {
             return res.status(403).json({ error: 'Unauthorized to update this activity' });
         }
 
+        const parsedDate = date ? parseActivityDate(date) : null;
+        const eventDateSQL = parsedDate ? parsedDate.toISOString().split('T')[0] : null;
+
         const query = `
             UPDATE activities SET
                 title = COALESCE($1, title),
@@ -360,10 +498,11 @@ exports.updateActivity = async (req, res) => {
                 description = COALESCE($7, description),
                 image_url = COALESCE($8, image_url),
                 emoji = COALESCE($9, emoji),
+                event_date = COALESCE($10, event_date),
                 updated_at = CURRENT_TIMESTAMP
-            WHERE id = $10 RETURNING *
+            WHERE id = $11 RETURNING *
         `;
-        const result = await db.query(query, [title, category, date, time, location, capacity, description, image_url, emoji, id]);
+        const result = await db.query(query, [title, category, date, time, location, capacity, description, image_url, emoji, eventDateSQL, id]);
 
         res.json({ message: 'Activity updated successfully', activity: result.rows[0] });
     } catch (error) {
@@ -383,11 +522,12 @@ exports.deleteActivity = async (req, res) => {
             return res.status(404).json({ error: 'Activity not found' });
         }
         if (ownershipCheck.rows[0].creator_id !== userId) {
-            return res.status(403).json({ error: 'Unauthorized to delete this activity' });
+            return res.status(403).json({ error: 'Unauthorized: Only the activity creator can delete this activity' });
         }
 
+        // Delete activity from database (cascades to activity_participants)
         await db.query('DELETE FROM activities WHERE id = $1', [id]);
-        res.json({ message: 'Activity deleted successfully' });
+        res.json({ success: true, message: 'Activity deleted successfully', activityId: id });
     } catch (error) {
         console.error('Delete activity error:', error);
         res.status(500).json({ error: 'Internal server error' });

@@ -334,7 +334,7 @@ export default function CreateActivityScreen() {
                 <Text style={styles.label}>Date</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="e.g. Dec 25"
+                  placeholder="e.g. 17/08/2026"
                   placeholderTextColor="#9CA3AF"
                   value={date}
                   onChangeText={setDate}

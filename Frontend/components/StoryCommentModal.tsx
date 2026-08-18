@@ -292,15 +292,7 @@ export default function StoryCommentModal({
                 const avatarUri = resolveImageUrl(item.profile_image);
                 return (
                   <View style={styles.commentRow}>
-                    {avatarUri ? (
-                      <Image source={{ uri: avatarUri }} style={styles.avatar} />
-                    ) : (
-                      <View style={styles.avatarPlaceholder}>
-                        <Text style={styles.avatarInitial}>
-                          {(item.username || "U").charAt(0).toUpperCase()}
-                        </Text>
-                      </View>
-                    )}
+                    <Image source={{ uri: avatarUri }} style={styles.avatar} />
 
                     <View style={styles.commentContent}>
                       <View style={styles.commentTopRow}>
