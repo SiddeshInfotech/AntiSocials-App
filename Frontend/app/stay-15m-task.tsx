@@ -60,6 +60,13 @@ export default function Stay15MTaskScreen() {
   const finalPulseAnim = useRef(new Animated.Value(1)).current;
   const shieldScaleAnim = useRef(new Animated.Value(0)).current;
   const shieldOpacityAnim = useRef(new Animated.Value(0)).current;
+  const pureLightScaleAnim = useRef(new Animated.Value(1)).current;
+  const pureLightOpacityAnim = useRef(new Animated.Value(1)).current;
+
+  const hourglassRotate = '0deg';
+  const topBulbHeight = topBulbDrain.interpolate({ inputRange: [0, 1], outputRange: [0, 90] });
+  const bottomBulbHeight = bottomBulbFill.interpolate({ inputRange: [0, 1], outputRange: [0, 90] });
+  const sandStreamY = sandStreamPulse.interpolate({ inputRange: [0, 1], outputRange: [0, 20] });
 
   // Continuous Golden Sand Particles dropping
   const grainAnims = useRef(SAND_GRAINS.map(() => new Animated.Value(0))).current;

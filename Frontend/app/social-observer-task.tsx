@@ -51,6 +51,7 @@ export default function SocialObserverTaskScreen() {
 
   // Visual Atmosphere & Dynamic Node Connections
   const spotlightGlowAnim = useRef(new Animated.Value(0.3)).current;
+  const spotlightOpacity = spotlightGlowAnim;
   const nodePulseAnim = useRef(new Animated.Value(1)).current;
   const connectionLineAnim = useRef(new Animated.Value(0)).current; // Fades in shared flow lines
   const warmAmberFill = useRef(new Animated.Value(0)).current; // 5:00 full amber glow

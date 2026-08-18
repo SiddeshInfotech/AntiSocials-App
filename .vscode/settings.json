@@ -1,15 +1,11 @@
 {
-    "sqltools.connections": [
-        {
-            "ssh": "Disabled",
-            "previewLimit": 50,
-            "server": "localhost",
-            "port": 5432,
-            "driver": "PostgreSQL",
-            "username": "postgres",
-            "password": "0000",
-            "database": "antisocial",
-            "name": "anti"
-        }
-    ]
+  "java.import.exclusions": [
+    "**/node_modules/**",
+    "**/.metadata/**",
+    "**/archetype/**",
+    "**/hooks/**"
+  ],
+  "files.exclude": {
+    "**/node_modules": true
+  }
 }

@@ -9,6 +9,7 @@ import {
   Dimensions,
   Pressable,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -71,6 +72,10 @@ export default function LocationCheckinTaskScreen() {
   // Radar & Discovery Beacon Animations
   const radarSweepAnim = useRef(new Animated.Value(0)).current; // 0deg to 360deg sweep
   const beaconPulseAnim = useRef(new Animated.Value(1)).current;
+  const beaconRingsAnim = useRef(new Animated.Value(0)).current;
+  const radarPulseAnim = useRef(new Animated.Value(0.3)).current;
+  const cyanAuraFill = useRef(new Animated.Value(0)).current;
+  const finalZoomAnim = useRef(new Animated.Value(1)).current;
   const pinDropAnim = useRef(new Animated.Value(-120)).current; // Drops down onto map
   const pinOpacityAnim = useRef(new Animated.Value(0)).current;
   const stampScaleAnim = useRef(new Animated.Value(2.5)).current;
@@ -79,6 +84,12 @@ export default function LocationCheckinTaskScreen() {
   // Final Cinematic Map Beacon Pulse
   const shieldScaleAnim = useRef(new Animated.Value(0)).current;
   const shieldOpacityAnim = useRef(new Animated.Value(0)).current;
+
+  const handleDevSkip = () => {
+    if (__DEV__) {
+      setTimeLeft(0);
+    }
+  };
 
   // Check & Request GPS Permission on Mount
   useEffect(() => {

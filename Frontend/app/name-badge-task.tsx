@@ -47,6 +47,20 @@ export default function NameBadgeTaskScreen() {
   const badgeGlowAnim = useRef(new Animated.Value(0.2)).current; // Soft aura glow
   const goldLightFill = useRef(new Animated.Value(0)).current; // Full golden fill at 3:00
 
+  // Badge card specific animations
+  const badgeFloatAnim = useRef(new Animated.Value(0)).current;
+  const jacketScale = useRef(new Animated.Value(1)).current;
+  const nameFadeAnim = useRef(new Animated.Value(1)).current;
+  const interestFadeAnim = useRef(new Animated.Value(1)).current;
+  const sampleInterest = "Passionate about Tech & Design";
+  const goldenCircleScale = useRef(new Animated.Value(1)).current;
+  const goldenCircleOpacity = useRef(new Animated.Value(1)).current;
+
+  const badgeRotateY = lanyardSwayAnim.interpolate({
+    inputRange: [-1, 1],
+    outputRange: ['-5deg', '5deg'],
+  });
+
   // Final Cinematic
   const finalZoomAnim = useRef(new Animated.Value(1)).current;
   const shieldScaleAnim = useRef(new Animated.Value(0)).current;
