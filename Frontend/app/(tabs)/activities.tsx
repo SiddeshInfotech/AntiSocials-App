@@ -485,6 +485,10 @@ export default function ActivitiesScreen() {
               (currentUserId && (activity as any).creator_id && String((activity as any).creator_id) === String(currentUserId))
             );
 
+            const otherMembers = (activity.memberPreview || [])
+              .filter(m => String(m.id) !== String(activity.creatorId) && m.name !== activity.creator?.name)
+              .slice(0, 4);
+
             return (
             <TouchableOpacity 
               key={activity.id} 
@@ -527,16 +531,50 @@ export default function ActivitiesScreen() {
 
               {/* 2. Information Section (Starts immediately below image) */}
               <View style={styles.cardContent}>
-                {/* 3. Host Profile Picture & Member Attendance + Join Button */}
+                {/* 3. Host Profile Picture & Joined Member Avatars Stack + Attendance */}
                 <View style={styles.cardMetaRow}>
                   <View style={styles.creatorAttendanceGroup}>
-                    <View style={[styles.avatarSmall, { backgroundColor: activity.creator?.color || '#A855F7' }]}>
-                      {activity.creator?.image ? (
-                        <Image source={{ uri: resolveImageUrl(activity.creator.image) }} style={styles.avatarSmallImg} />
-                      ) : (
-                        <Text style={styles.avatarSmallText}>{activity.creator?.initial || 'U'}</Text>
-                      )}
+                    <View style={styles.avatarStackContainer}>
+                      {/* Host Avatar (Primary, 36px) */}
+                      <View
+                        style={[
+                          styles.hostAvatar,
+                          { backgroundColor: activity.creator?.color || '#A855F7', zIndex: 10 }
+                        ]}
+                      >
+                        {activity.creator?.image ? (
+                          <Image
+                            source={{ uri: resolveImageUrl(activity.creator.image) }}
+                            style={styles.avatarImg}
+                          />
+                        ) : (
+                          <Text style={styles.hostAvatarText}>{activity.creator?.initial || 'U'}</Text>
+                        )}
+                      </View>
+
+                      {/* Joined Members (Up to 4, 28px, overlapping, max 5 total circles) */}
+                      {otherMembers.map((member, idx) => {
+                        const memberImg = member.profileImage ? resolveImageUrl(member.profileImage) : null;
+                        const memberInitial = member.name ? member.name.charAt(0).toUpperCase() : 'U';
+                        const memberColor = AVATAR_COLORS[idx % AVATAR_COLORS.length] || '#6366F1';
+                        return (
+                          <View
+                            key={member.id || `member-${idx}`}
+                            style={[
+                              styles.joinedAvatar,
+                              { backgroundColor: memberColor, zIndex: 9 - idx }
+                            ]}
+                          >
+                            {memberImg ? (
+                              <Image source={{ uri: memberImg }} style={styles.avatarImg} />
+                            ) : (
+                              <Text style={styles.joinedAvatarText}>{memberInitial}</Text>
+                            )}
+                          </View>
+                        );
+                      })}
                     </View>
+
                     <Text style={styles.attendanceText}>
                       {activity.joined}/{activity.capacity} going
                     </Text>
@@ -805,23 +843,57 @@ const styles = StyleSheet.create({
   creatorAttendanceGroup: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
+    marginRight: 8,
   },
-  avatarSmall: {
+  avatarStackContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  hostAvatar: {
     width: 36,
     height: 36,
     borderRadius: 18,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 2,
+    elevation: 2,
   },
-  avatarSmallImg: {
+  joinedAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    marginLeft: -8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  avatarImg: {
     width: '100%',
     height: '100%',
   },
-  avatarSmallText: {
+  hostAvatarText: {
     color: '#FFFFFF',
     fontSize: 15,
+    fontWeight: '700',
+  },
+  joinedAvatarText: {
+    color: '#FFFFFF',
+    fontSize: 11,
     fontWeight: '700',
   },
   attendanceText: {

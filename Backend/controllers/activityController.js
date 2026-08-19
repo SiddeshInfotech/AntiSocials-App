@@ -134,7 +134,7 @@ const getActivityMemberInfo = async (activityId) => {
                     FROM activity_participants ap
                     WHERE ap.activity_id = $1
                     ORDER BY ap.joined_at ASC, ap.id ASC
-                    LIMIT 3
+                    LIMIT 6
                 ) ap_sub
                 JOIN users mu ON ap_sub.user_id = mu.id
             ) as member_preview
@@ -177,7 +177,7 @@ exports.getActivities = async (req, res) => {
                             FROM activity_participants ap
                             WHERE ap.activity_id = a.id
                             ORDER BY ap.joined_at ASC, ap.id ASC
-                            LIMIT 3
+                            LIMIT 6
                         ) ap_sub
                         JOIN users mu ON ap_sub.user_id = mu.id
                     ) as member_preview,
@@ -209,7 +209,7 @@ exports.getActivities = async (req, res) => {
                             FROM activity_participants ap
                             WHERE ap.activity_id = a.id
                             ORDER BY ap.joined_at ASC, ap.id ASC
-                            LIMIT 3
+                            LIMIT 6
                         ) ap_sub
                         JOIN users mu ON ap_sub.user_id = mu.id
                     ) as member_preview
@@ -293,7 +293,7 @@ exports.getJoinedActivities = async (req, res) => {
                         FROM activity_participants ap
                         WHERE ap.activity_id = a.id
                         ORDER BY ap.joined_at ASC, ap.id ASC
-                        LIMIT 3
+                        LIMIT 6
                     ) ap_sub
                     JOIN users mu ON ap_sub.user_id = mu.id
                 ) as member_preview
