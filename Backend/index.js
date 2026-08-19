@@ -359,6 +359,11 @@ const initDB = async () => {
         try { await db.query('ALTER TABLE activities ADD COLUMN location_name VARCHAR(255)'); } catch (e) { }
         try { await db.query("ALTER TABLE activities ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'active'"); } catch (e) { }
         try { await db.query('ALTER TABLE activities ADD COLUMN IF NOT EXISTS event_date DATE'); } catch (e) { }
+        try { await db.query('ALTER TABLE activities ADD COLUMN IF NOT EXISTS owner_feedback TEXT'); } catch (e) { }
+        try { await db.query('ALTER TABLE activities ADD COLUMN IF NOT EXISTS feedback_rating NUMERIC'); } catch (e) { }
+        try { await db.query('ALTER TABLE activities ADD COLUMN IF NOT EXISTS feedback_participation_rating NUMERIC'); } catch (e) { }
+        try { await db.query('ALTER TABLE activities ADD COLUMN IF NOT EXISTS feedback_timestamp TIMESTAMP'); } catch (e) { }
+        try { await db.query('ALTER TABLE activities ADD COLUMN IF NOT EXISTS address TEXT'); } catch (e) { }
         try { await db.query('ALTER TABLE users ADD COLUMN profile_name VARCHAR(100)'); } catch (e) { }
         try { await db.query('CREATE INDEX IF NOT EXISTS idx_activities_pincode ON activities(pincode)'); } catch (e) { }
         try { await db.query('CREATE INDEX IF NOT EXISTS idx_users_username ON users(LOWER(username))'); } catch (e) { }

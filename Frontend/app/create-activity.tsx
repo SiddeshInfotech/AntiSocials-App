@@ -31,6 +31,7 @@ export default function CreateActivityScreen() {
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [location, setLocation] = useState('');
+  const [address, setAddress] = useState('');
   const [capacity, setCapacity] = useState('');
   const [description, setDescription] = useState('');
   const [isCategoryModalVisible, setCategoryModalVisible] = useState(false);
@@ -121,15 +122,18 @@ export default function CreateActivityScreen() {
   }, [location, userCity, selectedLocation]);
 
   const handleSelectLocation = (item: any) => {
-    const address = item.address || {};
-    const itemCity = address.city || address.town || address.village || address.county || '';
+    const addr = item.address || {};
+    const itemCity = addr.city || addr.town || addr.village || addr.county || '';
     
     setSelectedLocation(item);
     setLocation(item.name || item.display_name.split(',')[0]);
+    if (!address) {
+      setAddress(item.display_name || '');
+    }
     setLatitude(parseFloat(item.lat));
     setLongitude(parseFloat(item.lon));
     
-    if (address.postcode) setPincode(address.postcode);
+    if (addr.postcode) setPincode(addr.postcode);
     if (itemCity) setCity(itemCity);
     
     setLocationSuggestions([]);
@@ -197,8 +201,8 @@ export default function CreateActivityScreen() {
   };
 
   const handleCreate = async () => {
-    if (!title || !category || !location || !capacity) {
-      Alert.alert("Missing Information", "Please fill in all required fields marked with *");
+    if (!title || !category || !location || !address.trim() || !capacity) {
+      Alert.alert("Missing Information", "Please fill in all required fields marked with * including Venue / Address.");
       return;
     }
 
@@ -237,6 +241,7 @@ export default function CreateActivityScreen() {
           date,
           time,
           location,
+          address: address.trim(),
           capacity: parseInt(capacity),
           description,
           image_url: uploadedImageUrl,
@@ -391,6 +396,20 @@ export default function CreateActivityScreen() {
             </View>
 
             <View style={styles.inputGroup}>
+              <Text style={styles.label}>Venue / Full Address *</Text>
+              <View style={styles.inputWithIcon}>
+                <Feather name="map" size={20} color="#9CA3AF" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.inputInner}
+                  placeholder="e.g. Court 3, Sports Complex, MG Road"
+                  placeholderTextColor="#9CA3AF"
+                  value={address}
+                  onChangeText={setAddress}
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
               <Text style={styles.label}>Pincode (Indian) {(!latitude || !longitude) ? '*' : ''}</Text>
               <TextInput
                 style={styles.input}
@@ -415,7 +434,7 @@ export default function CreateActivityScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Maximum Capacity</Text>
+              <Text style={styles.label}>Maximum Capacity *</Text>
               <View style={styles.inputWithIcon}>
                 <Feather name="users" size={20} color="#9CA3AF" style={styles.inputIcon} />
                 <TextInput
@@ -447,7 +466,7 @@ export default function CreateActivityScreen() {
 
         <View style={styles.footer}>
           <TouchableOpacity 
-            style={[styles.createButton, (!title || !category || !location || !capacity || (!pincode && (!latitude || !longitude)) || loading) && styles.createButtonDisabled]} 
+            style={[styles.createButton, (!title || !category || !location || !address.trim() || !capacity || (!pincode && (!latitude || !longitude)) || loading) && styles.createButtonDisabled]} 
             onPress={handleCreate}
             disabled={loading}
           >

@@ -111,7 +111,8 @@ const parseActivityDate = (dateStr, createdAt) => {
     return null;
 };
 
-const isActivityExpired = (dateStr, createdAt) => {
+const isActivityExpired = (dateStr, createdAt, status) => {
+    if (status === 'completed' || status === 'past' || status === 'expired') return true;
     const activityDate = parseActivityDate(dateStr, createdAt);
     if (!activityDate) return false;
     const now = new Date();
@@ -222,13 +223,13 @@ exports.getActivities = async (req, res) => {
 
         const result = await db.query(query, params);
         
-        // Filter out expired activities
-        const activeRows = result.rows.filter(row => !isActivityExpired(row.date_str, row.created_at));
+        // Filter out completed/past activities from Discover active feed
+        const activeRows = result.rows.filter(row => !isActivityExpired(row.date_str, row.created_at, row.status));
 
-        // Mark expired activities in database asynchronously for record tracking
-        const expiredIds = result.rows.filter(row => isActivityExpired(row.date_str, row.created_at)).map(r => r.id);
-        if (expiredIds.length > 0) {
-            db.query("UPDATE activities SET status = 'expired' WHERE id = ANY($1)", [expiredIds]).catch(() => {});
+        // Mark completed activities in database asynchronously for record tracking (never delete)
+        const completedIds = result.rows.filter(row => isActivityExpired(row.date_str, row.created_at, row.status) && row.status !== 'completed').map(r => r.id);
+        if (completedIds.length > 0) {
+            db.query("UPDATE activities SET status = 'completed' WHERE id = ANY($1)", [completedIds]).catch(() => {});
         }
         
         const activities = activeRows.map(row => ({
@@ -242,16 +243,19 @@ exports.getActivities = async (req, res) => {
             time: row.time_str,
             location: row.location,
             locationName: row.location_name,
+            address: row.address || '',
             pincode: row.pincode,
             city: row.city,
             distance: row.distance,
-            joined: parseInt(row.joined_count),
+            joined: parseInt(row.joined_count || 0),
             capacity: row.capacity,
             isJoined: row.is_joined,
+            status: 'upcoming',
+            isCompleted: false,
             creator: {
                 name: row.creator_name,
-                initial: row.creator_name.charAt(0).toUpperCase(),
-                color: '#A855F7', // Default purple, could be randomized or based on user profile
+                initial: row.creator_name ? row.creator_name.charAt(0).toUpperCase() : 'U',
+                color: '#A855F7',
                 image: row.creator_image
             },
             imageColor: row.image_url ? null : (row.category_color || '#EA580C'),
@@ -301,34 +305,47 @@ exports.getJoinedActivities = async (req, res) => {
         `;
         const result = await db.query(query, [userId]);
         
-        // Filter out expired activities
-        const activeRows = result.rows.filter(row => !isActivityExpired(row.date_str, row.created_at));
-
-        const activities = activeRows.map(row => ({
-            id: row.id.toString(),
-            creatorId: row.creator_id ? row.creator_id.toString() : null,
-            isCreator: parseInt(row.creator_id, 10) === parseInt(userId, 10),
-            category: row.category,
-            title: row.title,
-            description: row.description,
-            date: row.date_str,
-            time: row.time_str,
-            location: row.location,
-            joined: parseInt(row.joined_count),
-            capacity: row.capacity,
-            isJoined: true,
-            creator: {
-                name: row.creator_name,
-                initial: row.creator_name.charAt(0).toUpperCase(),
-                color: '#A855F7',
-                image: row.creator_image
-            },
-            imageColor: row.image_url ? null : (row.category_color || '#EA580C'),
-            imageUrl: row.image_url,
-            image_url: row.image_url,
-            emoji: row.emoji || '📅',
-            memberPreview: parseMemberPreview(row.member_preview)
-        }));
+        // Joined activities should retain history (do not delete or hide completed activities)
+        const activities = result.rows.map(row => {
+            const isCompleted = isActivityExpired(row.date_str, row.created_at, row.status);
+            return {
+                id: row.id.toString(),
+                creatorId: row.creator_id ? row.creator_id.toString() : null,
+                isCreator: parseInt(row.creator_id, 10) === parseInt(userId, 10),
+                category: row.category,
+                title: row.title,
+                description: row.description,
+                date: row.date_str,
+                time: row.time_str,
+                location: row.location,
+                locationName: row.location_name,
+                address: row.address || '',
+                pincode: row.pincode,
+                city: row.city,
+                joined: parseInt(row.joined_count || 0),
+                capacity: row.capacity,
+                isJoined: true,
+                status: isCompleted ? 'completed' : 'upcoming',
+                isCompleted,
+                creator: {
+                    name: row.creator_name,
+                    initial: row.creator_name ? row.creator_name.charAt(0).toUpperCase() : 'U',
+                    color: '#A855F7',
+                    image: row.creator_image
+                },
+                imageColor: row.image_url ? null : (row.category_color || '#EA580C'),
+                imageUrl: row.image_url,
+                image_url: row.image_url,
+                emoji: row.emoji || '📅',
+                memberPreview: parseMemberPreview(row.member_preview),
+                ownerFeedback: row.owner_feedback || row.feedback_rating ? {
+                    rating: row.feedback_rating ? parseFloat(row.feedback_rating) : null,
+                    participationRating: row.feedback_participation_rating ? parseFloat(row.feedback_participation_rating) : null,
+                    feedback: row.owner_feedback || '',
+                    timestamp: row.feedback_timestamp || null
+                } : null
+            };
+        });
 
         res.json(activities);
     } catch (error) {
@@ -359,7 +376,7 @@ exports.getActivityById = async (req, res) => {
                         FROM activity_participants ap
                         WHERE ap.activity_id = a.id
                         ORDER BY ap.joined_at ASC, ap.id ASC
-                        LIMIT 3
+                        LIMIT 10
                     ) ap_sub
                     JOIN users mu ON ap_sub.user_id = mu.id
                 ) as member_preview
@@ -374,6 +391,13 @@ exports.getActivityById = async (req, res) => {
         }
 
         const row = result.rows[0];
+        const isCompleted = isActivityExpired(row.date_str, row.created_at, row.status);
+
+        // Asynchronously ensure status is marked 'completed' in DB if expired
+        if (isCompleted && row.status !== 'completed') {
+            db.query("UPDATE activities SET status = 'completed' WHERE id = $1", [id]).catch(() => {});
+        }
+
         const activity = {
             id: row.id.toString(),
             creatorId: row.creator_id ? row.creator_id.toString() : null,
@@ -384,12 +408,20 @@ exports.getActivityById = async (req, res) => {
             date: row.date_str,
             time: row.time_str,
             location: row.location,
-            joined: parseInt(row.joined_count),
+            locationName: row.location_name,
+            address: row.address || '',
+            pincode: row.pincode,
+            city: row.city,
+            latitude: row.latitude,
+            longitude: row.longitude,
+            joined: parseInt(row.joined_count || 0),
             capacity: row.capacity,
             isJoined: row.is_joined,
+            status: isCompleted ? 'completed' : 'upcoming',
+            isCompleted,
             creator: {
                 name: row.creator_name,
-                initial: row.creator_name.charAt(0).toUpperCase(),
+                initial: row.creator_name ? row.creator_name.charAt(0).toUpperCase() : 'U',
                 color: '#A855F7',
                 image: row.creator_image
             },
@@ -397,7 +429,13 @@ exports.getActivityById = async (req, res) => {
             imageUrl: row.image_url,
             image_url: row.image_url,
             emoji: row.emoji || '📅',
-            memberPreview: parseMemberPreview(row.member_preview)
+            memberPreview: parseMemberPreview(row.member_preview),
+            ownerFeedback: (row.owner_feedback || row.feedback_rating) ? {
+                rating: row.feedback_rating ? parseFloat(row.feedback_rating) : null,
+                participationRating: row.feedback_participation_rating ? parseFloat(row.feedback_participation_rating) : null,
+                feedback: row.owner_feedback || '',
+                timestamp: row.feedback_timestamp || null
+            } : null
         };
 
         res.json(activity);
@@ -409,11 +447,13 @@ exports.getActivityById = async (req, res) => {
 
 exports.createActivity = async (req, res) => {
     try {
-        const { title, category, date, time, location, capacity, description, image_url, emoji, pincode, city, latitude, longitude, location_name } = req.body;
+        const { title, category, date, time, location, address, capacity, description, image_url, emoji, pincode, city, latitude, longitude, location_name } = req.body;
         const creator_id = req.user.id;
 
-        if (!title || !category || !location || !capacity) {
-            return res.status(400).json({ error: 'Missing required fields' });
+        const trimmedAddress = (address || '').trim();
+
+        if (!title || !category || !location || !trimmedAddress || !capacity) {
+            return res.status(400).json({ error: 'Missing required fields. Venue/Address is required.' });
         }
 
         if (!pincode && (!latitude || !longitude)) {
@@ -429,12 +469,12 @@ exports.createActivity = async (req, res) => {
 
         const query = `
             INSERT INTO activities (
-                creator_id, category, title, description, date_str, time_str, location, capacity, image_url, emoji, pincode, city, latitude, longitude, location_name, event_date, status
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, 'active')
+                creator_id, category, title, description, date_str, time_str, location, address, capacity, image_url, emoji, pincode, city, latitude, longitude, location_name, event_date, status
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'active')
             RETURNING *
         `;
         const result = await db.query(query, [
-            creator_id, category, title, description || '', date, time, location, capacity, image_url || null, emoji || '📅', pincode || null, city || null, latitude || null, longitude || null, location_name || null, eventDateSQL
+            creator_id, category, title, description || '', date, time, location, trimmedAddress, capacity, image_url || null, emoji || '📅', pincode || null, city || null, latitude || null, longitude || null, location_name || null, eventDateSQL
         ]);
 
         const newActivity = result.rows[0];
@@ -456,6 +496,7 @@ exports.createActivity = async (req, res) => {
                 isCreator: true,
                 imageUrl: newActivity.image_url,
                 image_url: newActivity.image_url,
+                address: newActivity.address,
                 date: newActivity.date_str,
                 time: newActivity.time_str,
                 joined: memberInfo.joined,
@@ -472,7 +513,7 @@ exports.createActivity = async (req, res) => {
 exports.updateActivity = async (req, res) => {
     try {
         const { id } = req.params;
-        const { title, category, date, time, location, capacity, description, image_url, emoji } = req.body;
+        const { title, category, date, time, location, address, capacity, description, image_url, emoji } = req.body;
         const userId = req.user.id;
 
         // Check ownership
@@ -494,15 +535,16 @@ exports.updateActivity = async (req, res) => {
                 date_str = COALESCE($3, date_str),
                 time_str = COALESCE($4, time_str),
                 location = COALESCE($5, location),
-                capacity = COALESCE($6, capacity),
-                description = COALESCE($7, description),
-                image_url = COALESCE($8, image_url),
-                emoji = COALESCE($9, emoji),
-                event_date = COALESCE($10, event_date),
+                address = COALESCE($6, address),
+                capacity = COALESCE($7, capacity),
+                description = COALESCE($8, description),
+                image_url = COALESCE($9, image_url),
+                emoji = COALESCE($10, emoji),
+                event_date = COALESCE($11, event_date),
                 updated_at = CURRENT_TIMESTAMP
-            WHERE id = $11 RETURNING *
+            WHERE id = $12 RETURNING *
         `;
-        const result = await db.query(query, [title, category, date, time, location, capacity, description, image_url, emoji, eventDateSQL, id]);
+        const result = await db.query(query, [title, category, date, time, location, address, capacity, description, image_url, emoji, eventDateSQL, id]);
 
         res.json({ message: 'Activity updated successfully', activity: result.rows[0] });
     } catch (error) {
@@ -612,9 +654,6 @@ exports.leaveActivity = async (req, res) => {
         const { id } = req.params;
         const userId = req.user.id;
 
-        // Creators shouldn't leave their own activity? Or maybe they can?
-        // Usually they delete it. But let's just allow leaving.
-
         await db.query(
             'DELETE FROM activity_participants WHERE activity_id = $1 AND user_id = $2',
             [id, userId]
@@ -633,3 +672,65 @@ exports.leaveActivity = async (req, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 };
+
+exports.submitFeedback = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user.id;
+        const { rating, participationRating, feedback } = req.body;
+
+        // Fetch activity
+        const actRes = await db.query('SELECT * FROM activities WHERE id = $1', [id]);
+        if (actRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Activity not found' });
+        }
+
+        const activity = actRes.rows[0];
+
+        // Verify creator/owner
+        if (parseInt(activity.creator_id, 10) !== parseInt(userId, 10)) {
+            return res.status(403).json({ error: 'Unauthorized: Only the activity creator can submit feedback.' });
+        }
+
+        // Verify activity is completed/past
+        const isCompleted = isActivityExpired(activity.date_str, activity.created_at, activity.status);
+        if (!isCompleted) {
+            return res.status(400).json({ error: 'Feedback can only be submitted after the activity date/time has passed.' });
+        }
+
+        // Validate rating (1 to 5)
+        const parsedRating = rating ? Math.min(5, Math.max(1, parseFloat(rating))) : 5;
+        const parsedParticipationRating = participationRating ? Math.min(5, Math.max(1, parseFloat(participationRating))) : null;
+        const trimmedFeedback = (feedback || '').trim();
+
+        const updateRes = await db.query(`
+            UPDATE activities SET
+                owner_feedback = $1,
+                feedback_rating = $2,
+                feedback_participation_rating = $3,
+                feedback_timestamp = CURRENT_TIMESTAMP,
+                status = 'completed',
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = $4
+            RETURNING *
+        `, [trimmedFeedback, parsedRating, parsedParticipationRating, id]);
+
+        const updated = updateRes.rows[0];
+
+        res.json({
+            success: true,
+            message: 'Feedback submitted successfully',
+            ownerFeedback: {
+                rating: updated.feedback_rating ? parseFloat(updated.feedback_rating) : null,
+                participationRating: updated.feedback_participation_rating ? parseFloat(updated.feedback_participation_rating) : null,
+                feedback: updated.owner_feedback || '',
+                timestamp: updated.feedback_timestamp
+            },
+            status: 'completed'
+        });
+    } catch (error) {
+        console.error('Submit feedback error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+

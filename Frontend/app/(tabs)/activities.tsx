@@ -26,6 +26,8 @@ interface Activity {
   date: string;
   time: string;
   location: string;
+  locationName?: string;
+  address?: string;
   joined: number;
   capacity: number;
   isJoined: boolean;
@@ -33,6 +35,7 @@ interface Activity {
     name: string;
     initial: string;
     color: string;
+    image?: string | null;
   };
   imageColor: string;
   imageUrl: string | null;
@@ -483,8 +486,13 @@ export default function ActivitiesScreen() {
             );
 
             return (
-            <View key={activity.id} style={styles.card}>
-              {/* Card Image Placeholder */}
+            <TouchableOpacity 
+              key={activity.id} 
+              style={styles.card}
+              activeOpacity={0.92}
+              onPress={() => router.push({ pathname: '/activity-detail', params: { id: activity.id } })}
+            >
+              {/* 1. Top Activity Image (150–165px prominent) */}
               <View style={[styles.cardImage, { backgroundColor: hasValidImage ? '#f3f4f6' : defaultBgColor }]}>
                 {hasValidImage && resolvedUri ? (
                   <Image 
@@ -500,105 +508,76 @@ export default function ActivitiesScreen() {
                     <Text style={styles.emojiPlaceholder}>{defaultEmoji}</Text>
                   </View>
                 )}
+
+                {/* Owner Delete Menu (Floating on image) */}
+                {isOwner ? (
+                  <TouchableOpacity 
+                    style={styles.moreMenuFloating}
+                    onPress={(e) => {
+                      (e as any)?.stopPropagation?.();
+                      handleOpenDeleteDialog(activity);
+                    }}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                    accessibilityLabel="Activity options"
+                  >
+                    <Feather name="more-vertical" size={18} color="#111827" />
+                  </TouchableOpacity>
+                ) : null}
               </View>
 
-              {/* Card Content */}
+              {/* 2. Information Section (Starts immediately below image) */}
               <View style={styles.cardContent}>
-                {/* Header Row: Category Pill & Three-Dot Menu (Creator Only) */}
-                <View style={styles.cardHeaderRow}>
-                  <View style={styles.categoryPill}>
-                    <Text style={styles.categoryText}>{activity.category}</Text>
-                  </View>
-                  {isOwner ? (
-                    <TouchableOpacity 
-                      style={styles.moreMenuButton}
-                      onPress={() => handleOpenDeleteDialog(activity)}
-                      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                      accessibilityLabel="Activity options"
-                    >
-                      <Feather name="more-vertical" size={18} color="#6B7280" />
-                    </TouchableOpacity>
-                  ) : null}
-                </View>
-
-                {/* Title */}
-                <Text style={styles.cardTitle}>{activity.title}</Text>
-
-                {/* Details */}
-                <View style={styles.detailsContainer}>
-                  <View style={styles.detailRow}>
-                    <Feather name="calendar" size={16} color="#6B7280" style={styles.detailIcon} />
-                    <Text style={styles.detailText}>{formatToNumericDate(activity.date)}</Text>
-                  </View>
-                  {activity.time ? (
-                    <View style={styles.detailRow}>
-                      <Feather name="clock" size={16} color="#6B7280" style={styles.detailIcon} />
-                      <Text style={styles.detailText}>{activity.time}</Text>
+                {/* 3. Host Profile Picture & Member Attendance + Join Button */}
+                <View style={styles.cardMetaRow}>
+                  <View style={styles.creatorAttendanceGroup}>
+                    <View style={[styles.avatarSmall, { backgroundColor: activity.creator?.color || '#A855F7' }]}>
+                      {activity.creator?.image ? (
+                        <Image source={{ uri: resolveImageUrl(activity.creator.image) }} style={styles.avatarSmallImg} />
+                      ) : (
+                        <Text style={styles.avatarSmallText}>{activity.creator?.initial || 'U'}</Text>
+                      )}
                     </View>
-                  ) : null}
-                  <View style={styles.detailRow}>
-                    <Feather name="map-pin" size={16} color="#6B7280" style={styles.detailIcon} />
-                    <Text style={styles.detailText}>
-                      {activity.location} {activity.city ? `(${activity.city})` : ''} 
-                      {activity.distance ? ` • ${activity.distance.toFixed(1)} km away` : (activity.pincode ? ` • ${activity.pincode}` : '')}
-                    </Text>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <Feather name="users" size={16} color="#6B7280" style={styles.detailIcon} />
-                    <Text style={styles.detailText}>
-                      {activity.joined}/{activity.capacity} joined
+                    <Text style={styles.attendanceText}>
+                      {activity.joined}/{activity.capacity} going
                     </Text>
                   </View>
 
-                  {/* Joined Members Preview */}
-                  {activity.memberPreview && activity.memberPreview.length > 0 && (
-                    <View style={styles.memberPreviewContainer}>
-                      <View style={styles.memberChipsRow}>
-                        {activity.memberPreview.slice(0, 3).map((member, idx) => {
-                          const imageUri = resolveImageUrl(member.profileImage);
-                          return (
-                            <View key={member.id || `member-${idx}`} style={styles.memberChip}>
-                              <Image source={{ uri: imageUri }} style={styles.memberAvatarImage} />
-                              <Text style={styles.memberName} numberOfLines={1}>
-                                {member.name}
-                              </Text>
-                            </View>
-                          );
-                        })}
-                        {activity.joined > (activity.memberPreview?.length || 0) && (
-                          <View style={styles.moreMembersBadge}>
-                            <Text style={styles.moreMembersText}>
-                              +{activity.joined - (activity.memberPreview?.length || 0)} more
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                    </View>
-                  )}
-                </View>
-
-                {/* Footer Divider */}
-                <View style={styles.divider} />
-
-                {/* Footer */}
-                <View style={styles.cardFooter}>
-                  <View style={styles.creatorContainer}>
-                    <View style={[styles.avatar, { backgroundColor: activity.creator.color }]}>
-                      <Text style={styles.avatarText}>{activity.creator.initial}</Text>
-                    </View>
-                    <Text style={styles.creatorName}>by {activity.creator.name}</Text>
-                  </View>
                   <TouchableOpacity 
-                    style={[styles.joinButton, activity.isJoined && styles.joinButtonActive]}
-                    onPress={() => handleToggleJoin(activity)}
+                    style={[styles.compactJoinButton, activity.isJoined && styles.compactJoinButtonActive]}
+                    onPress={(e) => {
+                      (e as any)?.stopPropagation?.();
+                      handleToggleJoin(activity);
+                    }}
+                    activeOpacity={0.8}
                   >
-                    <Text style={[styles.joinButtonText, activity.isJoined && styles.joinedButtonTextActive]}>
+                    <Text style={[styles.compactJoinButtonText, activity.isJoined && styles.compactJoinButtonTextActive]}>
                       {activity.isJoined ? 'Joined ✓' : 'Join'}
                     </Text>
                   </TouchableOpacity>
                 </View>
+
+                {/* 4. Activity Title (18px bold) */}
+                <Text style={styles.cardTitle} numberOfLines={2}>
+                  {activity.title}
+                </Text>
+
+                {/* 5. Address (14px with map-pin icon) */}
+                <View style={styles.compactInfoRow}>
+                  <Feather name="map-pin" size={15} color="#6B7280" style={styles.compactInfoIcon} />
+                  <Text style={styles.compactInfoText} numberOfLines={1}>
+                    {activity.address || activity.location || 'Location'}
+                  </Text>
+                </View>
+
+                {/* 6. Date and Time (14px with calendar icon) */}
+                <View style={styles.compactInfoRow}>
+                  <Feather name="calendar" size={15} color="#6B7280" style={styles.compactInfoIcon} />
+                  <Text style={styles.compactInfoText} numberOfLines={1}>
+                    {formatToNumericDate(activity.date)}{activity.time ? ` • ${activity.time}` : ''}
+                  </Text>
+                </View>
               </View>
-            </View>
+            </TouchableOpacity>
             );
           })}
           
@@ -765,23 +744,24 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 18,
     marginBottom: 16,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#F3F4F6',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.06,
     shadowRadius: 8,
-    elevation: 2,
+    elevation: 3,
   },
   cardImage: {
-    height: 140,
+    height: 160,
     width: '100%',
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
+    position: 'relative',
   },
   cardImageInner: {
     width: '100%',
@@ -794,154 +774,102 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emojiPlaceholder: {
-    fontSize: 54,
+    fontSize: 56,
+  },
+  moreMenuFloating: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 3,
+    elevation: 2,
   },
   cardContent: {
-    padding: 20,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 14,
   },
-  cardHeaderRow: {
+  cardMetaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
   },
-  categoryPill: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#FFF7ED',
-    paddingHorizontal: 12,
+  creatorAttendanceGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatarSmall: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+    overflow: 'hidden',
+  },
+  avatarSmallImg: {
+    width: '100%',
+    height: '100%',
+  },
+  avatarSmallText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  attendanceText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
+  compactJoinButton: {
+    backgroundColor: '#EA580C',
+    paddingHorizontal: 16,
     paddingVertical: 6,
     borderRadius: 16,
   },
-  moreMenuButton: {
-    padding: 6,
-    borderRadius: 16,
+  compactJoinButtonActive: {
     backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
-  categoryText: {
-    color: '#EA580C',
-    fontSize: 12,
-    fontWeight: '500',
+  compactJoinButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  compactJoinButtonTextActive: {
+    color: '#059669',
+    fontWeight: '700',
   },
   cardTitle: {
     fontSize: 18,
-    fontWeight: '400',
-    color: '#000',
-    marginBottom: 16,
+    fontWeight: '800',
+    color: '#111827',
+    marginTop: 10,
+    marginBottom: 8,
+    lineHeight: 23,
   },
-  detailsContainer: {
-    gap: 10,
-  },
-  detailRow: {
+  compactInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 4,
   },
-  detailIcon: {
-    width: 20,
-  },
-  detailText: {
-    fontSize: 14,
-    color: '#4B5563',
-    marginLeft: 8,
-  },
-  memberPreviewContainer: {
-    marginTop: 2,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-  },
-  memberChipsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: 6,
-  },
-  memberChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    borderRadius: 14,
-    maxWidth: 140,
-  },
-  memberAvatarImage: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    marginRight: 6,
-  },
-  memberName: {
-    fontSize: 12,
-    color: '#374151',
-    fontWeight: '500',
-    flexShrink: 1,
-  },
-  moreMembersBadge: {
-    backgroundColor: '#FFF7ED',
-    borderWidth: 1,
-    borderColor: '#FFEDD5',
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    borderRadius: 14,
-  },
-  moreMembersText: {
-    fontSize: 11,
-    color: '#EA580C',
-    fontWeight: '600',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#F3F4F6',
-    marginVertical: 16,
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  creatorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  avatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
+  compactInfoIcon: {
     marginRight: 8,
   },
-  avatarText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  creatorName: {
+  compactInfoText: {
     fontSize: 14,
-    color: '#6B7280',
-  },
-  joinButton: {
-    backgroundColor: '#EA580C',
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  joinButtonActive: {
-    backgroundColor: '#F3F4F6',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  joinButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '500',
-    fontSize: 14,
-  },
-  joinedButtonTextActive: {
     color: '#4B5563',
+    flex: 1,
+    lineHeight: 19,
   },
   emptyStateContainer: {
     padding: 40,
