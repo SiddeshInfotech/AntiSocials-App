@@ -159,13 +159,13 @@ const initDB = async () => {
                 music_data JSONB DEFAULT '{}',
                 music_name VARCHAR(255),
                 caption TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                expires_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP + INTERVAL '24 hours',
+                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                expires_at TIMESTAMPTZ DEFAULT (CURRENT_TIMESTAMP + INTERVAL '24 hours'),
                 is_active BOOLEAN DEFAULT TRUE
             );
         `);
 
-        // Ensure new columns exist in stories table
+        // Ensure new columns exist and timestamp types are TIMESTAMPTZ
         await db.query(`
             DO $$ 
             BEGIN 
@@ -180,6 +180,13 @@ const initDB = async () => {
                 END IF;
                 IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='stories' AND column_name='view_count') THEN
                     ALTER TABLE stories ADD COLUMN view_count INTEGER DEFAULT 0;
+                END IF;
+                -- Ensure created_at and expires_at are TIMESTAMPTZ
+                IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='stories' AND column_name='created_at' AND data_type='timestamp without time zone') THEN
+                    ALTER TABLE stories ALTER COLUMN created_at TYPE TIMESTAMPTZ USING created_at AT TIME ZONE 'UTC';
+                END IF;
+                IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='stories' AND column_name='expires_at' AND data_type='timestamp without time zone') THEN
+                    ALTER TABLE stories ALTER COLUMN expires_at TYPE TIMESTAMPTZ USING expires_at AT TIME ZONE 'UTC';
                 END IF;
             END $$;
         `);
@@ -230,6 +237,27 @@ const initDB = async () => {
                 story_id INTEGER NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
                 user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS user_connections (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                friend_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                status VARCHAR(50) DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS follows (
+                id SERIAL PRIMARY KEY,
+                follower_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                following_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(follower_id, following_id)
             );
         `);
 
@@ -329,6 +357,13 @@ const initDB = async () => {
         try { await db.query('ALTER TABLE activities ADD COLUMN latitude DECIMAL(10, 7)'); } catch (e) { }
         try { await db.query('ALTER TABLE activities ADD COLUMN longitude DECIMAL(10, 7)'); } catch (e) { }
         try { await db.query('ALTER TABLE activities ADD COLUMN location_name VARCHAR(255)'); } catch (e) { }
+        try { await db.query("ALTER TABLE activities ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'active'"); } catch (e) { }
+        try { await db.query('ALTER TABLE activities ADD COLUMN IF NOT EXISTS event_date DATE'); } catch (e) { }
+        try { await db.query('ALTER TABLE activities ADD COLUMN IF NOT EXISTS owner_feedback TEXT'); } catch (e) { }
+        try { await db.query('ALTER TABLE activities ADD COLUMN IF NOT EXISTS feedback_rating NUMERIC'); } catch (e) { }
+        try { await db.query('ALTER TABLE activities ADD COLUMN IF NOT EXISTS feedback_participation_rating NUMERIC'); } catch (e) { }
+        try { await db.query('ALTER TABLE activities ADD COLUMN IF NOT EXISTS feedback_timestamp TIMESTAMP'); } catch (e) { }
+        try { await db.query('ALTER TABLE activities ADD COLUMN IF NOT EXISTS address TEXT'); } catch (e) { }
         try { await db.query('ALTER TABLE users ADD COLUMN profile_name VARCHAR(100)'); } catch (e) { }
         try { await db.query('CREATE INDEX IF NOT EXISTS idx_activities_pincode ON activities(pincode)'); } catch (e) { }
         try { await db.query('CREATE INDEX IF NOT EXISTS idx_users_username ON users(LOWER(username))'); } catch (e) { }

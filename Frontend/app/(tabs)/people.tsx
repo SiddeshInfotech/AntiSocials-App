@@ -26,7 +26,7 @@ import * as ImagePicker from "expo-image-picker";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
 import { API_BASE_URL, apiFetch } from "../../constants/Api";
-import { resolveImageUrl } from "../../constants/ImageUtils";
+import { resolveImageUrl, DEFAULT_AVATAR } from "../../constants/ImageUtils";
 
 // --- PULSING DOTS LOADING ANIMATION ---
 const PulsingDotsLoading = () => {
@@ -116,7 +116,7 @@ const SearchResultItem = ({
     ]).start();
   }, [fadeAnim, translateY, index]);
 
-  const avatarUri = resolveImageUrl(item.profile_image);
+  const avatarUri = resolveImageUrl(item.profile_image || item.image_url || item.avatar_url);
 
   return (
     <Animated.View
@@ -126,19 +126,11 @@ const SearchResultItem = ({
       ]}
     >
       <View style={styles.avatarWrapper}>
-        {!imageError && avatarUri ? (
-          <Image
-            source={{ uri: avatarUri }}
-            style={styles.resultAvatar}
-            onError={() => setImageError(true)}
-          />
-        ) : (
-          <View style={styles.resultAvatarPlaceholder}>
-            <Text style={styles.avatarInitial}>
-              {(item.display_name || item.username || "?").charAt(0).toUpperCase()}
-            </Text>
-          </View>
-        )}
+        <Image
+          source={{ uri: !imageError && avatarUri ? avatarUri : DEFAULT_AVATAR }}
+          style={styles.resultAvatar}
+          onError={() => setImageError(true)}
+        />
       </View>
 
       <View style={styles.resultInfo}>
@@ -731,7 +723,7 @@ export default function People() {
 
     try {
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+        mediaTypes: ['videos'],
         videoMaxDuration: 120, // max 2 mins recorded
         quality: 1,
         allowsEditing: true,
@@ -1077,22 +1069,14 @@ export default function People() {
                 {incomingRequests.map((reqItem) => {
                   const sender = reqItem.sender || {};
                   const senderId = sender.id || sender.user_id;
-                  const avatarUri = resolveImageUrl(sender.profile_image);
+                  const avatarUri = resolveImageUrl(sender.profile_image || sender.image_url || sender.avatar_url);
                   const isLoading = !!actionLoadingIds[senderId];
 
                   return (
                     <View key={`req-${reqItem.request_id || senderId}`} style={styles.incomingCard}>
                       <View style={styles.incomingCardContent}>
                         <View style={styles.incomingAvatarWrap}>
-                          {avatarUri ? (
-                            <Image source={{ uri: avatarUri }} style={styles.incomingAvatarImage} />
-                          ) : (
-                            <View style={styles.incomingAvatarPlaceholder}>
-                              <Text style={styles.incomingAvatarInitial}>
-                                {(sender.display_name || sender.username || "?").charAt(0).toUpperCase()}
-                              </Text>
-                            </View>
-                          )}
+                          <Image source={{ uri: avatarUri || DEFAULT_AVATAR }} style={styles.incomingAvatarImage} />
                         </View>
 
                         <View style={styles.incomingInfoWrap}>
@@ -1292,211 +1276,213 @@ export default function People() {
         {/* ======================================================== */}
         {/* SECTION 2: HEART & LEGACY (Light Theme) */}
         {/* ======================================================== */}
-        <View style={styles.heartLegacySection}>
-          {/* Heart Section */}
-          {activeView === "heart" && (
-            <View>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitleDark}>Heart</Text>
-                <Text style={styles.sectionSubtitleDark}>
-                  Connections that go deeper
-                </Text>
-              </View>
-
-              <View style={styles.cardsContainer}>
-                <View style={styles.infoCard}>
-                  <Feather
-                    name="heart"
-                    size={28}
-                    color="#E11D48"
-                    style={styles.cardMainIcon}
-                  />
-                  <Text style={styles.infoCardTitle}>One Heart Each Year</Text>
-                  <Text style={styles.infoCardDesc}>
-                    Send one heart each year to someone truly special. If they
-                    send you one too, you'll both know it's mutual.
+        {(activeView === "heart" || activeView === "legacy") && (
+          <View style={styles.heartLegacySection}>
+            {/* Heart Section */}
+            {activeView === "heart" && (
+              <View>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitleDark}>Heart</Text>
+                  <Text style={styles.sectionSubtitleDark}>
+                    Connections that go deeper
                   </Text>
+                </View>
 
-                  <View style={styles.infoNotice}>
+                <View style={styles.cardsContainer}>
+                  <View style={styles.infoCard}>
                     <Feather
-                      name="info"
-                      size={14}
-                      color="#6B7280"
-                      style={{ marginTop: 2 }}
-                    />
-                    <Text style={styles.infoNoticeText}>
-                      Hearts reset every year on your anniversary with
-                      AntiSocial.
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.statusCard}>
-                  <View style={styles.statusIconContainer}>
-                    <Ionicons name="heart" size={22} color="#fff" />
-                  </View>
-                  <View style={styles.statusTextContainer}>
-                    <Text style={styles.statusTitle}>Heart Sent</Text>
-                    <Text style={styles.statusDesc}>
-                      Your heart for 2024 has been sent
-                    </Text>
-                  </View>
-                </View>
-
-                <LinearGradient
-                  colors={["#E11D48", "#BE185D", "#9D174D"]}
-                  style={styles.mutualCard}
-                >
-                  <Animated.View
-                    style={{ transform: [{ scale: heartbeatAnim }] }}
-                  >
-                    <Ionicons
                       name="heart"
-                      size={56}
-                      color="#fff"
-                      style={styles.mutualIcon}
+                      size={28}
+                      color="#E11D48"
+                      style={styles.cardMainIcon}
                     />
-                  </Animated.View>
-                  <Text style={styles.mutualTitle}>It's Mutual! 💞</Text>
-                  <Text style={styles.mutualDesc}>
-                    You and Emily Rodriguez both sent hearts to each other
-                  </Text>
-                </LinearGradient>
+                    <Text style={styles.infoCardTitle}>One Heart Each Year</Text>
+                    <Text style={styles.infoCardDesc}>
+                      Send one heart each year to someone truly special. If they
+                      send you one too, you'll both know it's mutual.
+                    </Text>
+
+                    <View style={styles.infoNotice}>
+                      <Feather
+                        name="info"
+                        size={14}
+                        color="#6B7280"
+                        style={{ marginTop: 2 }}
+                      />
+                      <Text style={styles.infoNoticeText}>
+                        Hearts reset every year on your anniversary with
+                        AntiSocial.
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.statusCard}>
+                    <View style={styles.statusIconContainer}>
+                      <Ionicons name="heart" size={22} color="#fff" />
+                    </View>
+                    <View style={styles.statusTextContainer}>
+                      <Text style={styles.statusTitle}>Heart Sent</Text>
+                      <Text style={styles.statusDesc}>
+                        Your heart for 2024 has been sent
+                      </Text>
+                    </View>
+                  </View>
+
+                  <LinearGradient
+                    colors={["#E11D48", "#BE185D", "#9D174D"]}
+                    style={styles.mutualCard}
+                  >
+                    <Animated.View
+                      style={{ transform: [{ scale: heartbeatAnim }] }}
+                    >
+                      <Ionicons
+                        name="heart"
+                        size={56}
+                        color="#fff"
+                        style={styles.mutualIcon}
+                      />
+                    </Animated.View>
+                    <Text style={styles.mutualTitle}>It's Mutual! 💞</Text>
+                    <Text style={styles.mutualDesc}>
+                      You and Emily Rodriguez both sent hearts to each other
+                    </Text>
+                  </LinearGradient>
+                </View>
               </View>
-            </View>
-          )}
+            )}
 
-          {/* Legacy Section */}
-          {activeView === "legacy" && (
-            <View>
-              <View style={[styles.sectionHeader]}>
-                <Text style={styles.sectionTitleDark}>Legacy</Text>
-                <Text style={styles.sectionSubtitleDark}>
-                  A message forever
-                </Text>
-              </View>
-
-              <View style={styles.cardsContainer}>
-                <View style={styles.infoCardLegacy}>
-                  <Feather
-                    name="video"
-                    size={28}
-                    color="#9333EA"
-                    style={styles.cardMainIcon}
-                  />
-                  <Text style={styles.infoCardTitle}>A Message Forever</Text>
-                  <Text style={styles.infoCardDesc}>
-                    Record a private video message for your closest people. A
-                    message of love, closure, and care that will be shared when
-                    the time comes.
+            {/* Legacy Section */}
+            {activeView === "legacy" && (
+              <View>
+                <View style={[styles.sectionHeader]}>
+                  <Text style={styles.sectionTitleDark}>Legacy</Text>
+                  <Text style={styles.sectionSubtitleDark}>
+                    A message forever
                   </Text>
+                </View>
 
-                  <View style={styles.infoNotice}>
+                <View style={styles.cardsContainer}>
+                  <View style={styles.infoCardLegacy}>
+                    <Feather
+                      name="video"
+                      size={28}
+                      color="#9333EA"
+                      style={styles.cardMainIcon}
+                    />
+                    <Text style={styles.infoCardTitle}>A Message Forever</Text>
+                    <Text style={styles.infoCardDesc}>
+                      Record a private video message for your closest people. A
+                      message of love, closure, and care that will be shared when
+                      the time comes.
+                    </Text>
+
+                    <View style={styles.infoNotice}>
+                      <Feather
+                        name="lock"
+                        size={14}
+                        color="#6B7280"
+                        style={{ marginTop: 2 }}
+                      />
+                      <Text style={styles.infoNoticeText}>
+                        Your legacy video is encrypted and completely private
+                        until delivered.
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.legacyStatusCard}>
+                    <View style={styles.legacyIconCircle}>
+                      <Feather name="video" size={28} color="#9333EA" />
+                    </View>
+                    <Text style={styles.legacyCardTitle}>
+                      Create Your Legacy Video
+                    </Text>
+                    <Text style={styles.legacyCardDesc}>
+                      Record a heartfelt message for the people who matter most.
+                      You can update it anytime.
+                    </Text>
+
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      style={styles.recordButtonWrapper}
+                      onPress={handleRecordVideo}
+                    >
+                      <LinearGradient
+                        colors={["#A855F7", "#D946EF"]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.recordButtonGradient}
+                      >
+                        <Feather
+                          name="video"
+                          size={18}
+                          color="#fff"
+                          style={{ marginRight: 8 }}
+                        />
+                        <Text style={styles.recordButtonText}>
+                          Start Recording
+                        </Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.recipientsSection}>
+                    <Text style={styles.recipientsTitle}>Choose Recipients</Text>
+                    <Text style={styles.recipientsSubtitle}>
+                      Select who should receive your legacy video
+                    </Text>
+
+                    <View style={styles.recipientItem}>
+                      <View style={styles.recipientAvatar}>
+                        <Text style={{ fontSize: 24 }}>👱‍♀️</Text>
+                      </View>
+                      <View style={styles.recipientInfo}>
+                        <Text style={styles.recipientName}>Sarah Johnson</Text>
+                        <Text style={styles.recipientTier}>Tier 1</Text>
+                      </View>
+                      <View style={styles.checkboxDark} />
+                    </View>
+
+                    <View style={styles.recipientItem}>
+                      <View style={styles.recipientAvatar}>
+                        <Text style={{ fontSize: 24 }}>👱‍♂️</Text>
+                      </View>
+                      <View style={styles.recipientInfo}>
+                        <Text style={styles.recipientName}>Michael Chen</Text>
+                        <Text style={styles.recipientTier}>Tier 2</Text>
+                      </View>
+                      <View style={styles.checkboxDark} />
+                    </View>
+
+                    <View style={styles.recipientItem}>
+                      <View style={styles.recipientAvatar}>
+                        <Text style={{ fontSize: 24 }}>👱‍♀️</Text>
+                      </View>
+                      <View style={styles.recipientInfo}>
+                        <Text style={styles.recipientName}>Emily Rodriguez</Text>
+                        <Text style={styles.recipientTier}>Tier 2</Text>
+                      </View>
+                      <View style={styles.checkboxDark} />
+                    </View>
+                  </View>
+
+                  <View style={styles.footerInfoCard}>
                     <Feather
                       name="lock"
-                      size={14}
+                      size={24}
                       color="#6B7280"
-                      style={{ marginTop: 2 }}
+                      style={{ marginBottom: 12 }}
                     />
-                    <Text style={styles.infoNoticeText}>
-                      Your legacy video is encrypted and completely private
-                      until delivered.
+                    <Text style={styles.footerInfoText}>
+                      Your legacy video is private and encrypted. Only you can
+                      view or edit it until it's time for delivery.
                     </Text>
                   </View>
                 </View>
-
-                <View style={styles.legacyStatusCard}>
-                  <View style={styles.legacyIconCircle}>
-                    <Feather name="video" size={28} color="#9333EA" />
-                  </View>
-                  <Text style={styles.legacyCardTitle}>
-                    Create Your Legacy Video
-                  </Text>
-                  <Text style={styles.legacyCardDesc}>
-                    Record a heartfelt message for the people who matter most.
-                    You can update it anytime.
-                  </Text>
-
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    style={styles.recordButtonWrapper}
-                    onPress={handleRecordVideo}
-                  >
-                    <LinearGradient
-                      colors={["#A855F7", "#D946EF"]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.recordButtonGradient}
-                    >
-                      <Feather
-                        name="video"
-                        size={18}
-                        color="#fff"
-                        style={{ marginRight: 8 }}
-                      />
-                      <Text style={styles.recordButtonText}>
-                        Start Recording
-                      </Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.recipientsSection}>
-                  <Text style={styles.recipientsTitle}>Choose Recipients</Text>
-                  <Text style={styles.recipientsSubtitle}>
-                    Select who should receive your legacy video
-                  </Text>
-
-                  <View style={styles.recipientItem}>
-                    <View style={styles.recipientAvatar}>
-                      <Text style={{ fontSize: 24 }}>👱‍♀️</Text>
-                    </View>
-                    <View style={styles.recipientInfo}>
-                      <Text style={styles.recipientName}>Sarah Johnson</Text>
-                      <Text style={styles.recipientTier}>Tier 1</Text>
-                    </View>
-                    <View style={styles.checkboxDark} />
-                  </View>
-
-                  <View style={styles.recipientItem}>
-                    <View style={styles.recipientAvatar}>
-                      <Text style={{ fontSize: 24 }}>👱‍♂️</Text>
-                    </View>
-                    <View style={styles.recipientInfo}>
-                      <Text style={styles.recipientName}>Michael Chen</Text>
-                      <Text style={styles.recipientTier}>Tier 2</Text>
-                    </View>
-                    <View style={styles.checkboxDark} />
-                  </View>
-
-                  <View style={styles.recipientItem}>
-                    <View style={styles.recipientAvatar}>
-                      <Text style={{ fontSize: 24 }}>👱‍♀️</Text>
-                    </View>
-                    <View style={styles.recipientInfo}>
-                      <Text style={styles.recipientName}>Emily Rodriguez</Text>
-                      <Text style={styles.recipientTier}>Tier 2</Text>
-                    </View>
-                    <View style={styles.checkboxDark} />
-                  </View>
-                </View>
-
-                <View style={styles.footerInfoCard}>
-                  <Feather
-                    name="lock"
-                    size={24}
-                    color="#6B7280"
-                    style={{ marginBottom: 12 }}
-                  />
-                  <Text style={styles.footerInfoText}>
-                    Your legacy video is private and encrypted. Only you can
-                    view or edit it until it's time for delivery.
-                  </Text>
-                </View>
               </View>
-            </View>
-          )}
-        </View>
+            )}
+          </View>
+        )}
         </>
         )}
       </ScrollView>
@@ -1524,20 +1510,10 @@ export default function People() {
             </TouchableOpacity>
 
             <View style={styles.cardAvatarContainer}>
-              {selectedUserModal?.profile_image ? (
-                <Image
-                  source={{ uri: resolveImageUrl(selectedUserModal.profile_image) }}
-                  style={styles.cardAvatarImage}
-                />
-              ) : (
-                <View style={styles.cardAvatarPlaceholder}>
-                  <Text style={styles.cardAvatarInitial}>
-                    {(selectedUserModal?.display_name || selectedUserModal?.username || "?")
-                      .charAt(0)
-                      .toUpperCase()}
-                  </Text>
-                </View>
-              )}
+              <Image
+                source={{ uri: resolveImageUrl(selectedUserModal?.profile_image || selectedUserModal?.image_url || selectedUserModal?.avatar_url) || DEFAULT_AVATAR }}
+                style={styles.cardAvatarImage}
+              />
             </View>
 
             <Text style={styles.cardDisplayName}>

@@ -15,7 +15,7 @@ import { Feather, Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as SecureStore from "expo-secure-store";
 import { Video, ResizeMode } from "expo-av";
-import { resolveImageUrl } from "../constants/ImageUtils";
+import { resolveImageUrl, resolveAvatarUrl, resolveStoryMediaUrl, DEFAULT_AVATAR } from "../constants/ImageUtils";
 import { apiFetch, API_BASE_URL } from "../constants/Api";
 
 export type StoryType = {
@@ -58,6 +58,7 @@ export default function StoryCard({
   const [avatarError, setAvatarError] = useState(false);
   const [mediaLoading, setMediaLoading] = useState(true);
   const [mediaError, setMediaError] = useState(false);
+  const [isPlayingVideo, setIsPlayingVideo] = useState(false);
 
   // Local optimistic state for likes, comments, and shares
   const initialLiked = !!(story.isLiked ?? story.is_liked_by_user);
@@ -75,6 +76,7 @@ export default function StoryCard({
   useEffect(() => {
     setMediaLoading(true);
     setMediaError(false);
+    setIsPlayingVideo(false);
   }, [story.id, story.image]);
 
   // Sync state when story props update (e.g. after refresh or comment modal update)
@@ -253,8 +255,8 @@ export default function StoryCard({
     }
   };
 
-  const resolvedAvatar = resolveImageUrl(story.user.avatarUrl);
-  const resolvedMedia = resolveImageUrl(story.image);
+  const resolvedAvatar = resolveAvatarUrl(story.user.avatarUrl);
+  const resolvedMedia = resolveStoryMediaUrl(story.image);
   const isVideoMedia =
     story.media_type === "video" ||
     story.mediaType === "video" ||
@@ -278,24 +280,11 @@ export default function StoryCard({
         {/* Header */}
         <View style={styles.cardHeader}>
           <View style={styles.userInfo}>
-            {story.user.avatarUrl && !avatarError ? (
-              <Image
-                source={{ uri: resolvedAvatar }}
-                style={[styles.avatarCircle, { borderWidth: 0 }]}
-                onError={() => setAvatarError(true)}
-              />
-            ) : (
-              <View
-                style={[
-                  styles.avatarCircle,
-                  { backgroundColor: story.user.avatarBg || "#F3E8FF" },
-                ]}
-              >
-                <Text style={styles.avatarEmoji}>
-                  {story.user.avatarEmoji || "👤"}
-                </Text>
-              </View>
-            )}
+            <Image
+              source={{ uri: !avatarError ? resolvedAvatar : DEFAULT_AVATAR }}
+              style={[styles.avatarCircle, { borderWidth: 0 }]}
+              onError={() => setAvatarError(true)}
+            />
             <View>
               <Text style={styles.userName}>{story.user.name}</Text>
               <Text style={styles.postTime}>{story.time}</Text>
@@ -308,24 +297,39 @@ export default function StoryCard({
         </View>
 
         {/* Story Media Area */}
-        <View style={styles.storyMediaWrapper}>
+        <TouchableOpacity
+          activeOpacity={isVideoMedia ? 0.9 : 1}
+          onPress={() => {
+            if (isVideoMedia && resolvedMedia && !mediaError) {
+              setIsPlayingVideo((prev) => !prev);
+            }
+          }}
+          style={styles.storyMediaWrapper}
+        >
           {resolvedMedia && !mediaError ? (
             isVideoMedia ? (
-              <Video
-                source={{ uri: resolvedMedia }}
-                style={styles.storyImage}
-                resizeMode={ResizeMode.COVER}
-                isLooping
-                shouldPlay={false}
-                useNativeControls
-                onLoadStart={() => setMediaLoading(true)}
-                onLoad={() => setMediaLoading(false)}
-                onError={(e) => {
-                  console.log(`❌ [StoryCard] Video error: ${resolvedMedia}`, e);
-                  setMediaLoading(false);
-                  setMediaError(true);
-                }}
-              />
+              <View style={{ width: "100%", height: "100%", position: "relative" }}>
+                <Video
+                  source={{ uri: resolvedMedia }}
+                  style={styles.storyImage}
+                  resizeMode={ResizeMode.COVER}
+                  isLooping
+                  shouldPlay={isPlayingVideo}
+                  useNativeControls={false}
+                  onLoadStart={() => setMediaLoading(true)}
+                  onLoad={() => setMediaLoading(false)}
+                  onError={(e) => {
+                    console.log(`❌ [StoryCard] Video error: ${resolvedMedia}`, e);
+                    setMediaLoading(false);
+                    setMediaError(true);
+                  }}
+                />
+                {!isPlayingVideo && !mediaLoading && (
+                  <View style={styles.playOverlayBtn} pointerEvents="none">
+                    <Ionicons name="play" size={28} color="#FFFFFF" style={{ marginLeft: 3 }} />
+                  </View>
+                )}
+              </View>
             ) : (
               <Image
                 source={{ uri: resolvedMedia }}
@@ -334,7 +338,7 @@ export default function StoryCard({
                 onLoadStart={() => setMediaLoading(true)}
                 onLoadEnd={() => setMediaLoading(false)}
                 onError={(e) => {
-                  console.log(`❌ [StoryCard] Image error: ${resolvedMedia}`, e.nativeEvent);
+                  console.log(`❌ [StoryCard] Image error: ${resolvedMedia}`, e?.nativeEvent || e);
                   setMediaLoading(false);
                   setMediaError(true);
                 }}
@@ -342,20 +346,20 @@ export default function StoryCard({
             )
           ) : (
             <View style={styles.storyFallback}>
-              <Feather name="image" size={38} color="#A855F7" />
+              <Feather name={isVideoMedia ? "video-off" : "image"} size={38} color="#A855F7" />
               <Text style={styles.storyFallbackText}>
-                {mediaError ? "Media unavailable" : "No media"}
+                {mediaError ? (isVideoMedia ? "Video unavailable" : "Image unavailable") : "No media"}
               </Text>
             </View>
           )}
 
           {/* Loading Overlay */}
           {mediaLoading && !mediaError && (
-            <View style={styles.mediaLoadingOverlay}>
+            <View style={styles.mediaLoadingOverlay} pointerEvents="none">
               <ActivityIndicator size="small" color="#9333EA" />
             </View>
           )}
-        </View>
+        </TouchableOpacity>
 
         {/* Footer actions */}
         <View style={styles.footerContainer}>
@@ -546,6 +550,18 @@ const styles = StyleSheet.create({
   captionText: {
     fontSize: 15,
     color: "#A855F7",
+  },
+  playOverlayBtn: {
+    position: 'absolute',
+    alignSelf: 'center',
+    top: '42%',
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
   },
 });
 

@@ -27,9 +27,10 @@ import {
   TextInput,
   PanResponder,
   ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { apiFetch, API_BASE_URL } from "../../constants/Api";
-import { resolveImageUrl } from "../../constants/ImageUtils";
+import { resolveImageUrl, resolveAvatarUrl, resolveStoryMediaUrl, DEFAULT_AVATAR } from "../../constants/ImageUtils";
 import { formatTimeAgo, formatViewerTime, isStoryExpired } from "../../constants/DateUtils";
 import {
   SafeAreaView,
@@ -686,6 +687,7 @@ export default function HomeScreen() {
   });
 
   const [homeData, setHomeData] = useState<any>(null);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const [isUploading, setIsUploading] = useState(false);
   const [previewStoryMedia, setPreviewStoryMedia] = useState<string | null>(null);
   const [previewMediaType, setPreviewMediaType] = useState<'image' | 'video'>('image');
@@ -694,6 +696,8 @@ export default function HomeScreen() {
   const [activeStoryList, setActiveStoryList] = useState<any[]>([]);
   const [activeStoryIndex, setActiveStoryIndex] = useState<number>(0);
   const [isStoryPaused, setIsStoryPaused] = useState<boolean>(false);
+  const [viewerMediaLoading, setViewerMediaLoading] = useState<boolean>(true);
+  const [viewerMediaError, setViewerMediaError] = useState<boolean>(false);
   const storyProgressAnim = useRef(new Animated.Value(0)).current;
   const storyAnimRef = useRef<Animated.CompositeAnimation | null>(null);
   const pausedProgressVal = useRef<number>(0);
@@ -812,6 +816,8 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (activeStoryList.length > 0 && activeStoryIndex >= 0 && activeStoryIndex < activeStoryList.length) {
+      setViewerMediaLoading(true);
+      setViewerMediaError(false);
       pausedProgressVal.current = 0;
       startStoryProgress(0);
     }
@@ -997,7 +1003,15 @@ export default function HomeScreen() {
       }
     } catch (e) {
       console.error('❌ [Home] fetchHomeData error:', e);
+    } finally {
+      setRefreshing(false);
     }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchHomeData();
+    fetchUserSummary();
   };
 
   const handleTaskPress = (label: string) => {
@@ -1259,6 +1273,9 @@ export default function HomeScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 40 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       >
         {/* Top Header */}
         <View style={[styles.header, { paddingTop: Math.max(insets.top, 25) }]}>
@@ -1287,7 +1304,7 @@ export default function HomeScreen() {
                   colors={["#c026d3", "#f43f5e", "#f59e0b"]}
                   style={styles.storyRing}
                 >
-                  <Image source={{ uri: resolveImageUrl(homeData?.user?.image_url) }} style={styles.storyProfileImage} />
+                  <Image source={{ uri: resolveAvatarUrl(homeData?.user?.image_url) }} style={styles.storyProfileImage} />
                 </LinearGradient>
                 <Text style={styles.storyName} numberOfLines={1}>Your Story</Text>
               </TouchableOpacity>
@@ -1298,7 +1315,7 @@ export default function HomeScreen() {
                 onPress={handleAddStory}
               >
                 <View style={styles.addStoryProfileWrap}>
-                  <Image source={{ uri: resolveImageUrl(homeData?.user?.image_url) }} style={styles.addStoryProfileImage} />
+                  <Image source={{ uri: resolveAvatarUrl(homeData?.user?.image_url) }} style={styles.addStoryProfileImage} />
                   <View style={styles.plusIconWrap}>
                     <View style={styles.plusIconBg}>
                       <Feather name="plus" size={12} color="#fff" />
@@ -1324,9 +1341,9 @@ export default function HomeScreen() {
                     colors={["#c026d3", "#f43f5e", "#f59e0b"]}
                     style={styles.storyRing}
                   >
-                    <Image source={{ uri: resolveImageUrl(firstStory.profile_image) }} style={styles.storyProfileImage} />
+                    <Image source={{ uri: resolveAvatarUrl(firstStory.profile_image) }} style={styles.storyProfileImage} />
                   </LinearGradient>
-                  <Text style={styles.storyName} numberOfLines={1}>{firstStory.username}</Text>
+                  <Text style={styles.storyName} numberOfLines={1}>{firstStory.display_name || firstStory.username || "User"}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -1396,9 +1413,9 @@ export default function HomeScreen() {
              {/* 2. Story Header */}
              <View style={styles.storyViewerHeader}>
                 <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                  <Image source={{ uri: resolveImageUrl(viewingStory?.profile_image || homeData?.user?.image_url) }} style={styles.storyViewerProfilePic} />
+                  <Image source={{ uri: resolveAvatarUrl(viewingStory?.profile_image || homeData?.user?.image_url) }} style={styles.storyViewerProfilePic} />
                   <View style={{ marginLeft: 8 }}>
-                    <Text style={styles.storyViewerUsername}>{viewingStory?.username || 'Your Story'}</Text>
+                    <Text style={styles.storyViewerUsername}>{viewingStory?.display_name || viewingStory?.username || 'Your Story'}</Text>
                     {viewingStory?.created_at && (
                       <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '500' }}>
                         {formatTimeAgo(viewingStory.created_at)}
@@ -1429,17 +1446,58 @@ export default function HomeScreen() {
 
              {/* 3. Media Content & Touch Zones */}
              <View style={styles.storyViewerContent}>
-                {viewingStory?.media_type === 'video' || (typeof viewingStory?.media_url === 'string' && viewingStory.media_url.endsWith('.mp4')) ? (
-                  <Video
-                    source={{ uri: resolveImageUrl(viewingStory?.media_url) }}
-                    style={styles.storyViewerImage}
-                    resizeMode={ResizeMode.CONTAIN}
-                    shouldPlay={!isStoryPaused}
-                    isLooping
-                    useNativeControls
-                  />
-                ) : (
-                  <Image source={{ uri: resolveImageUrl(viewingStory?.media_url) }} style={styles.storyViewerImage} resizeMode="contain" />
+                {(() => {
+                  const resolvedMedia = resolveStoryMediaUrl(viewingStory?.media_url);
+                  const isVideo = viewingStory?.media_type === 'video' || (typeof viewingStory?.media_url === 'string' && viewingStory.media_url.toLowerCase().endsWith('.mp4'));
+
+                  if (!resolvedMedia || viewerMediaError) {
+                    return (
+                      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+                        <Feather name={isVideo ? "video-off" : "image"} size={48} color="rgba(255,255,255,0.6)" />
+                        <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 16, fontWeight: '600', marginTop: 12, textAlign: 'center' }}>
+                          {viewerMediaError ? (isVideo ? "Video playback error" : "Story image unavailable") : "No media available"}
+                        </Text>
+                      </View>
+                    );
+                  }
+
+                  return isVideo ? (
+                    <Video
+                      source={{ uri: resolvedMedia }}
+                      style={styles.storyViewerImage}
+                      resizeMode={ResizeMode.CONTAIN}
+                      shouldPlay={!isStoryPaused}
+                      isLooping
+                      useNativeControls={false}
+                      onLoadStart={() => setViewerMediaLoading(true)}
+                      onLoad={() => setViewerMediaLoading(false)}
+                      onError={(e) => {
+                        console.log(`❌ [StoryViewer] Video error for ${resolvedMedia}:`, e);
+                        setViewerMediaLoading(false);
+                        setViewerMediaError(true);
+                      }}
+                    />
+                  ) : (
+                    <Image
+                      source={{ uri: resolvedMedia }}
+                      style={styles.storyViewerImage}
+                      resizeMode="contain"
+                      onLoadStart={() => setViewerMediaLoading(true)}
+                      onLoadEnd={() => setViewerMediaLoading(false)}
+                      onError={(e) => {
+                        console.log(`❌ [StoryViewer] Image error for ${resolvedMedia}:`, e?.nativeEvent || e);
+                        setViewerMediaLoading(false);
+                        setViewerMediaError(true);
+                      }}
+                    />
+                  );
+                })()}
+
+                {/* Loading Indicator */}
+                {viewerMediaLoading && !viewerMediaError && (
+                  <View style={[StyleSheet.absoluteFillObject, { justifyContent: 'center', alignItems: 'center' }]} pointerEvents="none">
+                    <ActivityIndicator size="large" color="#FFFFFF" />
+                  </View>
                 )}
 
                 {/* Overlays in Viewer (Instagram Style) */}
@@ -1536,20 +1594,24 @@ export default function HomeScreen() {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
-              {Array.isArray(storyViewers) && storyViewers.length > 0 ? storyViewers.map((viewer) => (
-                <View key={viewer.user_id || Math.random().toString()} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f5f5f5' }}>
-                  <Image 
-                    source={{ uri: viewer.profile_image || viewer.image_url || 'https://cdn.pixabay.com/photo/2015/10/05/22/37/blank-profile-picture-973460_1280.png' }} 
-                    style={{ width: 44, height: 44, borderRadius: 22, marginRight: 15 }} 
-                  />
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 16, fontWeight: '600' }}>{viewer.username || 'User'}</Text>
-                    <Text style={{ fontSize: 12, color: '#666' }}>
-                      {viewer.viewed_at ? formatViewerTime(viewer.viewed_at) : 'Just now'}
-                    </Text>
+              {Array.isArray(storyViewers) && storyViewers.length > 0 ? storyViewers.map((viewer) => {
+                const rawAvatar = viewer.profile_image || viewer.image_url || viewer.avatar_url;
+                const avatarUri = resolveImageUrl(rawAvatar);
+                return (
+                  <View key={viewer.user_id || Math.random().toString()} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f5f5f5' }}>
+                    <Image 
+                      source={{ uri: avatarUri }} 
+                      style={{ width: 44, height: 44, borderRadius: 22, marginRight: 15, backgroundColor: '#f0f0f0' }} 
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 16, fontWeight: '600' }}>{viewer.username || 'User'}</Text>
+                      <Text style={{ fontSize: 12, color: '#666' }}>
+                        {viewer.viewed_at ? formatViewerTime(viewer.viewed_at) : 'Just now'}
+                      </Text>
+                    </View>
                   </View>
-                </View>
-              )) : (
+                );
+              }) : (
                 <View style={{ alignItems: 'center', marginTop: 40 }}>
                    <Text style={{ color: '#666' }}>No views yet</Text>
                 </View>
@@ -1663,7 +1725,7 @@ export default function HomeScreen() {
                   elevation: 5,
                 }}
               >
-                <Image source={{ uri: resolveImageUrl(homeData?.user?.image_url) }} style={{ width: 28, height: 28, borderRadius: 14, marginRight: 10 }} />
+                <Image source={{ uri: resolveAvatarUrl(homeData?.user?.image_url) }} style={{ width: 28, height: 28, borderRadius: 14, marginRight: 10 }} />
                 <Text style={{ fontSize: 15, fontWeight: '700', color: '#000' }}>
                   {isUploading ? 'Sharing...' : 'Your story'}
                 </Text>

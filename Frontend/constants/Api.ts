@@ -26,17 +26,31 @@ const debuggerHost = (Constants.manifest as any)?.debuggerHost || (Constants.man
 const debuggerHostIp = debuggerHost ? debuggerHost.split(':')[0] : '';
 const debuggerHostUrl = debuggerHostIp ? `http://${debuggerHostIp}:5000` : '';
 
-const candidateBases = [
-  configuredUrl,
-  PRODUCTION_API_URL,
-  expoHost,
-  linkingHost,
-  debuggerHostUrl,
-  DEVELOPMENT_API_URL,
-  Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://127.0.0.1:5000',
-].filter((value, index, self) => Boolean(value) && self.indexOf(value) === index) as string[];
+const isDev = typeof __DEV__ !== 'undefined' ? Boolean(__DEV__) : process.env.NODE_ENV !== 'production';
 
-let activeBaseUrl = candidateBases[0] || PRODUCTION_API_URL;
+const candidateBases = (
+  isDev
+    ? [
+        configuredUrl,
+        expoHost,
+        linkingHost,
+        debuggerHostUrl,
+        DEVELOPMENT_API_URL,
+        Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://127.0.0.1:5000',
+        PRODUCTION_API_URL,
+      ]
+    : [
+        configuredUrl,
+        PRODUCTION_API_URL,
+        expoHost,
+        linkingHost,
+        debuggerHostUrl,
+        DEVELOPMENT_API_URL,
+        Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://127.0.0.1:5000',
+      ]
+).filter((value, index, self) => Boolean(value) && self.indexOf(value) === index) as string[];
+
+let activeBaseUrl = candidateBases[0] || (isDev ? DEVELOPMENT_API_URL : PRODUCTION_API_URL);
 
 export let API_BASE_URL = activeBaseUrl;
 console.log('[API] Candidate Bases:', candidateBases);

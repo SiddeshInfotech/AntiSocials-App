@@ -10,8 +10,9 @@ router.use(authenticateToken);
 router.get('/', activityController.getActivities);
 router.get('/joined', activityController.getJoinedActivities);
 
-// Single Activity
+// Single Activity & Feedback
 router.get('/:id', activityController.getActivityById);
+router.post('/:id/feedback', activityController.submitFeedback);
 
 // Create / Update / Delete
 router.post('/', activityController.createActivity);
