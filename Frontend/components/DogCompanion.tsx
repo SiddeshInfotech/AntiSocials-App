@@ -20,12 +20,14 @@ import Animated, {
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { Feather, Ionicons } from "@expo/vector-icons";
-import { getDogStage, DogStageResult } from "../constants/DogGrowth";
+import { getDailyDogStage, DailyDogStageResult } from "../constants/DogGrowth";
 
 const { width } = Dimensions.get("window");
 
 interface DogCompanionProps {
-  completedTasks: number | string[];
+  // Count of the CURRENT day's 7 tasks completed (0-7) — daily progress only,
+  // never a lifetime total. See getDailyDogStage in constants/DogGrowth.
+  dailyCompletedCount: number;
   activeTask?: string | null;
   onStartActiveTask?: (task: string) => void;
   onPet?: () => void;
@@ -76,13 +78,13 @@ const SparkleParticle = ({ index }: { index: number }) => {
 };
 
 export default function DogCompanion({
-  completedTasks = 0,
+  dailyCompletedCount = 0,
   activeTask,
   onStartActiveTask,
   onPet,
   showBadge = true,
 }: DogCompanionProps) {
-  const dogStage: DogStageResult = getDogStage(completedTasks);
+  const dogStage: DailyDogStageResult = getDailyDogStage(dailyCompletedCount);
 
   // Smooth Animations
   const breatheAnim = useSharedValue(1);
@@ -141,7 +143,7 @@ export default function DogCompanion({
       previousStageRef.current = dogStage.stage;
       return () => clearTimeout(timer);
     }
-  }, [dogStage.stage, dogStage.tasksCompleted]);
+  }, [dogStage.stage, dogStage.tasksCompletedToday]);
 
   // Handle petting the dog
   const handlePetDog = () => {
@@ -190,7 +192,7 @@ export default function DogCompanion({
           style={[
             styles.glowAura,
             dogStage.stage >= 5 && styles.zenAura,
-            dogStage.isCompleted100 && styles.goldenAura,
+            dogStage.isDayComplete && styles.goldenAura,
             animatedAuraStyle,
           ]}
         />
@@ -218,21 +220,21 @@ export default function DogCompanion({
           <View style={styles.stagePill}>
             <View style={styles.stagePillDot} />
             <Text style={styles.stagePillText}>
-              Stage {dogStage.stage}: {dogStage.stageName}
+              Today: {dogStage.stageName}
             </Text>
             <Text style={styles.stageCountText}>
-              {dogStage.tasksCompleted} / 100
+              {dogStage.tasksCompletedToday} / {dogStage.totalDailyTasks}
             </Text>
           </View>
 
-          {/* Micro progress bar towards 100 tasks */}
+          {/* Micro progress bar towards today's 7 tasks */}
           <View style={styles.progressBarBg}>
             <View
               style={[
                 styles.progressBarFill,
-                { width: `${Math.max(4, dogStage.totalProgress * 100)}%` },
+                { width: `${Math.max(4, dogStage.progressInStage * 100)}%` },
                 dogStage.stage >= 5 && styles.progressBarZen,
-                dogStage.isCompleted100 && styles.progressBarGolden,
+                dogStage.isDayComplete && styles.progressBarGolden,
               ]}
             />
           </View>

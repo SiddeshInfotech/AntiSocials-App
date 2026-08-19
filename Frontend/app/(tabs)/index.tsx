@@ -1333,78 +1333,11 @@ export default function HomeScreen() {
           </ScrollView>
         </View>
 
-        {/* AntiSocial Dog Growth & Circular Habit Dashboard */}
+        {/* AntiSocial Dog Growth & Circular Habit Dashboard — shows the current
+            unlocked day's 7 tasks around the Dog, tapping one navigates straight
+            to that task's real screen (same screens the Task page below uses). */}
         <CircularHabitDashboard
           completedTasks={homeData?.completedTasks || []}
-          activeTask={activeTask}
-          onSelectTask={(taskLabel) => handleTaskPress(taskLabel)}
-          onStartTask={(task) => {
-            Haptics.notificationAsync(
-              Haptics.NotificationFeedbackType.Success,
-            );
-            
-            // Handle dedicated task routes
-            if (task === "Smile") {
-              router.push("/smile-task" as any);
-              setActiveTask(null);
-              return;
-            }
-
-            if (task === "Silent") {
-              router.push("/silent" as any);
-              setActiveTask(null);
-              return;
-            }
-
-            if (task === "Breathe") {
-              router.push("/groundingBreath" as any);
-              setActiveTask(null);
-              return;
-            }
-
-            if (task === "Stretch") {
-              router.push("/stretch" as any);
-              setActiveTask(null);
-              return;
-            }
-
-            if (task === "Eye Rest") {
-              router.push("/eye-rest-task" as any);
-              setActiveTask(null);
-              return;
-            }
-
-            if (task === "Reflect") {
-              router.push("/reflect" as any);
-              setActiveTask(null);
-              return;
-            }
-
-            if (task === "Connect") {
-              router.push("/ask" as any);
-              setActiveTask(null);
-              return;
-            }
-            
-            if (task === "Gratitude") {
-              router.push("/gratitude" as any);
-              setActiveTask(null);
-              return;
-            }
-
-            if (task === "Walk") {
-              router.push("/walk" as any);
-              setActiveTask(null);
-              return;
-            }
-
-            completeTaskApi(task);
-            Alert.alert(
-              `Completed ${task}`,
-              `You have successfully completed this task. Points added!`,
-            );
-            setActiveTask(null);
-          }}
         />
 
         <TasksJourneySection completedTasks={homeData?.completedTasks || []} />

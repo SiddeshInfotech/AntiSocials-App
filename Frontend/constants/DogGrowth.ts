@@ -187,3 +187,56 @@ export function getDogStage(completedTasks: number | string[] = 0): DogStageResu
     isCompleted100: count >= 100,
   };
 }
+
+/**
+ * Daily Dog progression — reflects how many of the CURRENT day's 7 tasks are
+ * complete (0-7), never lifetime totals. Reuses the same 7 dog art assets as
+ * the lifetime journey above, remapped onto a single day's 8 possible states.
+ */
+export interface DailyDogStateConfig {
+  count: number; // 0-7 tasks completed today
+  name: string;
+  asset: any;
+}
+
+export const DAILY_DOG_STATES: DailyDogStateConfig[] = [
+  { count: 0, name: "Resting", asset: require("../assets/images/dog/1.png") },
+  { count: 1, name: "Aware", asset: require("../assets/images/dog/2.png") },
+  { count: 2, name: "Alert", asset: require("../assets/images/dog/3.png") },
+  { count: 3, name: "Healthier & Stronger", asset: require("../assets/images/dog/4.png") },
+  { count: 4, name: "Calm", asset: require("../assets/images/dog/5.png") },
+  { count: 5, name: "Socially Open", asset: require("../assets/images/dog/6.png") },
+  { count: 6, name: "Confident", asset: require("../assets/images/dog/7.png") },
+  { count: 7, name: "Complete & Peaceful", asset: require("../assets/images/dog/7.png") },
+];
+
+export interface DailyDogStageResult {
+  stage: number; // 0-7, equal to tasksCompletedToday
+  stageName: string;
+  tasksCompletedToday: number;
+  totalDailyTasks: number;
+  progressInStage: number; // 0 to 1 (tasksCompletedToday / 7)
+  asset: any;
+  isDayComplete: boolean;
+}
+
+/**
+ * Derives the dog's mood/asset for TODAY only, from how many of the current
+ * day's 7 tasks are complete. Day 2 always starts this back at 0 — it is
+ * never influenced by lifetime completions or prior days' progress.
+ * @param tasksCompletedToday Count of the current day's 7 tasks completed (0-7)
+ */
+export function getDailyDogStage(tasksCompletedToday: number = 0): DailyDogStageResult {
+  const count = Math.max(0, Math.min(7, Math.round(tasksCompletedToday || 0)));
+  const matched = DAILY_DOG_STATES[count];
+
+  return {
+    stage: count,
+    stageName: matched.name,
+    tasksCompletedToday: count,
+    totalDailyTasks: 7,
+    progressInStage: count / 7,
+    asset: matched.asset,
+    isDayComplete: count >= 7,
+  };
+}

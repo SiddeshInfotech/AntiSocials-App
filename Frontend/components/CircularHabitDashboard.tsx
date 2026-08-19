@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Dimensions,
   StyleSheet,
@@ -16,36 +16,48 @@ import Animated, {
 } from "react-native-reanimated";
 import Svg, { Circle } from "react-native-svg";
 import * as Haptics from "expo-haptics";
+import { useRouter } from "expo-router";
 import DogCompanion from "./DogCompanion";
-import { DOG_STAGES, getDogStage, DogStageResult, DogStageConfig } from "../constants/DogGrowth";
+import { getDailyDogStage, DailyDogStageResult } from "../constants/DogGrowth";
+import {
+  getBucketTasks,
+  getHighestUnlockedBucketIndex,
+  isTaskTitleCompleted,
+  LIFE_DIMENSIONS,
+  MAX_DAY,
+  TASKS_PER_BUCKET,
+  JourneyTask,
+} from "../constants/JourneyTasks";
 
 const { width } = Dimensions.get("window");
 
 export interface CircularHabitDashboardProps {
-  tasks?: any[];
-  completedTasks?: number | string[];
-  activeTask?: string | null;
-  onSelectTask?: (taskLabel: string) => void;
-  onStartTask?: (taskLabel: string) => void;
+  // Lifetime array of completed task titles from /api/home — the same value
+  // passed to TasksJourneySection, so the Task page and the Dog widget always
+  // agree on which day is unlocked and which of its 7 tasks are done.
+  completedTasks?: string[];
 }
 
-// Individual 360° Stage Circle Badge
-const StageCircleBadge = ({
-  stage,
+// One of the 7 tasks belonging to the current day, positioned around the Dog.
+const DayTaskBadge = ({
+  task,
+  dimension,
   index,
-  isCurrent,
-  isUnlocked,
+  isCompleted,
+  isNext,
   onPress,
 }: {
-  stage: DogStageConfig;
+  task: JourneyTask;
+  dimension: string;
   index: number;
-  isCurrent: boolean;
-  isUnlocked: boolean;
+  isCompleted: boolean;
+  isNext: boolean;
   onPress: () => void;
 }) => {
   const scale = useSharedValue(1);
 
   const handlePress = () => {
+    if (isCompleted) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     scale.value = withSequence(
       withTiming(0.88, { duration: 80 }),
@@ -67,48 +79,42 @@ const StageCircleBadge = ({
       <TouchableOpacity
         activeOpacity={0.85}
         onPress={handlePress}
+        disabled={isCompleted}
         style={[
           styles.circularBadge,
-          isCurrent && styles.circularBadgeCurrent,
-          isUnlocked && !isCurrent && styles.circularBadgeUnlocked,
+          isNext && styles.circularBadgeCurrent,
+          isCompleted && !isNext && styles.circularBadgeUnlocked,
         ]}
       >
-        {/* Small Purple Stage Number Badge */}
-        <View style={[styles.stageNumberPill, isCurrent && styles.stageNumberPillCurrent]}>
-          <Text style={styles.stageNumberText}>{stage.stage}</Text>
+        {/* Small Purple Task-Slot Number Badge */}
+        <View style={[styles.stageNumberPill, isNext && styles.stageNumberPillCurrent]}>
+          <Text style={styles.stageNumberText}>{index + 1}</Text>
         </View>
 
         {/* Center Emoji Container for perfect optical alignment */}
         <View style={styles.emojiContainer}>
-          <Text
-            style={[
-              styles.emojiText,
-              stage.stage === 6 && styles.levitateEmojiText,
-            ]}
-          >
-            {stage.emoji}
-          </Text>
+          <Text style={styles.emojiText}>{task.emoji}</Text>
         </View>
 
-        {/* Completed Checkmark Indicator for past unlocked stages */}
-        {isUnlocked && !isCurrent && (
+        {/* Completed Checkmark Indicator */}
+        {isCompleted && (
           <View style={styles.completedCheckMark}>
             <Text style={styles.checkMarkText}>✓</Text>
           </View>
         )}
       </TouchableOpacity>
 
-      {/* Stage Name Label */}
-      <View style={[styles.labelPill, isCurrent && styles.labelPillCurrent]}>
+      {/* Life Dimension Label */}
+      <View style={[styles.labelPill, isNext && styles.labelPillCurrent]}>
         <Text
           style={[
             styles.labelText,
-            isCurrent && styles.labelTextCurrent,
-            isUnlocked && !isCurrent && styles.labelTextUnlocked,
+            isNext && styles.labelTextCurrent,
+            isCompleted && !isNext && styles.labelTextUnlocked,
           ]}
           numberOfLines={1}
         >
-          {stage.name}
+          {dimension}
         </Text>
       </View>
     </Animated.View>
@@ -116,21 +122,42 @@ const StageCircleBadge = ({
 };
 
 export default function CircularHabitDashboard({
-  completedTasks = 0,
-  activeTask = null,
-  onSelectTask,
-  onStartTask,
+  completedTasks = [],
 }: CircularHabitDashboardProps) {
+  const router = useRouter();
   const [containerLayout, setContainerLayout] = useState<{ w: number; h: number }>({
     w: width - 32,
     h: 510,
   });
 
-  const dogStage: DogStageResult = getDogStage(completedTasks);
-  const currentStageNum = dogStage.stage;
+  // Current unlocked day (bucket) and its 7 real tasks — the exact same
+  // source of truth and bucket math the Task page uses, so the Dog can never
+  // show a different day's tasks (or a locked future day's tasks).
+  const currentBucketIndex = useMemo(
+    () => getHighestUnlockedBucketIndex(completedTasks),
+    [completedTasks]
+  );
+  const currentDayTasks = useMemo(
+    () => getBucketTasks(currentBucketIndex),
+    [currentBucketIndex]
+  );
+  // Same "Day start-end" range label the Task page shows for this bucket —
+  // keeps the Dog, the Task page, and the progress display textually in sync.
+  const currentDayStart = currentBucketIndex * TASKS_PER_BUCKET + 1;
+  const currentDayEnd = Math.min(currentDayStart + TASKS_PER_BUCKET - 1, MAX_DAY);
+  const currentDayLabel =
+    currentDayStart === currentDayEnd
+      ? `Day ${currentDayStart}`
+      : `Day ${currentDayStart}-${currentDayEnd}`;
 
-  // Selected stage preview state (defaults to current stage)
-  const [previewStage, setPreviewStage] = useState<number | null>(null);
+  const completionByIndex = useMemo(
+    () => currentDayTasks.map((t) => isTaskTitleCompleted(t.title, completedTasks)),
+    [currentDayTasks, completedTasks]
+  );
+  const dailyCompletedCount = completionByIndex.filter(Boolean).length;
+  const nextIncompleteIndex = completionByIndex.findIndex((done) => !done);
+
+  const dogStage: DailyDogStageResult = getDailyDogStage(dailyCompletedCount);
 
   const BADGE_SIZE = 50;
   const WRAPPER_WIDTH = 76;
@@ -142,7 +169,7 @@ export default function CircularHabitDashboard({
   // Responsive radius calculation for 360° arrangement
   const radius = Math.min((containerLayout.w - 86) / 2, (containerLayout.h - 150) / 2, 144);
 
-  const totalStages = DOG_STAGES.length; // Exactly 7 stages
+  const totalPositions = TASKS_PER_BUCKET; // Exactly 7 tasks, one per life dimension
 
   return (
     <View style={styles.dashboardContainer}>
@@ -173,21 +200,22 @@ export default function CircularHabitDashboard({
           />
         </Svg>
 
-        {/* 7 Circular Stage Badges Arranged in Full 360° Orbit (Angle = -90° + i * 360°/7) */}
-        {DOG_STAGES.map((stage, index) => {
+        {/* Today's 7 Tasks Arranged in Full 360° Orbit Around the Dog
+            (Angle = -90° + i * 360°/7), one per life dimension */}
+        {currentDayTasks.map((task, index) => {
           // Start at top 12 o'clock (-90 deg), evenly distributed clockwise
-          const angleDeg = -90 + index * (360 / totalStages);
+          const angleDeg = -90 + index * (360 / totalPositions);
           const angleRad = angleDeg * (Math.PI / 180);
 
           const x = cx + radius * Math.cos(angleRad) - WRAPPER_WIDTH / 2;
           const y = cy + radius * Math.sin(angleRad) - BADGE_SIZE / 2;
 
-          const isCurrent = stage.stage === currentStageNum;
-          const isUnlocked = stage.stage <= currentStageNum;
+          const isCompleted = completionByIndex[index];
+          const isNext = index === nextIncompleteIndex;
 
           return (
             <View
-              key={stage.stage}
+              key={`${currentBucketIndex}-${index}-${task.title}`}
               style={[
                 styles.positionedItemWrapper,
                 {
@@ -197,14 +225,16 @@ export default function CircularHabitDashboard({
                 },
               ]}
             >
-              <StageCircleBadge
-                stage={stage}
+              <DayTaskBadge
+                task={task}
+                dimension={LIFE_DIMENSIONS[index % LIFE_DIMENSIONS.length]}
                 index={index}
-                isCurrent={isCurrent}
-                isUnlocked={isUnlocked}
+                isCompleted={isCompleted}
+                isNext={isNext}
                 onPress={() => {
-                  setPreviewStage(stage.stage);
-                  if (onSelectTask) onSelectTask(stage.name);
+                  if (task.route) {
+                    router.push(task.route as any);
+                  }
                 }}
               />
             </View>
@@ -214,9 +244,7 @@ export default function CircularHabitDashboard({
         {/* Center: Large Centered Companion Dog (Noticeably Enlarged) */}
         <View style={[styles.centerDogWrapper, { left: cx - 110, top: cy - 102.5 }]}>
           <DogCompanion
-            completedTasks={completedTasks}
-            activeTask={activeTask}
-            onStartActiveTask={onStartTask}
+            dailyCompletedCount={dailyCompletedCount}
             showBadge={false}
           />
         </View>
@@ -226,21 +254,21 @@ export default function CircularHabitDashboard({
           <View style={styles.stagePill}>
             <View style={styles.stagePillDot} />
             <Text style={styles.stagePillText}>
-              Stage {dogStage.stage}: {dogStage.stageName}
+              {currentDayLabel}: {dogStage.stageName}
             </Text>
             <Text style={styles.stageCountText}>
-              {dogStage.tasksCompleted} / 100
+              {dogStage.tasksCompletedToday} / {dogStage.totalDailyTasks}
             </Text>
           </View>
 
-          {/* Micro progress bar towards 100 tasks */}
+          {/* Micro progress bar towards today's 7 tasks */}
           <View style={styles.progressBarBg}>
             <View
               style={[
                 styles.progressBarFill,
-                { width: `${Math.max(4, dogStage.totalProgress * 100)}%` },
+                { width: `${Math.max(4, dogStage.progressInStage * 100)}%` },
                 dogStage.stage >= 5 && styles.progressBarZen,
-                dogStage.isCompleted100 && styles.progressBarGolden,
+                dogStage.isDayComplete && styles.progressBarGolden,
               ]}
             />
           </View>
@@ -357,10 +385,6 @@ const styles = StyleSheet.create({
     textAlignVertical: "center",
     includeFontPadding: false,
     lineHeight: 25,
-  },
-  levitateEmojiText: {
-    fontSize: 17.5,
-    lineHeight: 21,
   },
   completedCheckMark: {
     position: "absolute",
