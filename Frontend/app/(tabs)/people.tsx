@@ -1,5 +1,5 @@
 import { Ionicons, Feather } from "@expo/vector-icons";
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import {
   PanResponder,
   StyleSheet,
@@ -213,6 +213,10 @@ const SearchResultItem = ({
   );
 };
 
+// Minimum finger movement (px) before the graph's PanResponder treats a
+// touch as a drag instead of a tap on a person/center node.
+const PAN_ACTIVATION_THRESHOLD = 6;
+
 export default function People() {
   const isFocused = useIsFocused();
   const [showInfo, setShowInfo] = useState(false);
@@ -240,7 +244,11 @@ export default function People() {
   const focusAnim = useRef(new Animated.Value(0)).current;
 
   // --- FETCH CONNECTIONS & USER PROFILE ---
-  const fetchConnections = async () => {
+  // useCallback with stable deps so this stays referentially stable across
+  // unrelated re-renders of this screen (search typing, request polling,
+  // etc.) — it's passed to the memoized ConnectionGraph as onRetry, and an
+  // unstable reference there would defeat that memoization.
+  const fetchConnections = useCallback(async () => {
     setIsLoadingConnections(true);
     setConnectionsError(false);
     try {
@@ -264,7 +272,7 @@ export default function People() {
       setIsLoadingConnections(false);
       setConnectionsError(false);
     }
-  };
+  }, []);
 
   const fetchCurrentUser = async () => {
     try {
@@ -480,6 +488,18 @@ export default function People() {
   };
 
 
+  // Stable identity, passed to the memoized ConnectionGraph — an inline
+  // arrow here would be a new function every render and defeat React.memo
+  // on that component.
+  const handleGraphNodePress = useCallback((user: ConnectedUserNode) => {
+    setSelectedUserModal(user);
+  }, []);
+
+  const handleFindPeoplePress = useCallback(() => {
+    setIsSearchFocused(true);
+    searchInputRef.current?.focus();
+  }, []);
+
   const handleChangeTier = async (targetUser: ConnectedUserNode, tier: RelationshipTier) => {
     const targetId = targetUser.id || targetUser.user_id;
     if (!targetId || isChangingTier || targetUser.relationship_tier === tier) return;
@@ -687,8 +707,34 @@ export default function People() {
 
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
+      // Root cause of "tap doesn't open the relationship UI": these used to
+      // unconditionally return true, which grabbed the touch responder the
+      // instant a finger touched down anywhere in the graph — including on
+      // a person node's TouchableOpacity. Grabbing on start (before any
+      // movement) never gives the nested Touchable a chance to fire onPress:
+      // real-world taps almost always include a pixel or two of jitter
+      // between touch-down and touch-up, and onMoveShouldSetPanResponder
+      // returning true unconditionally meant even that jitter was enough to
+      // steal the responder mid-tap and cancel the Touchable's press.
+      //
+      // Fix: don't claim on start (let the node's TouchableOpacity claim
+      // first), and only claim on move once the finger has actually moved
+      // past a small threshold, or a second finger has landed (pinch). A
+      // genuine tap never crosses the threshold, so the Touchable keeps the
+      // responder for the whole gesture and onPress fires normally. A real
+      // drag crosses it a few pixels in, at which point PanResponder takes
+      // over — RN's default is to let responders be interrupted like this,
+      // and gestureState.dx/dy are measured from the original touch-down,
+      // so panning continues from the right position with no jump.
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (evt, gestureState) => {
+        if (evt.nativeEvent.touches.length >= 2) return true;
+        return (
+          Math.abs(gestureState.dx) > PAN_ACTIVATION_THRESHOLD ||
+          Math.abs(gestureState.dy) > PAN_ACTIVATION_THRESHOLD
+        );
+      },
+      onPanResponderTerminationRequest: () => true,
 
       onPanResponderGrant: (evt) => {
         const touches = evt.nativeEvent.touches;
@@ -1244,11 +1290,8 @@ export default function People() {
                     isLoading={isLoadingConnections}
                     isError={connectionsError}
                     onRetry={fetchConnections}
-                    onNodePress={(user) => setSelectedUserModal(user)}
-                    onFindPeople={() => {
-                      setIsSearchFocused(true);
-                      searchInputRef.current?.focus();
-                    }}
+                    onNodePress={handleGraphNodePress}
+                    onFindPeople={handleFindPeoplePress}
                   />
                 </Animated.View>
               </View>

@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { Animated, View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import Svg, { Circle, Line } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
@@ -47,6 +47,13 @@ interface AnimatedNodeItem extends ConnectedUserNode {
   lineRadiusAnim: Animated.Value;
   scaleAnim: Animated.Value;
   opacityAnim: Animated.Value;
+  // Precomputed once per layout pass (not on every render) — see the
+  // `[connections]` effect below. Recreating these Animated.add/multiply
+  // graphs inline during JSX render (the previous implementation) rebuilt
+  // every node's animated node-graph on every re-render of this component,
+  // which is the main source of the reported graph lag.
+  translateX: any;
+  translateY: any;
 }
 
 // Relationship tier -> radial ring. CLOSE sits closest to "You"; GROWING_FOLLOWER sits furthest out.
@@ -93,7 +100,55 @@ const calculateLayout = (items: ConnectedUserNode[]) => {
   return results;
 };
 
-export default function ConnectionGraph({
+interface ConnectionNodeProps {
+  node: AnimatedNodeItem;
+  isSelected: boolean;
+  onPress: (node: AnimatedNodeItem) => void;
+}
+
+// Memoized so tapping/deselecting one node (or an unrelated re-render of the
+// parent People screen) doesn't force every other node to re-render and
+// re-resolve its avatar/label — only the node(s) whose selection state
+// actually changed do. Dimming on selection is handled by the opacityAnim /
+// scaleAnim Animated.Values themselves (mutated imperatively elsewhere), so
+// it doesn't need to be a prop here. `onPress` is intentionally excluded
+// from the equality check: it's a fresh closure each render but always
+// targets this same node.
+const ConnectionNode = React.memo(
+  function ConnectionNode({ node, isSelected, onPress }: ConnectionNodeProps) {
+    const rawNodeAvatar = node.profile_image || (node as any).image_url || (node as any).avatar_url;
+    const avatarUri = resolveImageUrl(rawNodeAvatar);
+    const displayName = node.display_name || node.username || 'User';
+
+    return (
+      <Animated.View
+        style={[
+          styles.nodeWrapper,
+          {
+            opacity: node.opacityAnim,
+            transform: [{ translateX: node.translateX }, { translateY: node.translateY }, { scale: node.scaleAnim }],
+            zIndex: isSelected ? 100 : node.tier,
+          },
+        ]}
+      >
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => onPress(node)}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={[styles.avatarCircle, isSelected && styles.avatarSelected]}
+        >
+          <Image source={{ uri: avatarUri || DEFAULT_AVATAR }} style={styles.nodeAvatarImage} />
+        </TouchableOpacity>
+        <Text style={[styles.nodeLabel, isSelected && styles.nodeLabelSelected]} numberOfLines={1}>
+          {displayName}
+        </Text>
+      </Animated.View>
+    );
+  },
+  (prev, next) => prev.node === next.node && prev.isSelected === next.isSelected
+);
+
+function ConnectionGraph({
   connections = [],
   currentUser = null,
   isLoading = false,
@@ -190,6 +245,11 @@ export default function ConnectionGraph({
         }).start();
       }
 
+      // Built once per layout pass instead of inline in JSX (previously recreated
+      // on every render, including renders unrelated to layout — e.g. selection).
+      const translateX = Animated.add(CENTER_X - 21, Animated.multiply(radiusAnim, Math.cos(item.angleRad)));
+      const translateY = Animated.add(CENTER_Y - 21, Animated.multiply(radiusAnim, Math.sin(item.angleRad)));
+
       const nodeObj: AnimatedNodeItem = {
         ...item,
         nodeKey,
@@ -197,6 +257,8 @@ export default function ConnectionGraph({
         lineRadiusAnim,
         scaleAnim,
         opacityAnim,
+        translateX,
+        translateY,
       };
 
       newAnimatedNodes.push(nodeObj);
@@ -277,33 +339,42 @@ export default function ConnectionGraph({
     }
   }, [expandedTier, selectedNodeId, animatedNodes]);
 
-  const handleNodePress = (node: AnimatedNodeItem) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (selectedNodeId === node.id) {
-      setSelectedNodeId(null);
-      setExpandedTier(null);
-    } else {
-      setSelectedNodeId(node.id);
-      setExpandedTier(node.tier);
-    }
+  const handleNodePress = useCallback(
+    (node: AnimatedNodeItem) => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setSelectedNodeId((prev) => {
+        if (prev === node.id) {
+          setExpandedTier(null);
+          return null;
+        }
+        setExpandedTier(node.tier);
+        return node.id;
+      });
 
-    if (onNodePress) {
-      onNodePress(node);
-    }
-  };
+      if (onNodePress) {
+        onNodePress(node);
+      }
+    },
+    [onNodePress]
+  );
 
-  const handleCenterPress = () => {
+  const handleCenterPress = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSelectedNodeId('center');
     setExpandedTier(null);
-  };
+  }, []);
 
   const rawUserAvatar = currentUser?.profile_image || (currentUser as any)?.image_url || (currentUser as any)?.avatar_url;
   const userAvatarUri = resolveImageUrl(rawUserAvatar);
 
-  const hasCloseRing = connections.some((c) => ringForTier(c.relationship_tier).ring === 1);
-  const hasFamilyRing = connections.some((c) => ringForTier(c.relationship_tier).ring === 2);
-  const hasGrowingRing = connections.some((c) => ringForTier(c.relationship_tier).ring === 3);
+  const { hasCloseRing, hasFamilyRing, hasGrowingRing } = useMemo(
+    () => ({
+      hasCloseRing: connections.some((c) => ringForTier(c.relationship_tier).ring === 1),
+      hasFamilyRing: connections.some((c) => ringForTier(c.relationship_tier).ring === 2),
+      hasGrowingRing: connections.some((c) => ringForTier(c.relationship_tier).ring === 3),
+    }),
+    [connections]
+  );
 
   return (
     <View style={styles.container}>
@@ -368,39 +439,14 @@ export default function ConnectionGraph({
       </Svg>
 
       {/* Render Dynamic Connected User Nodes */}
-      {animatedNodes.map((node) => {
-        const translateX = Animated.add(CENTER_X - 21, Animated.multiply(node.radiusAnim, Math.cos(node.angleRad)));
-        const translateY = Animated.add(CENTER_Y - 21, Animated.multiply(node.radiusAnim, Math.sin(node.angleRad)));
-        const isSelected = selectedNodeId === node.id;
-        const rawNodeAvatar = node.profile_image || (node as any).image_url || (node as any).avatar_url;
-        const avatarUri = resolveImageUrl(rawNodeAvatar);
-        const displayName = node.display_name || node.username || 'User';
-
-        return (
-          <Animated.View
-            key={node.nodeKey}
-            style={[
-              styles.nodeWrapper,
-              {
-                opacity: node.opacityAnim,
-                transform: [{ translateX }, { translateY }, { scale: node.scaleAnim }],
-                zIndex: isSelected ? 100 : node.tier,
-              },
-            ]}
-          >
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => handleNodePress(node)}
-              style={[styles.avatarCircle, isSelected && styles.avatarSelected]}
-            >
-              <Image source={{ uri: avatarUri || DEFAULT_AVATAR }} style={styles.nodeAvatarImage} />
-            </TouchableOpacity>
-            <Text style={[styles.nodeLabel, isSelected && styles.nodeLabelSelected]} numberOfLines={1}>
-              {displayName}
-            </Text>
-          </Animated.View>
-        );
-      })}
+      {animatedNodes.map((node) => (
+        <ConnectionNode
+          key={node.nodeKey}
+          node={node}
+          isSelected={selectedNodeId === node.id}
+          onPress={handleNodePress}
+        />
+      ))}
 
       {/* Center Node (YOU) */}
       <Animated.View
@@ -454,6 +500,14 @@ export default function ConnectionGraph({
     </View>
   );
 }
+
+// Memoized: this graph re-renders on every prop change from People (search
+// typing, incoming-request polling, refresh, etc. all live in that same
+// component). Without this, every one of those unrelated state updates was
+// forcing a full re-render of the graph, including recreating every node's
+// animated node-graph inline in JSX — a large, avoidable cost that scaled
+// with connection count and was the main source of the reported graph lag.
+export default React.memo(ConnectionGraph);
 
 const styles = StyleSheet.create({
   container: {
