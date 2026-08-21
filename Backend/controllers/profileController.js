@@ -5,6 +5,19 @@ const pointsStreakService = require('../services/pointsStreakService');
 const RELATIONSHIP_TIERS = ['CLOSE', 'FAMILY_REGULAR', 'GROWING_FOLLOWER'];
 const DEFAULT_RELATIONSHIP_TIER = 'GROWING_FOLLOWER';
 
+// Shared by searchUsers/getMutuals: maps a raw user_connections row (which may not
+// exist yet) to the connection_status the frontend already understands.
+const resolveConnectionStatus = (rawStatus, requesterId, receiverId, userId) => {
+    if (rawStatus === 'accepted' || rawStatus === 'connected') {
+        return 'connected';
+    }
+    if (rawStatus === 'pending') {
+        if (requesterId === userId) return 'requested';
+        if (receiverId === userId) return 'incoming';
+    }
+    return 'none';
+};
+
 exports.getProfile = async (req, res) => {
     try {
         const userId = parseInt(req.user.id, 10);
@@ -241,17 +254,7 @@ exports.searchUsers = async (req, res) => {
         const result = await db.query(sql, [userId, searchPattern, query, `${query}%`]);
 
         const users = result.rows.map(row => {
-            let connection_status = 'none';
-            
-            if (row.raw_status === 'accepted' || row.raw_status === 'connected') {
-                connection_status = 'connected';
-            } else if (row.raw_status === 'pending') {
-                if (row.requester_id === userId) {
-                    connection_status = 'requested';
-                } else if (row.receiver_id === userId) {
-                    connection_status = 'incoming';
-                }
-            }
+            const connection_status = resolveConnectionStatus(row.raw_status, row.requester_id, row.receiver_id, userId);
 
             return {
                 id: row.id,
@@ -270,6 +273,91 @@ exports.searchUsers = async (req, res) => {
         res.json({ users });
     } catch (error) {
         console.error('searchUsers error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+// "Mutuals" = people who are an accepted connection of at least one of the
+// authenticated user's own accepted connections (2nd-degree/friends-of-friends),
+// and with whom the user does not already have an accepted connection.
+// This is NOT a relationship tier — it's derived purely from the existing
+// user_connections graph, scoped to the authenticated user server-side, and
+// carries a normal connection_status (none/requested/incoming) so the
+// frontend can reuse the same request/accept flow used everywhere else.
+exports.getMutuals = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        const sql = `
+            WITH my_connections AS (
+                SELECT DISTINCT CASE WHEN user_id = $1 THEN friend_id ELSE user_id END AS friend_user_id
+                FROM user_connections
+                WHERE (user_id = $1 OR friend_id = $1)
+                  AND (status = 'accepted' OR status = 'connected')
+            ),
+            candidates AS (
+                SELECT
+                    CASE WHEN c.user_id = mc.friend_user_id THEN c.friend_id ELSE c.user_id END AS candidate_id,
+                    mc.friend_user_id AS via_friend_id
+                FROM user_connections c
+                JOIN my_connections mc
+                    ON c.user_id = mc.friend_user_id OR c.friend_id = mc.friend_user_id
+                WHERE (c.status = 'accepted' OR c.status = 'connected')
+            ),
+            candidate_counts AS (
+                SELECT candidate_id, COUNT(DISTINCT via_friend_id) AS mutual_count
+                FROM candidates
+                WHERE candidate_id != $1
+                GROUP BY candidate_id
+            )
+            SELECT
+                u.id,
+                u.username,
+                COALESCE(u.profile_name, u.username) AS display_name,
+                u.profession,
+                u.about,
+                u.image_url,
+                cc.mutual_count,
+                existing.status AS raw_status,
+                existing.user_id AS requester_id,
+                existing.friend_id AS receiver_id
+            FROM candidate_counts cc
+            JOIN users u ON u.id = cc.candidate_id
+            LEFT JOIN user_connections existing
+                ON (existing.user_id = $1 AND existing.friend_id = u.id)
+                OR (existing.user_id = u.id AND existing.friend_id = $1)
+            WHERE NOT EXISTS (
+                SELECT 1 FROM user_connections cx
+                WHERE ((cx.user_id = $1 AND cx.friend_id = u.id) OR (cx.user_id = u.id AND cx.friend_id = $1))
+                  AND (cx.status = 'accepted' OR cx.status = 'connected')
+            )
+            ORDER BY cc.mutual_count DESC, display_name ASC
+            LIMIT 30
+        `;
+
+        const result = await db.query(sql, [userId]);
+
+        const mutuals = result.rows.map(row => {
+            const connection_status = resolveConnectionStatus(row.raw_status, row.requester_id, row.receiver_id, userId);
+
+            return {
+                id: row.id,
+                user_id: row.id,
+                username: row.username,
+                display_name: row.display_name,
+                profile_image: row.image_url,
+                image_url: row.image_url,
+                avatar_url: row.image_url,
+                profession: row.profession,
+                about: row.about,
+                mutual_count: parseInt(row.mutual_count, 10) || 0,
+                connection_status
+            };
+        });
+
+        res.json({ mutuals });
+    } catch (error) {
+        console.error('getMutuals error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 };

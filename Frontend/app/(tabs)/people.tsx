@@ -296,6 +296,39 @@ export default function People() {
   const [isLoadingRequests, setIsLoadingRequests] = useState<boolean>(false);
   const [actionLoadingIds, setActionLoadingIds] = useState<{ [key: number]: boolean }>({});
 
+  // --- MUTUALS STATE ---
+  // "Mutuals" is not a relationship tier — it's people the user shares a
+  // mutual connection with but isn't directly connected to yet, derived
+  // from the same user_connections graph via GET /api/connections/mutuals.
+  const [mutuals, setMutuals] = useState<any[]>([]);
+  const [isLoadingMutuals, setIsLoadingMutuals] = useState<boolean>(false);
+  const [mutualsError, setMutualsError] = useState<boolean>(false);
+
+  const fetchMutuals = async () => {
+    setIsLoadingMutuals(true);
+    setMutualsError(false);
+    try {
+      const token = await SecureStore.getItemAsync("token");
+      const res = await apiFetch("/api/connections/mutuals", {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setMutuals(data.mutuals || []);
+      } else {
+        setMutualsError(true);
+      }
+    } catch (err) {
+      console.error("fetchMutuals error:", err);
+      setMutualsError(true);
+    } finally {
+      setIsLoadingMutuals(false);
+    }
+  };
+
   const fetchIncomingRequests = async () => {
     setIsLoadingRequests(true);
     try {
@@ -348,6 +381,9 @@ export default function People() {
               : u
           )
         );
+        // Now an established connection — backend excludes connected users from
+        // mutuals, so drop it here too instead of waiting on the next fetch.
+        setMutuals((prev) => prev.filter((u) => (u.id || u.user_id) !== senderId));
       } else {
         Alert.alert("Error", "Couldn't accept the request.");
         fetchIncomingRequests();
@@ -417,6 +453,7 @@ export default function People() {
       fetchConnections(),
       fetchCurrentUser(),
       fetchIncomingRequests(),
+      fetchMutuals(),
     ]);
     setRefreshing(false);
   };
@@ -426,6 +463,7 @@ export default function People() {
       if (nextAppState === "active") {
         fetchConnections();
         fetchIncomingRequests();
+        fetchMutuals();
       }
     });
 
@@ -439,6 +477,7 @@ export default function People() {
       fetchConnections();
       fetchCurrentUser();
       fetchIncomingRequests();
+      fetchMutuals();
     }
   }, [isFocused]);
 
@@ -629,6 +668,16 @@ export default function People() {
     Keyboard.dismiss();
   };
 
+  // Shared by search results AND mutuals — both render the same
+  // SearchResultItem card and go through this same request flow, so a
+  // status change (requested/reverted) is applied to whichever list(s)
+  // currently contain this user (a no-op .map() on the list that doesn't).
+  const applyConnectionStatus = (targetId: number, status: string) => {
+    const patch = (u: any) => ((u.id || u.user_id) === targetId ? { ...u, connection_status: status } : u);
+    setSearchResults((prev) => prev.map(patch));
+    setMutuals((prev) => prev.map(patch));
+  };
+
   const handleConnect = async (targetUser: any) => {
     const targetId = targetUser.id || targetUser.user_id;
     if (!targetId || connectingUserIds[targetId]) return;
@@ -636,13 +685,7 @@ export default function People() {
     setConnectingUserIds((prev) => ({ ...prev, [targetId]: true }));
 
     // Optimistic UI update
-    setSearchResults((prev) =>
-      prev.map((u) =>
-        (u.id || u.user_id) === targetId
-          ? { ...u, connection_status: "requested" }
-          : u
-      )
-    );
+    applyConnectionStatus(targetId, "requested");
 
     try {
       const token = await SecureStore.getItemAsync("token");
@@ -656,23 +699,11 @@ export default function People() {
       });
 
       if (!response.ok) {
-        setSearchResults((prev) =>
-          prev.map((u) =>
-            (u.id || u.user_id) === targetId
-              ? { ...u, connection_status: "none" }
-              : u
-          )
-        );
+        applyConnectionStatus(targetId, "none");
         Alert.alert("Error", "Could not send connection request. Please try again.");
       }
     } catch (err) {
-      setSearchResults((prev) =>
-        prev.map((u) =>
-          (u.id || u.user_id) === targetId
-            ? { ...u, connection_status: "none" }
-            : u
-        )
-      );
+      applyConnectionStatus(targetId, "none");
       Alert.alert("Connection Error", "Please check your internet connection.");
     } finally {
       setConnectingUserIds((prev) => ({ ...prev, [targetId]: false }));
@@ -1070,6 +1101,37 @@ export default function People() {
                 Legacy
               </Text>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.segmentBtn,
+                activeView === "mutuals"
+                  ? styles.segmentBtnActive
+                  : styles.segmentBtnInactive,
+              ]}
+              onPress={() => setActiveView("mutuals")}
+              activeOpacity={0.8}
+            >
+              <Feather
+                name="user-plus"
+                size={16}
+                color={activeView === "mutuals" ? "#fff" : "#9333EA"}
+                style={{ marginRight: 6 }}
+              />
+              <Text
+                style={[
+                  styles.segmentText,
+                  activeView === "mutuals"
+                    ? styles.segmentTextActive
+                    : styles.segmentTextInactive,
+                ]}
+              >
+                Mutuals
+              </Text>
+              {mutuals.length > 0 && (
+                <View style={styles.tabBadgeDot} />
+              )}
+            </TouchableOpacity>
           </ScrollView>
         </View>
 
@@ -1340,6 +1402,56 @@ export default function People() {
                 </TouchableOpacity>
               </View>
             </View>
+          </View>
+        )}
+
+        {/* ======================================================== */}
+        {/* SECTION: MUTUALS — people mutually connected through the graph */}
+        {/* that the user isn't directly connected to yet. Tapping sends a  */}
+        {/* connection request directly (no relationship-tier prompt) via  */}
+        {/* the same SearchResultItem card/flow used for search results.   */}
+        {/* ======================================================== */}
+        {activeView === "mutuals" && (
+          <View style={styles.searchResultsContainer}>
+            {isLoadingMutuals ? (
+              <PulsingDotsLoading />
+            ) : mutualsError ? (
+              <View style={styles.errorContainer}>
+                <Feather name="alert-circle" size={28} color="#EF4444" />
+                <Text style={styles.errorText}>Couldn't load mutual connections.</Text>
+                <TouchableOpacity style={styles.retryBtn} onPress={fetchMutuals}>
+                  <Text style={styles.retryBtnText}>Try again</Text>
+                </TouchableOpacity>
+              </View>
+            ) : mutuals.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <View style={styles.emptyIconBg}>
+                  <Feather name="user-plus" size={32} color="#A855F7" />
+                </View>
+                <Text style={styles.emptyTitle}>No mutual connections yet</Text>
+                <Text style={styles.emptySubtitle}>
+                  People you share a connection with will show up here.
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.resultsList}>
+                <Text style={styles.resultsHeaderCount}>
+                  {mutuals.length} mutual {mutuals.length === 1 ? "connection" : "connections"}
+                </Text>
+                {mutuals.map((item, idx) => (
+                  <SearchResultItem
+                    key={item.id || item.user_id || idx}
+                    item={item}
+                    index={idx}
+                    onConnect={handleConnect}
+                    onAccept={handleAcceptRequest}
+                    onDecline={handleDeclineRequest}
+                    isConnecting={!!connectingUserIds[item.id || item.user_id]}
+                    isActionLoading={!!actionLoadingIds[item.id || item.user_id]}
+                  />
+                ))}
+              </View>
+            )}
           </View>
         )}
 

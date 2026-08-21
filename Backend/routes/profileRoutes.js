@@ -9,6 +9,7 @@ router.post('/connect', authenticateToken, profileController.sendConnectionReque
 router.post('/request', authenticateToken, profileController.sendConnectionRequest);
 router.get('/', authenticateToken, profileController.getConnections);
 router.get('/list', authenticateToken, profileController.getConnections);
+router.get('/mutuals', authenticateToken, profileController.getMutuals);
 router.get('/requests/incoming', authenticateToken, profileController.getIncomingRequests);
 router.get('/requests/outgoing', authenticateToken, profileController.getOutgoingRequests);
 router.post('/accept', authenticateToken, profileController.acceptConnectionRequest);
