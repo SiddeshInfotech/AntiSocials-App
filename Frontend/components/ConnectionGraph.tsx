@@ -4,6 +4,7 @@ import Svg, { Circle, Line } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { resolveImageUrl, DEFAULT_AVATAR } from '../constants/ImageUtils';
+import { RelationshipTier } from '../constants/RelationshipTiers';
 
 const CENTER_X = 400;
 const CENTER_Y = 400;
@@ -19,6 +20,7 @@ export interface ConnectedUserNode {
   profession?: string;
   about?: string;
   connection_status?: string;
+  relationship_tier?: RelationshipTier | string;
 }
 
 interface ConnectionGraphProps {
@@ -47,60 +49,48 @@ interface AnimatedNodeItem extends ConnectedUserNode {
   opacityAnim: Animated.Value;
 }
 
-// Calculate dynamic radial tier positions for N users
+// Relationship tier -> radial ring. CLOSE sits closest to "You"; GROWING_FOLLOWER sits furthest out.
+const TIER_RING: { [key: string]: { ring: 1 | 2 | 3; baseRadius: number } } = {
+  CLOSE: { ring: 1, baseRadius: 130 },
+  FAMILY_REGULAR: { ring: 2, baseRadius: 220 },
+  GROWING_FOLLOWER: { ring: 3, baseRadius: 290 },
+};
+
+const ringForTier = (tier?: string | null) => TIER_RING[tier || 'GROWING_FOLLOWER'] || TIER_RING.GROWING_FOLLOWER;
+
+// Position users by their actual relationship tier (Close / Family-Regular / Growing-Follower)
+// rather than list order, so the graph reflects real relationship depth.
 const calculateLayout = (items: ConnectedUserNode[]) => {
-  const total = items.length;
-  if (total === 0) return [];
+  if (items.length === 0) return [];
 
-  let t1Count = 0;
-  let t2Count = 0;
-  let t3Count = 0;
-
-  if (total <= 5) {
-    t1Count = total;
-  } else if (total <= 13) {
-    t1Count = 5;
-    t2Count = total - 5;
-  } else {
-    t1Count = 5;
-    t2Count = 8;
-    t3Count = total - 13;
-  }
-
-  let t1Idx = 0;
-  let t2Idx = 0;
-  let t3Idx = 0;
-
-  return items.map((user, idx) => {
-    let tier = 1;
-    let baseRadius = 130;
-    let angleDeg = 0;
-
-    if (idx < t1Count) {
-      tier = 1;
-      baseRadius = 130;
-      angleDeg = -90 + (360 / t1Count) * t1Idx;
-      t1Idx++;
-    } else if (idx < t1Count + t2Count) {
-      tier = 2;
-      baseRadius = 220;
-      angleDeg = -90 + 22.5 + (360 / t2Count) * t2Idx;
-      t2Idx++;
-    } else {
-      tier = 3;
-      baseRadius = 290;
-      angleDeg = -90 + 45 + (360 / t3Count) * t3Idx;
-      t3Idx++;
-    }
-
-    return {
-      ...user,
-      tier,
-      baseRadius,
-      angleDeg,
-      angleRad: (angleDeg * Math.PI) / 180,
-    };
+  const buckets: { [ring: number]: ConnectedUserNode[] } = { 1: [], 2: [], 3: [] };
+  items.forEach((user) => {
+    const { ring } = ringForTier(user.relationship_tier);
+    buckets[ring].push(user);
   });
+
+  const angleOffsets: { [ring: number]: number } = { 1: 0, 2: 22.5, 3: 45 };
+  const results: (ConnectedUserNode & { tier: number; baseRadius: number; angleDeg: number; angleRad: number })[] = [];
+
+  ([1, 2, 3] as const).forEach((ring) => {
+    const ringItems = buckets[ring];
+    const count = ringItems.length;
+    if (count === 0) return;
+    const { baseRadius } = TIER_RING[ring === 1 ? 'CLOSE' : ring === 2 ? 'FAMILY_REGULAR' : 'GROWING_FOLLOWER'];
+
+    ringItems.forEach((user, idx) => {
+      const angleDeg = -90 + angleOffsets[ring] + (360 / count) * idx;
+      results.push({
+        ...user,
+        tier: ring,
+        baseRadius,
+        angleDeg,
+        angleRad: (angleDeg * Math.PI) / 180,
+      });
+    });
+  });
+
+  return results;
 };
 
 export default function ConnectionGraph({
@@ -311,22 +301,28 @@ export default function ConnectionGraph({
   const rawUserAvatar = currentUser?.profile_image || (currentUser as any)?.image_url || (currentUser as any)?.avatar_url;
   const userAvatarUri = resolveImageUrl(rawUserAvatar);
 
+  const hasCloseRing = connections.some((c) => ringForTier(c.relationship_tier).ring === 1);
+  const hasFamilyRing = connections.some((c) => ringForTier(c.relationship_tier).ring === 2);
+  const hasGrowingRing = connections.some((c) => ringForTier(c.relationship_tier).ring === 3);
+
   return (
     <View style={styles.container}>
       {/* Background Concentric SVG Guide Rings & Lines */}
       <Svg height="800" width="800" style={StyleSheet.absoluteFill}>
         {connections.length > 0 && (
           <>
-            <Circle
-              cx={CENTER_X}
-              cy={CENTER_Y}
-              r={130}
-              stroke="rgba(168, 85, 247, 0.25)"
-              strokeDasharray="4 6"
-              strokeWidth={1.5}
-              fill="none"
-            />
-            {connections.length > 5 && (
+            {hasCloseRing && (
+              <Circle
+                cx={CENTER_X}
+                cy={CENTER_Y}
+                r={130}
+                stroke="rgba(168, 85, 247, 0.25)"
+                strokeDasharray="4 6"
+                strokeWidth={1.5}
+                fill="none"
+              />
+            )}
+            {hasFamilyRing && (
               <Circle
                 cx={CENTER_X}
                 cy={CENTER_Y}
@@ -337,7 +333,7 @@ export default function ConnectionGraph({
                 fill="none"
               />
             )}
-            {connections.length > 13 && (
+            {hasGrowingRing && (
               <Circle
                 cx={CENTER_X}
                 cy={CENTER_Y}

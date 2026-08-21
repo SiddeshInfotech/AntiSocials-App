@@ -1,6 +1,10 @@
 const db = require('../db');
 const pointsStreakService = require('../services/pointsStreakService');
 
+// 3-tier relationship model. CLOSE = highest trust, GROWING_FOLLOWER = default for new connections.
+const RELATIONSHIP_TIERS = ['CLOSE', 'FAMILY_REGULAR', 'GROWING_FOLLOWER'];
+const DEFAULT_RELATIONSHIP_TIER = 'GROWING_FOLLOWER';
+
 exports.getProfile = async (req, res) => {
     try {
         const userId = parseInt(req.user.id, 10);
@@ -358,7 +362,8 @@ exports.getConnections = async (req, res) => {
                 u.about,
                 u.image_url AS profile_image,
                 u.image_url AS image_url,
-                u.image_url AS avatar_url
+                u.image_url AS avatar_url,
+                CASE WHEN c.user_id = $1 THEN c.user_relationship_tier ELSE c.friend_relationship_tier END AS relationship_tier
             FROM user_connections c
             JOIN users u ON u.id = CASE WHEN c.user_id = $1 THEN c.friend_id ELSE c.user_id END
             WHERE (c.user_id = $1 OR c.friend_id = $1)
@@ -378,7 +383,8 @@ exports.getConnections = async (req, res) => {
             avatar_url: row.avatar_url || row.profile_image,
             profession: row.profession,
             about: row.about,
-            connection_status: 'connected'
+            connection_status: 'connected',
+            relationship_tier: row.relationship_tier || DEFAULT_RELATIONSHIP_TIER
         }));
 
         res.json({ connections });
@@ -602,6 +608,56 @@ exports.removeConnection = async (req, res) => {
         });
     } catch (error) {
         console.error('removeConnection error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+exports.updateConnectionTier = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const paramId = req.params?.friendId;
+        const targetId = parseInt(paramId, 10);
+        const { tier } = req.body;
+
+        if (!targetId || isNaN(targetId)) {
+            return res.status(400).json({ error: 'Valid friendId parameter is required' });
+        }
+
+        if (!RELATIONSHIP_TIERS.includes(tier)) {
+            return res.status(400).json({ error: `Invalid tier. Must be one of: ${RELATIONSHIP_TIERS.join(', ')}` });
+        }
+
+        const existingRes = await db.query(
+            `SELECT id, user_id, friend_id, status FROM user_connections
+             WHERE (user_id = $1 AND friend_id = $2) OR (user_id = $2 AND friend_id = $1)`,
+            [userId, targetId]
+        );
+
+        if (existingRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Connection not found' });
+        }
+
+        const connection = existingRes.rows[0];
+
+        if (connection.status !== 'accepted' && connection.status !== 'connected') {
+            return res.status(400).json({ error: 'Can only set a relationship tier on an accepted connection' });
+        }
+
+        // The tier is stored per-direction: whichever column represents "how userId sees the other person".
+        const column = connection.user_id === userId ? 'user_relationship_tier' : 'friend_relationship_tier';
+
+        await db.query(
+            `UPDATE user_connections SET ${column} = $1 WHERE id = $2`,
+            [tier, connection.id]
+        );
+
+        res.json({
+            success: true,
+            message: 'Relationship tier updated',
+            relationship_tier: tier
+        });
+    } catch (error) {
+        console.error('updateConnectionTier error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 };

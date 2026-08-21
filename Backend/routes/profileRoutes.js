@@ -16,6 +16,7 @@ router.post('/:friendId/accept', authenticateToken, profileController.acceptConn
 router.post('/decline', authenticateToken, profileController.declineConnectionRequest);
 router.post('/:friendId/decline', authenticateToken, profileController.declineConnectionRequest);
 router.delete('/:friendId', authenticateToken, profileController.removeConnection);
+router.put('/:friendId/tier', authenticateToken, profileController.updateConnectionTier);
 router.put('/update', authenticateToken, profileController.updateProfile);
 router.get('/stats', authenticateToken, profileController.getStats);
 router.get('/interests', authenticateToken, profileController.getInterests);

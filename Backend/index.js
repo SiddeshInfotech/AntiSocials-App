@@ -341,6 +341,16 @@ const initDB = async () => {
             );
         `);
 
+        // Relationship tier (3-tier trust model): CLOSE, FAMILY_REGULAR, GROWING_FOLLOWER.
+        // Stored per-direction on the existing connection row so each side of a connection
+        // can categorize the relationship independently (not a shared/symmetric value).
+        try { await db.query("ALTER TABLE user_connections ADD COLUMN IF NOT EXISTS user_relationship_tier VARCHAR(20) DEFAULT 'GROWING_FOLLOWER'"); } catch (e) { }
+        try { await db.query("ALTER TABLE user_connections ADD COLUMN IF NOT EXISTS friend_relationship_tier VARCHAR(20) DEFAULT 'GROWING_FOLLOWER'"); } catch (e) { }
+        try { await db.query("UPDATE user_connections SET user_relationship_tier = 'GROWING_FOLLOWER' WHERE user_relationship_tier IS NULL"); } catch (e) { }
+        try { await db.query("UPDATE user_connections SET friend_relationship_tier = 'GROWING_FOLLOWER' WHERE friend_relationship_tier IS NULL"); } catch (e) { }
+        try { await db.query("ALTER TABLE user_connections ADD CONSTRAINT chk_user_relationship_tier CHECK (user_relationship_tier IN ('CLOSE','FAMILY_REGULAR','GROWING_FOLLOWER'))"); } catch (e) { }
+        try { await db.query("ALTER TABLE user_connections ADD CONSTRAINT chk_friend_relationship_tier CHECK (friend_relationship_tier IN ('CLOSE','FAMILY_REGULAR','GROWING_FOLLOWER'))"); } catch (e) { }
+
         // Migrations
         try { await db.query('ALTER TABLE users ADD COLUMN streak_count INTEGER DEFAULT 0'); } catch (e) { }
         try { await db.query('ALTER TABLE users ADD COLUMN last_streak_date DATE'); } catch (e) { }

@@ -358,7 +358,7 @@ export default function ProfileScreen() {
             ))}
           </View>
           <Text style={styles.visibilityNote}>
-            Visible to Tier 1 & 2 connections
+            Visible to Close & Family/Regular connections
           </Text>
 
           {/* Your Interests */}

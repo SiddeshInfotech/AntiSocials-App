@@ -27,6 +27,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
 import { API_BASE_URL, apiFetch } from "../../constants/Api";
 import { resolveImageUrl, DEFAULT_AVATAR } from "../../constants/ImageUtils";
+import {
+  RELATIONSHIP_TIERS,
+  RelationshipTier,
+  DEFAULT_RELATIONSHIP_TIER,
+} from "../../constants/RelationshipTiers";
 
 // --- PULSING DOTS LOADING ANIMATION ---
 const PulsingDotsLoading = () => {
@@ -220,6 +225,7 @@ export default function People() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [selectedUserModal, setSelectedUserModal] = useState<ConnectedUserNode | null>(null);
   const [isRemovingConnection, setIsRemovingConnection] = useState<boolean>(false);
+  const [isChangingTier, setIsChangingTier] = useState<boolean>(false);
   const searchInputRef = useRef<TextInput>(null);
 
   // --- CONNECT SEARCH STATE ---
@@ -473,6 +479,45 @@ export default function People() {
     );
   };
 
+
+  const handleChangeTier = async (targetUser: ConnectedUserNode, tier: RelationshipTier) => {
+    const targetId = targetUser.id || targetUser.user_id;
+    if (!targetId || isChangingTier || targetUser.relationship_tier === tier) return;
+
+    setIsChangingTier(true);
+    const previousTier = targetUser.relationship_tier;
+
+    // Optimistic update
+    setConnections((prev) =>
+      prev.map((c) => ((c.id || c.user_id) === targetId ? { ...c, relationship_tier: tier } : c))
+    );
+    setSelectedUserModal((prev) => (prev ? { ...prev, relationship_tier: tier } : prev));
+
+    try {
+      const token = await SecureStore.getItemAsync("token");
+      const res = await apiFetch(`/api/connections/${targetId}/tier`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ tier }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to update relationship tier");
+      }
+    } catch (err) {
+      // Revert on failure
+      setConnections((prev) =>
+        prev.map((c) => ((c.id || c.user_id) === targetId ? { ...c, relationship_tier: previousTier } : c))
+      );
+      setSelectedUserModal((prev) => (prev ? { ...prev, relationship_tier: previousTier } : prev));
+      Alert.alert("Error", "Couldn't update the relationship. Please try again.");
+    } finally {
+      setIsChangingTier(false);
+    }
+  };
 
   useEffect(() => {
     Animated.timing(focusAnim, {
@@ -1145,11 +1190,7 @@ export default function People() {
                 <Text style={styles.subtitle}>
                   {connections.length === 0
                     ? "No connections yet"
-                    : connections.length <= 5
-                    ? `${connections.length} ${connections.length === 1 ? "connection" : "connections"}`
-                    : connections.length <= 13
-                    ? `${connections.length} connections across 2 tiers`
-                    : `${connections.length} connections across 3 tiers`}
+                    : `${connections.length} ${connections.length === 1 ? "connection" : "connections"}`}
                 </Text>
               </View>
 
@@ -1163,33 +1204,19 @@ export default function People() {
 
             {showInfo && (
               <View style={styles.card}>
-                <Text style={styles.cardTitle}>👥 Trust Tiers</Text>
+                <Text style={styles.cardTitle}>👥 Your Relationship Tiers</Text>
 
-                <View style={styles.row}>
-                  <View style={styles.dot} />
-                  <Text style={styles.cardText}>
-                    <Text style={styles.bold}>Tier 1</Text> - Closest
-                    connections
-                  </Text>
-                </View>
-
-                <View style={styles.row}>
-                  <View style={[styles.dot, { opacity: 0.8 }]} />
-                  <Text style={styles.cardText}>
-                    <Text style={styles.bold}>Tier 2</Text> - Regular contacts
-                  </Text>
-                </View>
-
-                <View style={styles.row}>
-                  <View style={[styles.dot, { opacity: 0.6 }]} />
-                  <Text style={styles.cardText}>
-                    <Text style={styles.bold}>Tier 3</Text> - Growing
-                    connections
-                  </Text>
-                </View>
+                {RELATIONSHIP_TIERS.map((tierInfo, idx) => (
+                  <View style={styles.row} key={tierInfo.value}>
+                    <View style={[styles.dot, { opacity: 1 - idx * 0.2 }]} />
+                    <Text style={styles.cardText}>
+                      <Text style={styles.bold}>{tierInfo.label}</Text> - {tierInfo.description}
+                    </Text>
+                  </View>
+                ))}
 
                 <Text style={styles.cardFooter}>
-                  Pinch to zoom • Drag to pan • Tap nodes for details
+                  Pinch to zoom • Drag to pan • Tap a person to manage the relationship
                 </Text>
               </View>
             )}
@@ -1438,7 +1465,7 @@ export default function People() {
                       </View>
                       <View style={styles.recipientInfo}>
                         <Text style={styles.recipientName}>Sarah Johnson</Text>
-                        <Text style={styles.recipientTier}>Tier 1</Text>
+                        <Text style={styles.recipientTier}>Close</Text>
                       </View>
                       <View style={styles.checkboxDark} />
                     </View>
@@ -1449,7 +1476,7 @@ export default function People() {
                       </View>
                       <View style={styles.recipientInfo}>
                         <Text style={styles.recipientName}>Michael Chen</Text>
-                        <Text style={styles.recipientTier}>Tier 2</Text>
+                        <Text style={styles.recipientTier}>Family / Regular</Text>
                       </View>
                       <View style={styles.checkboxDark} />
                     </View>
@@ -1460,7 +1487,7 @@ export default function People() {
                       </View>
                       <View style={styles.recipientInfo}>
                         <Text style={styles.recipientName}>Emily Rodriguez</Text>
-                        <Text style={styles.recipientTier}>Tier 2</Text>
+                        <Text style={styles.recipientTier}>Family / Regular</Text>
                       </View>
                       <View style={styles.checkboxDark} />
                     </View>
@@ -1530,6 +1557,29 @@ export default function People() {
             <View style={styles.cardStatusBadge}>
               <Feather name="check-circle" size={14} color="#059669" style={{ marginRight: 6 }} />
               <Text style={styles.cardStatusText}>Connected</Text>
+            </View>
+
+            <View style={styles.tierManageSection}>
+              <Text style={styles.tierManageLabel}>Relationship</Text>
+              <View style={styles.tierOptionsRow}>
+                {RELATIONSHIP_TIERS.map((tierInfo) => {
+                  const isActive =
+                    (selectedUserModal?.relationship_tier || DEFAULT_RELATIONSHIP_TIER) === tierInfo.value;
+                  return (
+                    <TouchableOpacity
+                      key={tierInfo.value}
+                      style={[styles.tierOptionChip, isActive && styles.tierOptionChipActive]}
+                      onPress={() => selectedUserModal && handleChangeTier(selectedUserModal, tierInfo.value)}
+                      disabled={isChangingTier}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.tierOptionText, isActive && styles.tierOptionTextActive]}>
+                        {tierInfo.shortLabel}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </View>
 
             <TouchableOpacity
@@ -2382,6 +2432,44 @@ const styles = StyleSheet.create({
     color: "#EF4444",
     fontSize: 14,
     fontWeight: "600",
+  },
+  tierManageSection: {
+    width: "100%",
+    marginBottom: 18,
+  },
+  tierManageLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#9CA3AF",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  tierOptionsRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 8,
+  },
+  tierOptionChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 16,
+    backgroundColor: "#F3F4F6",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  tierOptionChipActive: {
+    backgroundColor: "#9333EA",
+    borderColor: "#9333EA",
+  },
+  tierOptionText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#6B7280",
+  },
+  tierOptionTextActive: {
+    color: "#fff",
   },
   // --- INCOMING REQUESTS & BADGES STYLES ---
   mainTitleRow: {
