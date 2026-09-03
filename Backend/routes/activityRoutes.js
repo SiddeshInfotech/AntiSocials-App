@@ -23,4 +23,9 @@ router.delete('/:id', activityController.deleteActivity);
 router.post('/:id/join', activityController.joinActivity);
 router.delete('/:id/leave', activityController.leaveActivity);
 
+// Suggestions & Messages
+router.get('/:id/messages', activityController.getActivityMessages);
+router.post('/:id/messages', activityController.postActivityMessage);
+router.delete('/:id/messages/:messageId', activityController.deleteActivityMessage);
+
 module.exports = router;

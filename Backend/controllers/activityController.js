@@ -734,3 +734,139 @@ exports.submitFeedback = async (req, res) => {
     }
 };
 
+exports.getActivityMessages = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user.id;
+
+        const actRes = await db.query('SELECT creator_id FROM activities WHERE id = $1', [id]);
+        if (actRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Activity not found' });
+        }
+        const creatorId = actRes.rows[0].creator_id;
+
+        const messagesQuery = `
+            SELECT 
+                m.id,
+                m.activity_id,
+                m.user_id,
+                m.message,
+                m.created_at,
+                u.username as user_name,
+                u.image_url as user_image
+            FROM activity_messages m
+            JOIN users u ON m.user_id = u.id
+            WHERE m.activity_id = $1
+            ORDER BY m.created_at ASC, m.id ASC
+        `;
+        const result = await db.query(messagesQuery, [id]);
+
+        const messages = result.rows.map(row => ({
+            id: row.id.toString(),
+            activityId: row.activity_id.toString(),
+            userId: row.user_id.toString(),
+            userName: row.user_name || 'Member',
+            userImage: row.user_image || null,
+            message: row.message,
+            createdAt: row.created_at,
+            isOwner: parseInt(row.user_id, 10) === parseInt(userId, 10),
+            canDelete: parseInt(row.user_id, 10) === parseInt(userId, 10) || parseInt(creatorId, 10) === parseInt(userId, 10)
+        }));
+
+        res.json(messages);
+    } catch (error) {
+        console.error('Get activity messages error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+exports.postActivityMessage = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user.id;
+        const { message } = req.body;
+
+        if (!message || !message.trim()) {
+            return res.status(400).json({ error: 'Message text is required' });
+        }
+
+        const trimmedMessage = message.trim();
+
+        const actRes = await db.query('SELECT creator_id FROM activities WHERE id = $1', [id]);
+        if (actRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Activity not found' });
+        }
+        const creatorId = actRes.rows[0].creator_id;
+
+        const isCreator = parseInt(creatorId, 10) === parseInt(userId, 10);
+        const partRes = await db.query(
+            'SELECT 1 FROM activity_participants WHERE activity_id = $1 AND user_id = $2',
+            [id, userId]
+        );
+        const isJoined = partRes.rows.length > 0;
+
+        if (!isCreator && !isJoined) {
+            return res.status(403).json({ error: 'Only joined participants can post messages to this activity.' });
+        }
+
+        const insertRes = await db.query(`
+            INSERT INTO activity_messages (activity_id, user_id, message)
+            VALUES ($1, $2, $3)
+            RETURNING *
+        `, [id, userId, trimmedMessage]);
+
+        const newMsg = insertRes.rows[0];
+
+        const userRes = await db.query('SELECT username, image_url FROM users WHERE id = $1', [userId]);
+        const user = userRes.rows[0] || {};
+
+        res.status(201).json({
+            id: newMsg.id.toString(),
+            activityId: newMsg.activity_id.toString(),
+            userId: newMsg.user_id.toString(),
+            userName: user.username || 'Member',
+            userImage: user.image_url || null,
+            message: newMsg.message,
+            createdAt: newMsg.created_at,
+            isOwner: true,
+            canDelete: true
+        });
+    } catch (error) {
+        console.error('Post activity message error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+exports.deleteActivityMessage = async (req, res) => {
+    try {
+        const { id, messageId } = req.params;
+        const userId = req.user.id;
+
+        const msgRes = await db.query(`
+            SELECT m.*, a.creator_id
+            FROM activity_messages m
+            JOIN activities a ON m.activity_id = a.id
+            WHERE m.id = $1 AND m.activity_id = $2
+        `, [messageId, id]);
+
+        if (msgRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Message not found' });
+        }
+
+        const msg = msgRes.rows[0];
+        const isMsgAuthor = parseInt(msg.user_id, 10) === parseInt(userId, 10);
+        const isActivityCreator = parseInt(msg.creator_id, 10) === parseInt(userId, 10);
+
+        if (!isMsgAuthor && !isActivityCreator) {
+            return res.status(403).json({ error: 'Unauthorized: You can only delete your own messages or messages in your activity.' });
+        }
+
+        await db.query('DELETE FROM activity_messages WHERE id = $1', [messageId]);
+
+        res.json({ success: true, message: 'Message deleted successfully' });
+    } catch (error) {
+        console.error('Delete activity message error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
