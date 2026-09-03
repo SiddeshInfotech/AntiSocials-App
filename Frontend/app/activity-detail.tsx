@@ -34,6 +34,18 @@ interface OwnerFeedback {
   timestamp: string | null;
 }
 
+export interface ActivityMessage {
+  id: string;
+  activityId: string;
+  userId: string;
+  userName: string;
+  userImage: string | null;
+  message: string;
+  createdAt: string;
+  isOwner: boolean;
+  canDelete: boolean;
+}
+
 interface ActivityDetails {
   id: string;
   creatorId?: string;
@@ -194,6 +206,48 @@ const formatFeedbackTimestamp = (isoString?: string | null): string => {
   }
 };
 
+const AVATAR_COLORS_LIST = [
+  '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD',
+  '#D4A5A5', '#9B59B6', '#3498DB', '#E67E22', '#2ECC71'
+];
+
+const getMessageAvatarColor = (name: string, index: number): string => {
+  if (!name) return AVATAR_COLORS_LIST[index % AVATAR_COLORS_LIST.length];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const colorIndex = Math.abs(hash) % AVATAR_COLORS_LIST.length;
+  return AVATAR_COLORS_LIST[colorIndex];
+};
+
+const formatMessageTimestamp = (isoString?: string): string => {
+  if (!isoString) return '';
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return '';
+    const now = new Date();
+    const isToday = d.toDateString() === now.toDateString();
+
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    const isYesterday = d.toDateString() === yesterday.toDateString();
+
+    const timeStr = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
+
+    if (isToday) {
+      return `Today • ${timeStr}`;
+    } else if (isYesterday) {
+      return `Yesterday • ${timeStr}`;
+    } else {
+      const dateStr = d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+      return `${dateStr} • ${timeStr}`;
+    }
+  } catch (e) {
+    return '';
+  }
+};
+
 export default function ActivityDetailScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -216,6 +270,94 @@ export default function ActivityDetailScreen() {
   const [feedbackParticipationRating, setFeedbackParticipationRating] = useState(5);
   const [feedbackText, setFeedbackText] = useState('');
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
+
+  // Suggestions & Messages state
+  const [messages, setMessages] = useState<ActivityMessage[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [messageInput, setMessageInput] = useState('');
+  const [sendingMessage, setSendingMessage] = useState(false);
+
+  const fetchMessages = async () => {
+    if (!activityId) return;
+    try {
+      setLoadingMessages(true);
+      const token = await SecureStore.getItemAsync('token');
+      const res = await apiFetch(`/api/activities/${activityId}/messages`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setMessages(data);
+      }
+    } catch (err) {
+      console.error('Error fetching activity messages:', err);
+    } finally {
+      setLoadingMessages(false);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!messageInput.trim() || !activity || sendingMessage) return;
+    const trimmed = messageInput.trim();
+    try {
+      setSendingMessage(true);
+      const token = await SecureStore.getItemAsync('token');
+      const res = await apiFetch(`/api/activities/${activity.id}/messages`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message: trimmed }),
+      });
+
+      if (res.ok) {
+        const newMsg = await res.json();
+        setMessages(prev => [...prev, newMsg]);
+        setMessageInput('');
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        Alert.alert('Unable to send', errData.error || 'Failed to post message');
+      }
+    } catch (err) {
+      console.error('Error sending message:', err);
+      Alert.alert('Error', 'Network error sending message');
+    } finally {
+      setSendingMessage(false);
+    }
+  };
+
+  const handleDeleteMessage = (messageId: string) => {
+    Alert.alert(
+      'Delete Message',
+      'Are you sure you want to delete this message?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const token = await SecureStore.getItemAsync('token');
+              const res = await apiFetch(`/api/activities/${activityId}/messages/${messageId}`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` },
+              });
+              if (res.ok) {
+                setMessages(prev => prev.filter(m => m.id !== messageId));
+              } else {
+                const errData = await res.json().catch(() => ({}));
+                Alert.alert('Error', errData.error || 'Failed to delete message');
+              }
+            } catch (err) {
+              console.error('Error deleting message:', err);
+              Alert.alert('Error', 'Network error deleting message');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const fetchActivity = async () => {
     if (!activityId) return;
@@ -260,6 +402,7 @@ export default function ActivityDetailScreen() {
 
   useEffect(() => {
     fetchActivity();
+    fetchMessages();
   }, [activityId]);
 
   const handleToggleJoin = async () => {
@@ -474,6 +617,7 @@ export default function ActivityDetailScreen() {
             onRefresh={() => {
               setRefreshing(true);
               fetchActivity();
+              fetchMessages();
             }}
           />
         }
@@ -653,6 +797,110 @@ export default function ActivityDetailScreen() {
                 <Text style={styles.emptyMembersText}>No other members have joined yet.</Text>
               </View>
             )}
+          </View>
+
+          {/* ========================================================================= */}
+          {/* SECTION: SUGGESTIONS & MESSAGES */}
+          {/* ========================================================================= */}
+          <View style={styles.sectionContainer}>
+            <View style={styles.messagesHeaderContainer}>
+              <View style={styles.messagesHeaderRow}>
+                <Feather name="message-square" size={20} color="#EA580C" style={{ marginRight: 8 }} />
+                <Text style={styles.sectionTitleNoMargin}>Suggestions & Messages</Text>
+              </View>
+              <Text style={styles.sectionSubtitle}>
+                Share ideas, updates, or anything useful for everyone.
+              </Text>
+            </View>
+
+            {loadingMessages ? (
+              <View style={styles.messagesLoadingBox}>
+                <ActivityIndicator size="small" color="#EA580C" />
+              </View>
+            ) : messages.length === 0 ? (
+              <View style={styles.emptyMessagesBox}>
+                <Feather name="message-circle" size={28} color="#9CA3AF" />
+                <Text style={styles.emptyMessagesTitle}>No suggestions yet</Text>
+                <Text style={styles.emptyMessagesSubtitle}>Be the first to share something with the group.</Text>
+              </View>
+            ) : (
+              <View style={styles.messagesListContainer}>
+                {messages.map((msg, index) => {
+                  const userAvatarUri = resolveImageUrl(msg.userImage);
+                  const avatarBg = getMessageAvatarColor(msg.userName, index);
+                  const initial = msg.userName ? msg.userName.charAt(0).toUpperCase() : 'M';
+                  return (
+                    <View key={msg.id} style={styles.messageCard}>
+                      <View style={[styles.msgAvatar, { backgroundColor: avatarBg }]}>
+                        {userAvatarUri ? (
+                          <Image source={{ uri: userAvatarUri }} style={styles.msgAvatarImg} />
+                        ) : (
+                          <Text style={styles.msgAvatarText}>{initial}</Text>
+                        )}
+                      </View>
+                      <View style={styles.messageCardBody}>
+                        <View style={styles.msgTopRow}>
+                          <Text style={styles.msgUserName} numberOfLines={1}>
+                            {msg.userName}
+                          </Text>
+                          {msg.canDelete && (
+                            <TouchableOpacity
+                              onPress={() => handleDeleteMessage(msg.id)}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                              style={styles.msgDeleteBtn}
+                            >
+                              <Feather name="trash-2" size={14} color="#9CA3AF" />
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                        <Text style={styles.msgText}>{msg.message}</Text>
+                        <Text style={styles.msgTimestamp}>{formatMessageTimestamp(msg.createdAt)}</Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+
+            {/* Input / Permission Section */}
+            <View style={styles.msgInputContainer}>
+              {activity.isJoined || isOwner ? (
+                <View style={styles.msgInputBox}>
+                  <TextInput
+                    style={styles.msgTextInput}
+                    placeholder="Write a suggestion or message..."
+                    placeholderTextColor="#9CA3AF"
+                    value={messageInput}
+                    onChangeText={setMessageInput}
+                    maxLength={300}
+                    returnKeyType="send"
+                    onSubmitEditing={handleSendMessage}
+                  />
+                  <TouchableOpacity
+                    style={[
+                      styles.msgSendButton,
+                      (!messageInput.trim() || sendingMessage) && styles.msgSendButtonDisabled,
+                    ]}
+                    onPress={handleSendMessage}
+                    disabled={!messageInput.trim() || sendingMessage}
+                    activeOpacity={0.8}
+                  >
+                    {sendingMessage ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Feather name="send" size={15} color="#FFFFFF" />
+                    )}
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.nonJoinedNoticeBox}>
+                  <Feather name="lock" size={15} color="#6B7280" style={{ marginRight: 6 }} />
+                  <Text style={styles.nonJoinedNoticeText}>
+                    Join this activity to share suggestions & messages.
+                  </Text>
+                </View>
+              )}
+            </View>
           </View>
 
           {/* ========================================================================= */}
@@ -1767,5 +2015,158 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  // Suggestions & Messages Styles
+  messagesHeaderContainer: {
+    marginBottom: 12,
+  },
+  messagesHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  sectionTitleNoMargin: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  sectionSubtitle: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  messagesLoadingBox: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  emptyMessagesBox: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    borderStyle: 'dashed',
+    marginBottom: 12,
+  },
+  emptyMessagesTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#374151',
+    marginTop: 8,
+  },
+  emptyMessagesSubtitle: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    marginTop: 2,
+    textAlign: 'center',
+  },
+  messagesListContainer: {
+    marginBottom: 12,
+  },
+  messageCard: {
+    flexDirection: 'row',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  msgAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+    overflow: 'hidden',
+  },
+  msgAvatarImg: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
+  msgAvatarText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  messageCardBody: {
+    flex: 1,
+  },
+  msgTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 2,
+  },
+  msgUserName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+    flex: 1,
+    marginRight: 8,
+  },
+  msgDeleteBtn: {
+    padding: 2,
+  },
+  msgText: {
+    fontSize: 14,
+    color: '#374151',
+    lineHeight: 20,
+    marginBottom: 4,
+  },
+  msgTimestamp: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    fontWeight: '500',
+  },
+  msgInputContainer: {
+    marginTop: 4,
+  },
+  msgInputBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 24,
+    paddingLeft: 16,
+    paddingRight: 6,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  msgTextInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#111827',
+    paddingVertical: Platform.OS === 'ios' ? 8 : 6,
+  },
+  msgSendButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#EA580C',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 6,
+  },
+  msgSendButtonDisabled: {
+    backgroundColor: '#D1D5DB',
+  },
+  nonJoinedNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  nonJoinedNoticeText: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontWeight: '500',
   },
 });

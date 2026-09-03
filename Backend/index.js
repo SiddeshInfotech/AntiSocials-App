@@ -331,6 +331,17 @@ const initDB = async () => {
         `);
 
         await db.query(`
+            CREATE TABLE IF NOT EXISTS activity_messages (
+                id SERIAL PRIMARY KEY,
+                activity_id INTEGER REFERENCES activities(id) ON DELETE CASCADE,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                message TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE INDEX IF NOT EXISTS idx_activity_messages_activity_id ON activity_messages(activity_id);
+        `);
+
+        await db.query(`
             CREATE TABLE IF NOT EXISTS user_connections (
                 id SERIAL PRIMARY KEY,
                 user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -350,6 +361,16 @@ const initDB = async () => {
         try { await db.query("UPDATE user_connections SET friend_relationship_tier = 'GROWING_FOLLOWER' WHERE friend_relationship_tier IS NULL"); } catch (e) { }
         try { await db.query("ALTER TABLE user_connections ADD CONSTRAINT chk_user_relationship_tier CHECK (user_relationship_tier IN ('CLOSE','FAMILY_REGULAR','GROWING_FOLLOWER'))"); } catch (e) { }
         try { await db.query("ALTER TABLE user_connections ADD CONSTRAINT chk_friend_relationship_tier CHECK (friend_relationship_tier IN ('CLOSE','FAMILY_REGULAR','GROWING_FOLLOWER'))"); } catch (e) { }
+
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS user_badges (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                badge_id VARCHAR(100) NOT NULL,
+                unlocked_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                CONSTRAINT unique_user_badge UNIQUE (user_id, badge_id)
+            );
+        `);
 
         // Migrations
         try { await db.query('ALTER TABLE users ADD COLUMN streak_count INTEGER DEFAULT 0'); } catch (e) { }
@@ -8096,6 +8117,10 @@ app.use('/api/connections', profileRoutes);
 
 // Activity Routes
 app.use('/api/activities', activityRoutes);
+
+// Badge Routes
+const badgeRoutes = require('./routes/badgeRoutes');
+app.use('/api/badges', badgeRoutes);
 
 // Emotion Analysis AI Route
 const emotionAnalysisRoutes = require('./routes/emotionAnalysis');

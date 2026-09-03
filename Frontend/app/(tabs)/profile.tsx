@@ -26,6 +26,8 @@ export default function ProfileScreen() {
   const [userData, setUserData] = useState<any>(null);
   const [statsData, setStatsData] = useState<any>({ activitiesJoined: 0, tasksCompleted: 0, connections: 0, taskPoints: 0 });
   const [interestsData, setInterestsData] = useState<string[]>([]);
+  const [badges, setBadges] = useState<any[]>([]);
+  const [badgeStats, setBadgeStats] = useState<any>({ unlockedCount: 0, totalCount: 0 });
   const [loading, setLoading] = useState(true);
 
   const [imageError, setImageError] = useState(false);
@@ -61,6 +63,19 @@ export default function ProfileScreen() {
           if (data.user?.id) {
             await SecureStore.setItemAsync('userId', data.user.id.toString());
           }
+        }
+
+        // Fetch dynamic achievement badges
+        const badgeResponse = await apiFetch('/api/badges', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }).catch(() => null);
+
+        if (badgeResponse && badgeResponse.ok) {
+          const badgeData = await badgeResponse.json();
+          setBadges(badgeData.badges || []);
+          setBadgeStats(badgeData.stats || { unlockedCount: 0, totalCount: 0 });
         } else {
           console.error("Profile fetch failed. Status:", response.status);
           if (response.status === 401 || response.status === 403) {
@@ -298,44 +313,52 @@ export default function ProfileScreen() {
           </View>
 
           {/* Badges */}
-          <Text style={styles.sectionTitle}>Badges</Text>
-          <View style={styles.badgesGrid}>
-            <View style={styles.badgeItem}>
-              <Text style={styles.badgeEmoji}>🏗️</Text>
-              <Text style={styles.badgeText}>21-Day Builder</Text>
-            </View>
-            <View style={styles.badgeItem}>
-              <Text style={styles.badgeEmoji}>⚔️</Text>
-              <Text style={styles.badgeText}>30-Day Warrior</Text>
-            </View>
-            <View style={styles.badgeItem}>
-              <Text style={styles.badgeEmoji}>🤝</Text>
-              <Text style={styles.badgeText}>First Meet</Text>
-            </View>
-            <View style={styles.badgeItem}>
-              <Text style={styles.badgeEmoji}>👥</Text>
-              <Text style={styles.badgeText}>Community\nMember</Text>
-            </View>
-            <View style={styles.badgeItem}>
-              <Text style={styles.badgeEmoji}>🎯</Text>
-              <Text style={styles.badgeText}>Bucket Starter</Text>
-            </View>
-            <View style={styles.badgeItem}>
-              <Text style={styles.badgeEmoji}>✅</Text>
-              <Text style={styles.badgeText}>Verified Human</Text>
-            </View>
-            <View style={[styles.badgeItem, styles.badgeItemFaded]}>
-              <Text style={styles.badgeEmoji}>🦋</Text>
-            </View>
-            <View style={[styles.badgeItem, styles.badgeItemFaded]}>
-              <Text style={styles.badgeEmoji}>🎪</Text>
-            </View>
-            <View style={[styles.badgeItem, styles.badgeItemFaded]}>
-              <Text style={styles.badgeEmoji}>🗺️</Text>
-            </View>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, marginBottom: 16 }}>
+            <Text style={[styles.sectionTitle, { marginTop: 0, marginBottom: 0 }]}>Badges</Text>
+            {badgeStats.totalCount > 0 && (
+              <Text style={styles.badgeCountSubtitle}>
+                {badgeStats.unlockedCount} of {badgeStats.totalCount} Unlocked
+              </Text>
+            )}
           </View>
 
-          <TouchableOpacity style={styles.viewAllBadges}>
+          <View style={styles.badgesGrid}>
+            {(badges && badges.length > 0 ? badges.slice(0, 9) : []).map((badge: any) => {
+              const isUnlocked = badge.isUnlocked;
+              return (
+                <TouchableOpacity 
+                  key={badge.id} 
+                  style={[
+                    styles.badgeItem, 
+                    isUnlocked ? styles.badgeItemUnlocked : styles.badgeItemLocked
+                  ]}
+                  onPress={() => router.push('/badges' as any)}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.badgeEmojiWrapper}>
+                    <Text style={[styles.badgeEmoji, !isUnlocked && styles.badgeEmojiFaded]}>
+                      {badge.icon}
+                    </Text>
+                    {!isUnlocked && (
+                      <View style={styles.lockBadgeOverlay}>
+                        <Feather name="lock" size={10} color="#6B7280" />
+                      </View>
+                    )}
+                  </View>
+                  <Text style={[styles.badgeText, !isUnlocked && styles.badgeTextLocked]} numberOfLines={2}>
+                    {badge.name}
+                  </Text>
+                  <View style={[styles.badgeStatusPill, isUnlocked ? styles.statusUnlockedPill : styles.statusLockedPill]}>
+                    <Text style={[styles.badgeStatusText, isUnlocked ? styles.statusUnlockedText : styles.statusLockedText]}>
+                      {isUnlocked ? 'UNLOCKED' : `${badge.progress}/${badge.maxProgress}`}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <TouchableOpacity style={styles.viewAllBadges} onPress={() => router.push('/badges' as any)}>
             <Text style={styles.viewAllBadgesText}>View all badges</Text>
             <Feather name="chevron-right" size={16} color="#9333EA" />
           </TouchableOpacity>
@@ -714,41 +737,98 @@ const styles = StyleSheet.create({
     fontWeight: "400",
     color: "#111827",
   },
+  badgeCountSubtitle: {
+    fontSize: 13,
+    color: "#9333EA",
+    fontWeight: "500",
+  },
   badgesGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "space-between",
+    justifyContent: "flex-start",
+    gap: 10,
     marginBottom: 16,
   },
   badgeItem: {
     width: "31%",
-    backgroundColor: "#FFFFFF",
     borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 6,
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#E9D5FF",
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    marginBottom: 4,
   },
-  badgeItemFaded: {
-    opacity: 0.5,
-    borderStyle: "dashed",
-    borderColor: "#D1D5DB",
+  badgeItemUnlocked: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1.5,
+    borderColor: "#E9D5FF",
+    shadowColor: "#9333EA",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  badgeItemLocked: {
+    backgroundColor: "#F9FAFB",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    opacity: 0.75,
+  },
+  badgeEmojiWrapper: {
+    position: "relative",
+    marginBottom: 6,
+    alignItems: "center",
+    justifyContent: "center",
   },
   badgeEmoji: {
-    fontSize: 28,
-    marginBottom: 8,
+    fontSize: 30,
+  },
+  badgeEmojiFaded: {
+    opacity: 0.4,
+  },
+  lockBadgeOverlay: {
+    position: "absolute",
+    bottom: -2,
+    right: -6,
+    backgroundColor: "#F3F4F6",
+    borderRadius: 10,
+    padding: 3,
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
   },
   badgeText: {
-    fontSize: 12,
+    fontSize: 11,
+    fontWeight: "600",
     color: "#111827",
     textAlign: "center",
+    height: 30,
+    marginBottom: 6,
+  },
+  badgeTextLocked: {
+    color: "#6B7280",
+    fontWeight: "500",
+  },
+  badgeStatusPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  statusUnlockedPill: {
+    backgroundColor: "#FAF5FF",
+    borderWidth: 1,
+    borderColor: "#F3E8FF",
+  },
+  statusLockedPill: {
+    backgroundColor: "#F3F4F6",
+  },
+  badgeStatusText: {
+    fontSize: 9,
+    fontWeight: "700",
+  },
+  statusUnlockedText: {
+    color: "#9333EA",
+  },
+  statusLockedText: {
+    color: "#6B7280",
   },
   viewAllBadges: {
     flexDirection: "row",
