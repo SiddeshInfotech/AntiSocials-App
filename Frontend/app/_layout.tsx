@@ -1,5 +1,4 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
+import { DarkTheme, DefaultTheme, ThemeProvider, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -108,6 +107,7 @@ export default function RootLayout() {
             <Stack.Screen name="label" options={{ headerShown: false }} />
             <Stack.Screen name="imagnimation" options={{ headerShown: false }} />
             <Stack.Screen name="distraction-task" options={{ headerShown: false }} />
+            <Stack.Screen name="life-experience-quiz" options={{ headerShown: false }} />
           </Stack>
           <StatusBar style="dark" />
         </ThemeProvider>

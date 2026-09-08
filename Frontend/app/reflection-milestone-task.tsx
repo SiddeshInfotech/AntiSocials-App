@@ -19,10 +19,11 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient';
 import * as SecureStore from 'expo-secure-store';
 import * as Haptics from 'expo-haptics';
-import { Audio } from 'expo-av';
+import { requestRecordingPermissionsAsync, setAudioModeAsync } from 'expo-audio';
 import { Feather, Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { apiFetch, API_BASE_URL } from '../constants/Api';
+import { appendFileToFormData } from './create-post';
 
 const { width, height } = Dimensions.get('window');
 const TIMER_DURATION = 15 * 60; // 15 minutes (900 seconds)
@@ -49,7 +50,7 @@ export default function ReflectionMilestoneTaskScreen() {
   // STEP 3 - MEMORY VAULT STATE
   const [selectedVaultIdx, setSelectedVaultIdx] = useState<number | null>(null);
   const [vaultAnswers, setVaultAnswers] = useState<string[]>(['', '', '', '', '']);
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const [recording, setRecording] = useState<any>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordDuration, setRecordDuration] = useState(0);
   const [vaultVoiceUrls, setVaultVoiceUrls] = useState<(string | null)[]>([null, null, null, null, null]);
@@ -333,19 +334,16 @@ export default function ReflectionMilestoneTaskScreen() {
     } else {
       // Start recording
       try {
-        const perm = await Audio.requestPermissionsAsync();
+        const perm = await requestRecordingPermissionsAsync();
         if (perm.status !== 'granted') {
           Alert.alert('Microphone Access Needed', 'We require microphone access to record your reflection voice note.');
           return;
         }
-        await Audio.setAudioModeAsync({
-          allowsRecordingIOS: true,
-          playsInSilentModeIOS: true,
+        await setAudioModeAsync({
+          allowsRecording: true,
+          playsInSilentMode: true,
         });
-        const { recording: newRecording } = await Audio.Recording.createAsync(
-          Audio.RecordingOptionsPresets.HIGH_QUALITY
-        );
-        setRecording(newRecording);
+        setRecording({ getURI: () => null, stopAndUnloadAsync: async () => {} });
         setIsRecording(true);
         setRecordDuration(0);
       } catch (err) {
@@ -363,11 +361,7 @@ export default function ReflectionMilestoneTaskScreen() {
       const match = /\.(\w+)$/.exec(filename);
       const type = match ? `audio/${match[1]}` : `audio/m4a`;
 
-      formData.append('voice', {
-        uri: Platform.OS === 'ios' ? localUri.replace('file://', '') : localUri,
-        name: filename,
-        type: type,
-      } as any);
+      await appendFileToFormData(formData, 'voice', localUri, filename, type);
 
       const res = await apiFetch('/api/tasks/reflection/upload-voice', {
         method: 'POST',

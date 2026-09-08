@@ -1104,3 +1104,240 @@ exports.getPointsHistory = async (req, res) => {
         return res.status(500).json({ error: 'Internal server error' });
     }
 };
+
+// ----------------------------------------------------
+// Progress Details: 100-Day, Monthly, Lifetime
+// ----------------------------------------------------
+
+exports.get100DaysJourneyData = async (req, res) => {
+    try {
+        const userId = parseInt(req.user.id, 10);
+        const userSummary = await pointsStreakService.getUserPointsAndStreak(userId);
+
+        const completedTasksList = userSummary.completedTasks || [];
+        const completedCount = userSummary.completedCount || completedTasksList.length;
+
+        const stageLabels = [
+            { stageNumber: 1, title: "Habits", icon: "calendar", color: "#16a34a" },
+            { stageNumber: 2, title: "Social Presence", icon: "heart", color: "#2563eb" },
+            { stageNumber: 3, title: "Courage", icon: "zap", color: "#dc2626" },
+            { stageNumber: 4, title: "Authentic Voice", icon: "message-circle", color: "#9333ea" },
+            { stageNumber: 5, title: "Community", icon: "users", color: "#0891b2" },
+            { stageNumber: 6, title: "Discomfort Lab", icon: "shield", color: "#d97706" },
+            { stageNumber: 7, title: "Group Rhythm", icon: "eye", color: "#4f46e5" },
+            { stageNumber: 8, title: "Leadership", icon: "compass", color: "#ea580c" },
+            { stageNumber: 9, title: "Deep Curiosity", icon: "globe", color: "#0284c7" },
+            { stageNumber: 10, title: "Emotion Mastery", icon: "anchor", color: "#059669" },
+            { stageNumber: 11, title: "Focus & Presence", icon: "sun", color: "#b45309" },
+            { stageNumber: 12, title: "Inspiring Others", icon: "star", color: "#c026d3" },
+            { stageNumber: 13, title: "Real Impact", icon: "award", color: "#15803d" },
+            { stageNumber: 14, title: "Transformation", icon: "feather", color: "#7c3aed" },
+            { stageNumber: 15, title: "Mastery", icon: "check-circle", color: "#eab308" },
+        ];
+
+        const TASKS_PER_BUCKET = 7;
+        const highestUnlockedBucketIndex = Math.min(14, Math.floor(completedCount / TASKS_PER_BUCKET));
+        const currentDay = Math.min(100, Math.max(1, (highestUnlockedBucketIndex + 1) * 7));
+        const completedDaysCount = Math.min(100, Math.floor(completedCount / 1));
+
+        const progressPercent = Math.min(100, Math.round((currentDay / 100) * 100));
+
+        const days = Array.from({ length: 100 }, (_, index) => {
+            const dayNum = index + 1;
+            const bucketIndex = Math.floor((dayNum - 1) / TASKS_PER_BUCKET);
+            const stageIndex = Math.min(Math.floor((dayNum - 1) / 7), stageLabels.length - 1);
+            const stage = stageLabels[stageIndex];
+
+            const isUnlocked = bucketIndex <= highestUnlockedBucketIndex;
+            const isCompleted = isUnlocked && ((bucketIndex + 1) * TASKS_PER_BUCKET <= completedCount || dayNum <= completedCount);
+            const isCurrent = dayNum === currentDay;
+
+            return {
+                day: dayNum,
+                stageNumber: stage.stageNumber,
+                stageTitle: stage.title,
+                stageIcon: stage.icon,
+                stageColor: stage.color,
+                isUnlocked,
+                isCompleted,
+                isCurrent,
+                status: isCompleted ? 'completed' : isUnlocked ? 'unlocked' : 'locked'
+            };
+        });
+
+        return res.status(200).json({
+            currentDay,
+            maxDays: 100,
+            progressPercent,
+            completedDaysCount,
+            currentStreak: userSummary.currentStreak,
+            totalTasksCompleted: completedCount,
+            totalPointsEarned: userSummary.totalPoints,
+            days
+        });
+    } catch (err) {
+        console.error('get100DaysJourneyData error:', err);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+exports.getMonthlyProgressData = async (req, res) => {
+    try {
+        const userId = parseInt(req.user.id, 10);
+        const userSummary = await pointsStreakService.getUserPointsAndStreak(userId);
+
+        const now = new Date();
+        const defaultMonth = now.toISOString().slice(0, 7);
+        const selectedMonth = (req.query.month || defaultMonth).trim();
+
+        const monthsRes = await db.query(`
+            SELECT DISTINCT month FROM (
+                SELECT TO_CHAR(completed_at, 'YYYY-MM') as month FROM task_completions WHERE user_id = $1 AND completed_at IS NOT NULL
+                UNION
+                SELECT TO_CHAR(created_at, 'YYYY-MM') as month FROM points_history WHERE user_id = $1 AND created_at IS NOT NULL
+                UNION
+                SELECT TO_CHAR(created_at, 'YYYY-MM') as month FROM users WHERE id = $1
+            ) m
+            WHERE month IS NOT NULL
+            ORDER BY month DESC
+        `, [userId]);
+
+        let availableMonths = monthsRes.rows.map(r => r.month);
+        if (!availableMonths.includes(defaultMonth)) {
+            availableMonths.unshift(defaultMonth);
+        }
+
+        const tasksRes = await db.query(`
+            SELECT task_name, points, completed_at
+            FROM task_completions
+            WHERE user_id = $1 AND TO_CHAR(completed_at, 'YYYY-MM') = $2
+            ORDER BY completed_at DESC
+        `, [userId, selectedMonth]);
+
+        const tasksCompleted = tasksRes.rows.length;
+
+        const pointsRes = await db.query(`
+            SELECT COALESCE(SUM(points), 0)::INTEGER as total_points
+            FROM points_history
+            WHERE user_id = $1 AND TO_CHAR(created_at, 'YYYY-MM') = $2
+        `, [userId, selectedMonth]);
+
+        const pointsEarned = pointsRes.rows[0]?.total_points || 0;
+
+        const activeDaysRes = await db.query(`
+            SELECT COUNT(DISTINCT DATE(act_date))::INTEGER as active_days
+            FROM (
+                SELECT completed_at as act_date FROM task_completions WHERE user_id = $1 AND TO_CHAR(completed_at, 'YYYY-MM') = $2
+                UNION ALL
+                SELECT created_at as act_date FROM points_history WHERE user_id = $1 AND TO_CHAR(completed_at, 'YYYY-MM') = $2
+                UNION ALL
+                SELECT joined_at as act_date FROM activity_participants WHERE user_id = $1 AND TO_CHAR(joined_at, 'YYYY-MM') = $2
+            ) d
+        `, [userId, selectedMonth]);
+
+        const activeDays = activeDaysRes.rows[0]?.active_days || 0;
+
+        const [yearStr, monthStr] = selectedMonth.split('-');
+        const year = parseInt(yearStr, 10);
+        const monthIdx = parseInt(monthStr, 10) - 1;
+        const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
+
+        const dailyBreakdownRes = await db.query(`
+            SELECT 
+                TO_CHAR(completed_at, 'YYYY-MM-DD') as date_str,
+                COUNT(*)::INTEGER as tasks_count,
+                COALESCE(SUM(points), 0)::INTEGER as points_count,
+                JSON_AGG(task_name) as tasks_list
+            FROM task_completions
+            WHERE user_id = $1 AND TO_CHAR(completed_at, 'YYYY-MM') = $2
+            GROUP BY TO_CHAR(completed_at, 'YYYY-MM-DD')
+        `, [userId, selectedMonth]);
+
+        const breakdownMap = {};
+        dailyBreakdownRes.rows.forEach(r => {
+            breakdownMap[r.date_str] = r;
+        });
+
+        const calendarHistory = [];
+        for (let d = 1; d <= daysInMonth; d++) {
+            const dayFormatted = d < 10 ? `0${d}` : `${d}`;
+            const dateStr = `${selectedMonth}-${dayFormatted}`;
+            const dayData = breakdownMap[dateStr];
+
+            calendarHistory.push({
+                date: dateStr,
+                dayNumber: d,
+                isActive: !!dayData,
+                tasksCompleted: dayData ? dayData.tasks_count : 0,
+                pointsEarned: dayData ? dayData.points_count : 0,
+                tasksList: dayData ? (dayData.tasks_list || []) : []
+            });
+        }
+
+        return res.status(200).json({
+            selectedMonth,
+            availableMonths,
+            tasksCompleted,
+            pointsEarned,
+            activeDays,
+            bestStreak: userSummary.longestStreak || userSummary.currentStreak,
+            calendarHistory,
+            recentTasks: tasksRes.rows
+        });
+    } catch (err) {
+        console.error('getMonthlyProgressData error:', err);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+exports.getLifetimeProgressData = async (req, res) => {
+    try {
+        const userId = parseInt(req.user.id, 10);
+        const userSummary = await pointsStreakService.getUserPointsAndStreak(userId);
+
+        const activeDaysRes = await db.query(`
+            SELECT COUNT(DISTINCT DATE(act_date))::INTEGER as total_active_days
+            FROM (
+                SELECT completed_at as act_date FROM task_completions WHERE user_id = $1
+                UNION ALL
+                SELECT created_at as act_date FROM points_history WHERE user_id = $1
+                UNION ALL
+                SELECT joined_at as act_date FROM activity_participants WHERE user_id = $1
+                UNION ALL
+                SELECT created_at as act_date FROM users WHERE id = $1
+            ) d
+        `, [userId]);
+
+        const totalActiveDays = activeDaysRes.rows[0]?.total_active_days || 1;
+
+        const badgesRes = await db.query(`
+            SELECT badge_id, unlocked_at
+            FROM user_badges
+            WHERE user_id = $1
+            ORDER BY unlocked_at DESC
+        `, [userId]);
+
+        const activitiesRes = await db.query(`
+            SELECT a.id, a.title, a.category, a.emoji, a.location, ap.joined_at
+            FROM activity_participants ap
+            JOIN activities a ON ap.activity_id = a.id
+            WHERE ap.user_id = $1
+            ORDER BY ap.joined_at DESC
+        `, [userId]);
+
+        return res.status(200).json({
+            totalTasksCompleted: userSummary.completedCount,
+            totalPointsEarned: userSummary.totalPoints,
+            totalActiveDays,
+            longestStreak: userSummary.longestStreak || userSummary.currentStreak,
+            totalBadgesEarned: badgesRes.rows.length,
+            communitiesJoined: activitiesRes.rows.length,
+            badges: badgesRes.rows,
+            joinedActivities: activitiesRes.rows
+        });
+    } catch (err) {
+        console.error('getLifetimeProgressData error:', err);
+        return res.status(500).json({ error: 'Internal server error' });
+    }
+};
+

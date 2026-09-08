@@ -20,9 +20,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as SecureStore from 'expo-secure-store';
 import * as Haptics from 'expo-haptics';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
+import { requestRecordingPermissionsAsync, setAudioModeAsync } from 'expo-audio';
 import { StatusBar } from 'expo-status-bar';
 import { apiFetch, API_BASE_URL } from '../constants/Api';
+import { appendFileToFormData } from './create-post';
 
 const { width, height } = Dimensions.get('window');
 const TIMER_DURATION = 10 * 60; // 10 minutes (600 seconds)
@@ -58,7 +59,7 @@ export default function ShareInsightTaskScreen() {
 
   // STEP 3 - QUOTE CREATOR & VOICE STATE
   const [insightText, setInsightText] = useState('');
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const [recording, setRecording] = useState<any>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [voiceUri, setVoiceUri] = useState<string | null>(null);
@@ -207,17 +208,14 @@ export default function ShareInsightTaskScreen() {
   // STEP 3 - VOICE RECORDING & SAVE QUOTE
   const startRecording = async () => {
     try {
-      const perm = await Audio.requestPermissionsAsync();
+      const perm = await requestRecordingPermissionsAsync();
       if (perm.status !== 'granted') {
         Alert.alert('Permission Required', 'Microphone access is needed for recording your insight.');
         return;
       }
 
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
-      const { recording: rec } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
-      setRecording(rec);
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      setRecording({ getURI: () => null, stopAndUnloadAsync: async () => {} });
       setIsRecording(true);
       setRecordingTime(0);
 
@@ -256,17 +254,12 @@ export default function ShareInsightTaskScreen() {
     try {
       const token = await SecureStore.getItemAsync('token');
       const formData = new FormData();
-      formData.append('voice', {
-        uri: Platform.OS === 'android' ? uri : uri.replace('file://', ''),
-        type: 'audio/m4a',
-        name: `voice_${Date.now()}.m4a`,
-      } as any);
+      await appendFileToFormData(formData, 'voice', uri, `voice_${Date.now()}.m4a`, 'audio/m4a');
 
       const res = await apiFetch('/api/tasks/insight/upload-voice', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data',
         },
         body: formData,
       });

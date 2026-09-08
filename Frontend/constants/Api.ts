@@ -35,8 +35,8 @@ const candidateBases = (
         expoHost,
         linkingHost,
         debuggerHostUrl,
-        DEVELOPMENT_API_URL,
         Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://127.0.0.1:5000',
+        DEVELOPMENT_API_URL,
         PRODUCTION_API_URL,
       ]
     : [
@@ -80,15 +80,79 @@ export const apiFetch = async (path: string, options: ApiFetchOptions = {}) => {
         ? path 
         : `${baseUrl}${normalizedPath}`;
 
-      console.log(`[API] Attempting ${options.method || 'GET'} ${path} on ${baseUrl}`);
       const { timeoutMs, ...fetchOptions } = options;
+
+      const isFormData = Boolean(
+        fetchOptions.body && (
+          fetchOptions.body instanceof FormData ||
+          (typeof fetchOptions.body === 'object' && typeof (fetchOptions.body as any).append === 'function')
+        )
+      );
+
+      console.log(`[API] Attempting ${options.method || 'GET'} ${path} on ${baseUrl} | Body type: ${isFormData ? 'FormData' : typeof fetchOptions.body}`);
+
+      if (isFormData && fetchOptions.body) {
+        console.log("=== [API DEBUG] FormData Request Inspection ===");
+        console.log(`[API DEBUG] Method: ${options.method || 'GET'} | Path: ${path}`);
+        console.log("[API DEBUG] isFormData:", true);
+        const parts = (fetchOptions.body as any)._parts;
+        if (Array.isArray(parts)) {
+          console.log(`[API DEBUG] Total FormData Fields: ${parts.length}`);
+          parts.forEach((part: any, idx: number) => {
+            const fieldName = Array.isArray(part) ? part[0] : 'unknown';
+            const value = Array.isArray(part) ? part[1] : part;
+            const typeofValue = typeof value;
+            const constructorName = value && value.constructor ? value.constructor.name : 'N/A';
+            const isObject = typeofValue === 'object' && value !== null;
+            const hasUri = isObject && typeof value.uri === 'string';
+            const hasName = isObject && typeof value.name === 'string';
+            const hasType = isObject && typeof value.type === 'string';
+            const containsUriNameType = hasUri && hasName && hasType;
+
+            console.log(`[API DEBUG] Field #${idx + 1} ["${fieldName}"]`);
+            console.log(`  - typeof value: "${typeofValue}"`);
+            console.log(`  - constructor name: "${constructorName}"`);
+            console.log(`  - contains uri/name/type: ${containsUriNameType}`);
+            if (isObject) {
+              console.log(`  - media uri: "${value.uri || 'N/A'}"`);
+              console.log(`  - media type: "${value.type || 'N/A'}"`);
+              console.log(`  - media filename: "${value.name || 'N/A'}"`);
+            } else {
+              console.log(`  - text value: "${String(value).substring(0, 50)}"`);
+            }
+
+            if (isObject && !containsUriNameType) {
+              console.error(`❌ [API DEBUG ERROR] Field "${fieldName}" is an object but lacks valid string uri/name/type!`, {
+                value,
+                constructorName,
+              });
+            }
+          });
+        } else {
+          console.log("[API DEBUG] FormData._parts is not an array. Body:", fetchOptions.body);
+        }
+        console.log("===============================================");
+      }
+
+      const reqHeaders: Record<string, string> = {
+        Accept: 'application/json',
+        ...(fetchOptions.headers as Record<string, string> || {}),
+      };
+
+      if (isFormData) {
+        delete reqHeaders['Content-Type'];
+        delete reqHeaders['content-type'];
+        delete reqHeaders['Content-type'];
+      }
+
+      // Preserve the exact FormData object passed in: do not convert, clone, serialize, spread, or transform it.
+      const bodyToUse = fetchOptions.body;
+
       const response = await fetch(fullUrl, {
         ...fetchOptions,
+        body: bodyToUse,
         signal: controller.signal,
-        headers: {
-          Accept: 'application/json',
-          ...(fetchOptions.headers || {}),
-        },
+        headers: reqHeaders,
       });
 
       clearTimeout(timeoutId);

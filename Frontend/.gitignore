@@ -60,3 +60,6 @@ app-example
 # sensitive config
 constants/Api.ts
 
+# debug dumps
+tsc_out.txt
+

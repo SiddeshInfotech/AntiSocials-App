@@ -179,7 +179,7 @@ export default function HardestScreen() {
 
   const openCamera = async () => {
     triggerHaptic('light');
-    
+
     // Request permission
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
@@ -189,7 +189,7 @@ export default function HardestScreen() {
 
     try {
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'] as any,
         allowsEditing: true,
         quality: 0.8,
       });
@@ -206,18 +206,18 @@ export default function HardestScreen() {
 
   const handleSimulateCapture = () => {
     triggerHaptic('success');
-    
+
     // Pick one of the samples randomly
     const idx = Math.floor(Math.random() * HANDWRITING_SAMPLES.length);
     const sampleUri = HANDWRITING_SAMPLES[idx].preview;
-    
+
     setTempCapturedPhoto(sampleUri);
     setShowSimulatedCamera(false);
   };
 
   const handleUsePhoto = () => {
     triggerHaptic('success');
-    
+
     // Simulate image quality blurry check (15% chance)
     const isBlurry = Math.random() < 0.15;
     if (isBlurry) {
@@ -413,7 +413,7 @@ export default function HardestScreen() {
                 <View style={styles.notebookIconFloat}>
                   <Ionicons name="journal-outline" size={28} color={COLORS.primary} />
                 </View>
-                
+
                 <Text style={styles.titleText}>Write an Essay</Text>
                 <Text style={styles.subtitleText}>
                   Choose one topic, write it by hand, then take a clear photo using your camera.
@@ -467,7 +467,7 @@ export default function HardestScreen() {
                     <Text style={styles.cameraCaptureSubText}>
                       Write your essay on paper, then take a clear photo using your camera.
                     </Text>
-                    
+
                     <TouchableOpacity
                       onPress={openCamera}
                       activeOpacity={0.8}
@@ -600,7 +600,7 @@ export default function HardestScreen() {
             // SUCCESS SCREEN CARD
             <Animated.View style={[styles.successContainer, successCardStyle]}>
               <View style={styles.successCard}>
-                
+
                 {/* Large open book / essay success illustration */}
                 <View style={styles.successIconOuterCircle}>
                   <View style={styles.successIconInnerCircle}>
@@ -615,7 +615,7 @@ export default function HardestScreen() {
                 </View>
 
                 <Text style={styles.successTitle}>Excellent Work!</Text>
-                
+
                 <Text style={styles.successSubtitle}>
                   Writing regularly strengthens your focus, creativity, and thinking skills.
                 </Text>
@@ -664,7 +664,7 @@ export default function HardestScreen() {
                   <View style={[styles.focusCorner, styles.focusBottomLeft]} />
                   <View style={[styles.focusCorner, styles.focusBottomRight]} />
                 </View>
-                
+
                 <Text style={styles.cameraHintText}>Align your handwritten paper within the frame</Text>
               </View>
 

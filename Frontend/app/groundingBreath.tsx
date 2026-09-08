@@ -397,7 +397,7 @@ export default function GroundingBreathScreen() {
     transform: [{ scale: orbScale.value }],
     shadowOpacity: orbGlow.value * 0.8,
     shadowRadius: orbGlow.value * 25 + 5,
-    backgroundColor: currentPhaseIndex === 0 || currentPhaseIndex === 1 
+    backgroundColor: currentPhaseIndex === 0 || currentPhaseIndex === 1
       ? `rgba(6, 182, 212, ${orbGlow.value * 0.3 + 0.1})` // Cyan tint
       : `rgba(139, 92, 246, ${orbGlow.value * 0.3 + 0.1})`, // Purple tint
   }));
@@ -496,7 +496,6 @@ export default function GroundingBreathScreen() {
           player={videoPlayer}
           style={StyleSheet.absoluteFillObject}
           contentFit="cover"
-          allowsFullscreen={false}
           allowsPictureInPicture={false}
         />
         {/* Dark film overlay (25%) */}
@@ -504,13 +503,13 @@ export default function GroundingBreathScreen() {
       </View>
 
       {/* 2. Warm overlay activated slowly during final minute */}
-      <Animated.View 
+      <Animated.View
         style={[
-          StyleSheet.absoluteFillObject, 
-          { backgroundColor: COLORS.amber }, 
+          StyleSheet.absoluteFillObject,
+          { backgroundColor: COLORS.amber },
           warmOverlayAnimatedStyle
-        ]} 
-        pointerEvents="none" 
+        ]}
+        pointerEvents="none"
       />
 
       {/* 3. Cinematic Floating Particles */}
@@ -695,15 +694,15 @@ export default function GroundingBreathScreen() {
 
           {/* Pause overlay button */}
           <View style={styles.pauseBtnContainer}>
-            <TouchableOpacity 
-              onPress={() => setIsPaused((prev) => !prev)} 
-              style={styles.pauseGlassBtn} 
+            <TouchableOpacity
+              onPress={() => setIsPaused((prev) => !prev)}
+              style={styles.pauseGlassBtn}
               activeOpacity={0.7}
             >
-              <Ionicons 
-                name={isPaused ? "play" : "pause"} 
-                size={22} 
-                color={COLORS.white} 
+              <Ionicons
+                name={isPaused ? "play" : "pause"}
+                size={22}
+                color={COLORS.white}
               />
               <Text style={styles.pauseBtnText}>{isPaused ? 'Resume' : 'Pause'}</Text>
             </TouchableOpacity>

@@ -123,9 +123,11 @@ const initDB = async () => {
                 profession VARCHAR(100),
                 about TEXT,
                 image_url TEXT,
+                quiz_completed BOOLEAN DEFAULT false,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
+        try { await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS quiz_completed BOOLEAN DEFAULT FALSE'); } catch (e) { }
         await db.query(`
             CREATE TABLE IF NOT EXISTS user_interests (
                 id SERIAL PRIMARY KEY,
@@ -241,6 +243,50 @@ const initDB = async () => {
         `);
 
         await db.query(`
+            CREATE TABLE IF NOT EXISTS posts (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                main_category VARCHAR(255) NOT NULL,
+                subcategory VARCHAR(255) NOT NULL,
+                caption TEXT,
+                media_url TEXT,
+                media_type VARCHAR(50) DEFAULT 'image',
+                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS post_likes (
+                id SERIAL PRIMARY KEY,
+                post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, post_id)
+            );
+        `);
+
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS post_comments (
+                id SERIAL PRIMARY KEY,
+                post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                comment_text TEXT NOT NULL,
+                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS post_shares (
+                id SERIAL PRIMARY KEY,
+                post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+                user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        await db.query(`
             CREATE TABLE IF NOT EXISTS user_connections (
                 id SERIAL PRIMARY KEY,
                 user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
@@ -260,6 +306,15 @@ const initDB = async () => {
                 UNIQUE(follower_id, following_id)
             );
         `);
+
+        try {
+            await db.query(`CREATE INDEX IF NOT EXISTS idx_posts_user_id ON posts(user_id);`);
+            await db.query(`CREATE INDEX IF NOT EXISTS idx_posts_created_at ON posts(created_at DESC);`);
+            await db.query(`CREATE INDEX IF NOT EXISTS idx_follows_follower ON follows(follower_id);`);
+            await db.query(`CREATE INDEX IF NOT EXISTS idx_follows_following ON follows(following_id);`);
+        } catch (e) {
+            console.log("Index creation notice:", e.message);
+        }
 
         await db.query(`
             CREATE TABLE IF NOT EXISTS tasks (
@@ -404,6 +459,60 @@ const initDB = async () => {
         try { await db.query("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS difficulty VARCHAR(50) DEFAULT 'Easy'"); } catch (e) { }
         try { await db.query("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS mascot VARCHAR(50) DEFAULT 'Cat'"); } catch (e) { }
         try { await db.query("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS completion_message VARCHAR(255) DEFAULT 'Great job!'"); } catch (e) { }
+
+        // Life Experience Score tables
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS life_experience_scores (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                baseline_age_life_stage NUMERIC(5,2) DEFAULT 0,
+                baseline_travel_exploration NUMERIC(5,2) DEFAULT 0,
+                baseline_adventure_new_experiences NUMERIC(5,2) DEFAULT 0,
+                baseline_education_learning NUMERIC(5,2) DEFAULT 0,
+                baseline_relationships_family NUMERIC(5,2) DEFAULT 0,
+                baseline_community_contribution NUMERIC(5,2) DEFAULT 0,
+                baseline_health_fitness_physical NUMERIC(5,2) DEFAULT 0,
+                baseline_creativity_hobbies_passion NUMERIC(5,2) DEFAULT 0,
+                baseline_culture_social_experiences NUMERIC(5,2) DEFAULT 0,
+                baseline_personal_growth_courage NUMERIC(5,2) DEFAULT 0,
+                baseline_overall_score NUMERIC(5,2) DEFAULT 0,
+                current_age_life_stage NUMERIC(5,2) DEFAULT 0,
+                current_travel_exploration NUMERIC(5,2) DEFAULT 0,
+                current_adventure_new_experiences NUMERIC(5,2) DEFAULT 0,
+                current_education_learning NUMERIC(5,2) DEFAULT 0,
+                current_relationships_family NUMERIC(5,2) DEFAULT 0,
+                current_community_contribution NUMERIC(5,2) DEFAULT 0,
+                current_health_fitness_physical NUMERIC(5,2) DEFAULT 0,
+                current_creativity_hobbies_passion NUMERIC(5,2) DEFAULT 0,
+                current_culture_social_experiences NUMERIC(5,2) DEFAULT 0,
+                current_personal_growth_courage NUMERIC(5,2) DEFAULT 0,
+                current_overall_score NUMERIC(5,2) DEFAULT 0,
+                connector_level INTEGER DEFAULT 1,
+                quiz_completed BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                CONSTRAINT unique_user_life_score UNIQUE (user_id)
+            );
+        `);
+
+        try { await db.query('ALTER TABLE life_experience_scores ADD COLUMN IF NOT EXISTS connector_level INTEGER DEFAULT 1'); } catch (e) { }
+
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS life_experience_updates (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                experience_id VARCHAR(255) NOT NULL,
+                category_slug VARCHAR(100) NOT NULL,
+                score_delta NUMERIC(5,2) NOT NULL,
+                source_type VARCHAR(50) NOT NULL,
+                source_id VARCHAR(255),
+                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+                CONSTRAINT unique_user_experience UNIQUE (user_id, experience_id)
+            );
+        `);
+
+        try { await db.query('CREATE INDEX IF NOT EXISTS idx_life_exp_scores_user ON life_experience_scores(user_id)'); } catch (e) { }
+        try { await db.query('CREATE INDEX IF NOT EXISTS idx_life_exp_updates_user ON life_experience_updates(user_id)'); } catch (e) { }
 
         await db.query(`
             CREATE TABLE IF NOT EXISTS task_completions (
@@ -2548,7 +2657,13 @@ app.post('/auth/register', async (req, res) => {
         res.status(201).json({
             message: "User registered successfully",
             token,
-            user
+            quizCompleted: false,
+            quiz_completed: false,
+            user: {
+                ...user,
+                quizCompleted: false,
+                quiz_completed: false,
+            }
         });
 
     } catch (err) {
@@ -2582,6 +2697,16 @@ app.post('/auth/login', async (req, res) => {
         await db.query("DELETE FROM otp_verifications WHERE phone_number = $1", [phoneNumber]);
 
         const user = userResult.rows[0];
+
+        // Check backend database source of truth for quiz_completed
+        const scoreCheck = await db.query(
+            'SELECT quiz_completed FROM life_experience_scores WHERE user_id = $1',
+            [user.id]
+        );
+        const quizCompleted = Boolean(
+            (scoreCheck.rows.length > 0 && scoreCheck.rows[0].quiz_completed) || user.quiz_completed
+        );
+
         const token = jwt.sign(
             { id: user.id, username: user.username, phoneNumber: user.phone_number },
             process.env.JWT_SECRET || 'secret123',
@@ -2591,11 +2716,15 @@ app.post('/auth/login', async (req, res) => {
         res.status(200).json({
             message: "Login successful",
             token,
+            quizCompleted,
+            quiz_completed: quizCompleted,
             user: {
                 id: user.id,
                 username: user.username,
                 phone_number: user.phone_number,
-                profile_name: user.profile_name
+                profile_name: user.profile_name,
+                quizCompleted,
+                quiz_completed: quizCompleted,
             }
         });
 
@@ -8108,6 +8237,10 @@ const activityRoutes = require('./routes/activityRoutes');
 const homeController = require('./controllers/homeController');
 
 // Routes
+const postRoutes = require('./routes/postRoutes');
+const followRoutes = require('./routes/followRoutes');
+app.use('/api/posts', postRoutes);
+app.use('/api/follows', followRoutes);
 app.use('/api/home', homeRoutes);
 app.use('/api/stories', storyRoutes);
 app.delete('/api/comments/:commentId', authenticateToken, homeController.deleteStoryComment);
@@ -8121,6 +8254,10 @@ app.use('/api/activities', activityRoutes);
 // Badge Routes
 const badgeRoutes = require('./routes/badgeRoutes');
 app.use('/api/badges', badgeRoutes);
+
+// Life Experience Score Routes
+const lifeScoreRoutes = require('./routes/lifeScoreRoutes');
+app.use('/api/life-score', lifeScoreRoutes);
 
 // Emotion Analysis AI Route
 const emotionAnalysisRoutes = require('./routes/emotionAnalysis');

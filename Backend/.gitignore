@@ -32,3 +32,6 @@ coverage/
 
 # User uploaded files
 uploads/
+
+# OTP debug file
+otp.txt

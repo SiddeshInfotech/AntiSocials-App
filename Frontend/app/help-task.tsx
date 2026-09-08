@@ -91,7 +91,7 @@ export default function HelpTaskScreen() {
   // Handle image picking
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'] as any,
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.8,

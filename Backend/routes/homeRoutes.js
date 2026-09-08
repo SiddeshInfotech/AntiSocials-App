@@ -22,4 +22,9 @@ router.patch('/tasks/:id/progress', homeController.updateTaskProgress);
 router.get('/points', homeController.getPoints);
 router.get('/points/history', homeController.getPointsHistory);
 
+// Progress Details
+router.get('/journey-100', homeController.get100DaysJourneyData);
+router.get('/monthly-progress', homeController.getMonthlyProgressData);
+router.get('/lifetime-progress', homeController.getLifetimeProgressData);
+
 module.exports = router;

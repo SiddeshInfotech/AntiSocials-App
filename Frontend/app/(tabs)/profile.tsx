@@ -9,16 +9,21 @@ import {
   Image,
   ActivityIndicator,
   Alert,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { StatusBar } from "expo-status-bar";
-import { useRouter } from "expo-router";
-import { useIsFocused } from "@react-navigation/native";
+import { useRouter, useIsFocused } from "expo-router";
 import * as SecureStore from 'expo-secure-store';
 import LifeDomainsChart from "../../components/LifeDomainsChart";
+import LifeExperienceCard from "../../components/LifeExperienceCard";
 import { API_BASE_URL, apiFetch } from "../../constants/Api";
 import { resolveImageUrl, DEFAULT_AVATAR } from "../../constants/ImageUtils";
+import {
+  calculateConnectorLevel,
+  getConnectorLevelDetails,
+} from "../../constants/lifeExperienceData";
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -28,6 +33,7 @@ export default function ProfileScreen() {
   const [interestsData, setInterestsData] = useState<string[]>([]);
   const [badges, setBadges] = useState<any[]>([]);
   const [badgeStats, setBadgeStats] = useState<any>({ unlockedCount: 0, totalCount: 0 });
+  const [lifeScoreData, setLifeScoreData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   const [imageError, setImageError] = useState(false);
@@ -76,6 +82,18 @@ export default function ProfileScreen() {
           const badgeData = await badgeResponse.json();
           setBadges(badgeData.badges || []);
           setBadgeStats(badgeData.stats || { unlockedCount: 0, totalCount: 0 });
+        }
+
+        // Fetch Life Experience Score data
+        const scoreResponse = await apiFetch('/api/life-score', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }).catch(() => null);
+
+        if (scoreResponse && scoreResponse.ok) {
+          const scoreData = await scoreResponse.json();
+          setLifeScoreData(scoreData);
         } else {
           console.error("Profile fetch failed. Status:", response.status);
           if (response.status === 401 || response.status === 403) {
@@ -92,6 +110,42 @@ export default function ProfileScreen() {
     fetchProfile();
   }, [isFocused]);
 
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const token = await SecureStore.getItemAsync('token');
+      if (token) {
+        const [profRes, badgeRes, scoreRes] = await Promise.all([
+          apiFetch('/api/profile/me', { headers: { 'Authorization': `Bearer ${token}` } }).catch(() => null),
+          apiFetch('/api/badges', { headers: { 'Authorization': `Bearer ${token}` } }).catch(() => null),
+          apiFetch('/api/life-score', { headers: { 'Authorization': `Bearer ${token}` } }).catch(() => null),
+        ]);
+
+        if (profRes && profRes.ok) {
+          const pData = await profRes.json();
+          setUserData(pData.user);
+          setStatsData(pData.stats);
+          setInterestsData(pData.interests);
+        }
+        if (badgeRes && badgeRes.ok) {
+          const bData = await badgeRes.json();
+          setBadges(bData.badges || []);
+          setBadgeStats(bData.stats || { unlockedCount: 0, totalCount: 0 });
+        }
+        if (scoreRes && scoreRes.ok) {
+          const sData = await scoreRes.json();
+          setLifeScoreData(sData);
+        }
+      }
+    } catch (e) {
+      console.error("Refresh error:", e);
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
+
   const handleLogout = async () => {
     console.log("Logout button pressed");
     Alert.alert(
@@ -99,8 +153,8 @@ export default function ProfileScreen() {
       "Are you sure you want to log out?",
       [
         { text: "Cancel", style: "cancel" },
-        { 
-          text: "Log Out", 
+        {
+          text: "Log Out",
           style: "destructive",
           onPress: async () => {
             console.log("Executing logout cleanup...");
@@ -108,7 +162,7 @@ export default function ProfileScreen() {
               await SecureStore.deleteItemAsync('token');
               await SecureStore.deleteItemAsync('userId');
               console.log("Storage cleared, forcing redirect to unique welcome screen...");
-              
+
               // Use a slight timeout to ensure SecureStore finishes
               setTimeout(() => {
                 router.replace("/welcome" as any);
@@ -135,14 +189,25 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
       {isFocused && <StatusBar style="light" />}
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.container}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#8B00FF"
+            colors={["#8B00FF"]}
+          />
+        }
+      >
         {/* Purple Header Section */}
         <View style={styles.headerBackground}>
           <View style={styles.avatarContainer}>
             <View style={styles.avatarPlaceholder}>
-              <Image 
-                source={{ uri: !imageError ? resolveImageUrl(profilePic) : DEFAULT_AVATAR }} 
-                style={{ width: '100%', height: '100%', borderRadius: 45 }} 
+              <Image
+                source={{ uri: !imageError ? resolveImageUrl(profilePic) : DEFAULT_AVATAR }}
+                style={{ width: '100%', height: '100%', borderRadius: 45 }}
                 onError={() => setImageError(true)}
               />
             </View>
@@ -163,32 +228,56 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.contentContainer}>
-          {/* Life Living Rank Card (Overlapping) */}
-          <View style={styles.rankCard}>
-            <View style={styles.rankHeader}>
-              <View>
-                <Text style={styles.rankLabel}>Life Living Rank</Text>
-                <View style={styles.rankTitleRow}>
-                  <Feather
-                    name="award"
-                    size={24}
-                    color="#D97706"
-                    style={styles.crownIcon}
-                  />
-                  <Text style={styles.rankName}>Connector</Text>
+          {/* Life Living Rank Card (Overlapping) — Dynamic Level */}
+          {(() => {
+            const rawScore =
+              lifeScoreData?.overallScore ??
+              lifeScoreData?.overall_score ??
+              lifeScoreData?.data?.overallScore ??
+              lifeScoreData?.current?.overall ??
+              statsData?.overallLifeScore ??
+              0;
+            const details =
+              lifeScoreData?.levelDetails ??
+              statsData?.levelDetails ??
+              getConnectorLevelDetails(rawScore);
+            const level =
+              lifeScoreData?.connectorLevel ??
+              lifeScoreData?.connector_level ??
+              statsData?.connectorLevel ??
+              statsData?.connector_level ??
+              details.level;
+            const progressPercent = details.progressPercent;
+            const nextLevelLabel = details.nextLevelLabel;
+            return (
+              <View style={styles.rankCard}>
+                <View style={styles.rankHeader}>
+                  <View>
+                    <Text style={styles.rankLabel}>Life Living Rank</Text>
+                    <View style={styles.rankTitleRow}>
+                      <Feather
+                        name="award"
+                        size={24}
+                        color="#D97706"
+                        style={styles.crownIcon}
+                      />
+                      <Text style={styles.rankName}>Connector</Text>
+                    </View>
+                    <Text style={styles.rankSubtitle}>Real relationships</Text>
+                  </View>
+                  <Text style={styles.levelText}>Lvl {level}</Text>
                 </View>
-                <Text style={styles.rankSubtitle}>Real relationships</Text>
-              </View>
-              <Text style={styles.levelText}>Lvl 4</Text>
-            </View>
 
-            <View style={styles.progressBarContainer}>
-              <View style={styles.progressBarFill} />
-            </View>
-            <Text style={styles.progressText}>
-              Next: Contributor • Giving back
-            </Text>
-          </View>
+                <View style={styles.progressBarContainer}>
+                  <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
+                </View>
+                <Text style={styles.progressText}>
+                  Next: {nextLevelLabel}
+                </Text>
+              </View>
+            );
+          })()}
+
 
           {/* Your Streaks */}
           <Text style={styles.sectionTitle}>Your Streaks</Text>
@@ -241,7 +330,10 @@ export default function ProfileScreen() {
             </Text>
           </View>
 
-          <LifeDomainsChart />
+          <LifeDomainsChart lifeScoreData={lifeScoreData} />
+
+          {/* Life Experience Score Card */}
+          <LifeExperienceCard scoreData={lifeScoreData} />
 
           {/* Your Activity */}
           <View style={styles.activityCard}>
@@ -326,10 +418,10 @@ export default function ProfileScreen() {
             {(badges && badges.length > 0 ? badges.slice(0, 9) : []).map((badge: any) => {
               const isUnlocked = badge.isUnlocked;
               return (
-                <TouchableOpacity 
-                  key={badge.id} 
+                <TouchableOpacity
+                  key={badge.id}
                   style={[
-                    styles.badgeItem, 
+                    styles.badgeItem,
                     isUnlocked ? styles.badgeItemUnlocked : styles.badgeItemLocked
                   ]}
                   onPress={() => router.push('/badges' as any)}
@@ -394,7 +486,7 @@ export default function ProfileScreen() {
                 </View>
               ))
             ) : (
-              <Text style={{color: '#6B7280', fontStyle: 'italic', marginBottom: 16}}>No interests added yet.</Text>
+              <Text style={{ color: '#6B7280', fontStyle: 'italic', marginBottom: 16 }}>No interests added yet.</Text>
             )}
           </View>
 
@@ -618,7 +710,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   progressBarFill: {
-    width: "60%",
     height: "100%",
     backgroundColor: "#A855F7",
     borderRadius: 4,

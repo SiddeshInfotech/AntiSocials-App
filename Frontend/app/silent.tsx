@@ -15,7 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import * as Haptics from 'expo-haptics';
-import { Audio } from 'expo-av';
+import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import { apiFetch } from '../constants/Api';
 
 const { width, height } = Dimensions.get('window');
@@ -281,31 +281,25 @@ export default function SilenceMindScreen() {
   const [nextBgIndex, setNextBgIndex] = useState(0);
   const bgFade = useSharedValue(0);
 
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const soundRef = useRef<any>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Play ambient audio automatically when meditation starts
   const playAmbientTrack = async () => {
     try {
       if (soundRef.current) {
-        await soundRef.current.unloadAsync();
+        try { soundRef.current.remove(); } catch (e) {}
         soundRef.current = null;
       }
-      await Audio.setAudioModeAsync({
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: true,
-        playThroughEarpieceAndroid: false,
+      await setAudioModeAsync({
+        playsInSilentMode: true,
       });
       // Automatically load and start the loop track in the background without controls
-      const { sound } = await Audio.Sound.createAsync(
-        require('../assets/videos/mixkit-spirit-in-the-woods-139.mp3'),
-        {
-          shouldPlay: true,
-          volume: 0.45,
-          isLooping: true
-        }
-      );
-      soundRef.current = sound;
+      const player = createAudioPlayer(require('../assets/videos/mixkit-spirit-in-the-woods-139.mp3'));
+      player.volume = 0.45;
+      player.loop = true;
+      player.play();
+      soundRef.current = player;
     } catch (e) {
       console.error("Ambient Audio Load Error:", e);
     }
@@ -314,8 +308,7 @@ export default function SilenceMindScreen() {
   const stopAmbientTrack = async () => {
     try {
       if (soundRef.current) {
-        await soundRef.current.stopAsync();
-        await soundRef.current.unloadAsync();
+        try { soundRef.current.pause(); soundRef.current.remove(); } catch (e) {}
         soundRef.current = null;
       }
     } catch (e) {}

@@ -157,7 +157,7 @@ export default function OfflineTaskScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <StatusBar style={isActive ? 'light' : 'dark'} backgroundColor={isActive ? '#0f172a' : '#fafafa'} />
+      <StatusBar style={isActive ? 'light' : 'dark'} />
 
       {/* Dynamic background */}
       {isActive ? (

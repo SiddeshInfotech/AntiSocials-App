@@ -135,7 +135,7 @@ export default function Onboarding() {
         console.error("Failed to save interests:", err);
       }
 
-      router.replace("/(tabs)" as any);
+      router.replace("/life-experience-quiz" as any);
     }
   };
 

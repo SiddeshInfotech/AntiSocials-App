@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { VideoView, useVideoPlayer } from 'expo-video';
-import { Audio } from 'expo-av';
+import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -302,7 +302,7 @@ export default function FocusTaskScreen() {
   const lastPress = useRef<number>(0);
 
   // Audio Alarm Refs
-  const alarmSoundRef = useRef<Audio.Sound | null>(null);
+  const alarmPlayerRef = useRef<any>(null);
   const alarmHasPlayedRef = useRef<boolean>(false);
 
   const activeCategory = useMemo(() => {
@@ -312,8 +312,8 @@ export default function FocusTaskScreen() {
   // Clean up completion alarm sound on unmount
   useEffect(() => {
     return () => {
-      if (alarmSoundRef.current) {
-        alarmSoundRef.current.unloadAsync().catch(() => {});
+      if (alarmPlayerRef.current) {
+        try { alarmPlayerRef.current.remove(); } catch (e) {}
       }
     };
   }, []);
@@ -325,22 +325,14 @@ export default function FocusTaskScreen() {
 
     try {
       if (Platform.OS !== 'web') {
-        await Audio.setAudioModeAsync({
-          allowsRecordingIOS: false,
-          playsInSilentModeIOS: true,
+        await setAudioModeAsync({
+          playsInSilentMode: true,
         });
       }
-      const { sound } = await Audio.Sound.createAsync(
-        ALARM_SOUND,
-        { shouldPlay: true, volume: 0.85 }
-      );
-      alarmSoundRef.current = sound;
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) {
-          sound.unloadAsync().catch(() => {});
-          alarmSoundRef.current = null;
-        }
-      });
+      const player = createAudioPlayer(ALARM_SOUND);
+      player.volume = 0.85;
+      player.play();
+      alarmPlayerRef.current = player;
     } catch (err) {
       console.warn('[FocusTask] Alarm audio error:', err);
     }

@@ -14,7 +14,7 @@ import {
 import { Feather, Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as SecureStore from "expo-secure-store";
-import { Video, ResizeMode } from "expo-av";
+import { useVideoPlayer, VideoView } from "expo-video";
 import { resolveImageUrl, resolveAvatarUrl, resolveStoryMediaUrl, DEFAULT_AVATAR } from "../constants/ImageUtils";
 import { apiFetch, API_BASE_URL } from "../constants/Api";
 
@@ -45,6 +45,31 @@ interface StoryCardProps {
   onLikeToggle?: (storyId: string, isLiked: boolean, newCount: number) => void;
   onOpenComments?: (story: StoryType) => void;
   onShare?: (story: StoryType, newShareCount: number) => void;
+}
+
+function StoryCardVideo({ uri, isPlaying, style }: { uri: string; isPlaying: boolean; style: any }) {
+  const player = useVideoPlayer(uri, (player) => {
+    player.loop = true;
+    if (isPlaying) player.play();
+    else player.pause();
+  });
+
+  useEffect(() => {
+    if (isPlaying) {
+      player.play();
+    } else {
+      player.pause();
+    }
+  }, [isPlaying, player]);
+
+  return (
+    <VideoView
+      player={player}
+      style={style}
+      contentFit="cover"
+      nativeControls={false}
+    />
+  );
 }
 
 export default function StoryCard({
@@ -309,20 +334,10 @@ export default function StoryCard({
           {resolvedMedia && !mediaError ? (
             isVideoMedia ? (
               <View style={{ width: "100%", height: "100%", position: "relative" }}>
-                <Video
-                  source={{ uri: resolvedMedia }}
+                <StoryCardVideo
+                  uri={resolvedMedia}
+                  isPlaying={isPlayingVideo}
                   style={styles.storyImage}
-                  resizeMode={ResizeMode.COVER}
-                  isLooping
-                  shouldPlay={isPlayingVideo}
-                  useNativeControls={false}
-                  onLoadStart={() => setMediaLoading(true)}
-                  onLoad={() => setMediaLoading(false)}
-                  onError={(e) => {
-                    console.log(`❌ [StoryCard] Video error: ${resolvedMedia}`, e);
-                    setMediaLoading(false);
-                    setMediaError(true);
-                  }}
                 />
                 {!isPlayingVideo && !mediaLoading && (
                   <View style={styles.playOverlayBtn} pointerEvents="none">

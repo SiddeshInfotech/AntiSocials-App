@@ -21,6 +21,7 @@ import { Image } from 'react-native';
 import * as Location from 'expo-location';
 
 import { API_BASE_URL, apiFetch } from '../constants/Api';
+import { appendFileToFormData } from './create-post';
 import * as SecureStore from 'expo-secure-store';
 
 export default function CreateActivityScreen() {
@@ -153,7 +154,7 @@ export default function CreateActivityScreen() {
     try {
       console.log("📸 opening image picker...");
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'] as any,
         allowsEditing: true,
         aspect: [16, 9],
         quality: 0.7,
@@ -177,10 +178,10 @@ export default function CreateActivityScreen() {
       console.log("🚀 uploading image to server:", uri);
       const filename = uri.split('/').pop() || 'activity.jpg';
       const match = /\.(\w+)$/.exec(filename);
-      const type = match ? `image/${match[1]}` : `image`;
+      const type = match ? `image/${match[1]}` : `image/jpeg`;
 
       const formData = new FormData();
-      formData.append('image', { uri, name: filename, type } as any);
+      await appendFileToFormData(formData, 'image', uri, filename, type);
 
       const response = await apiFetch('/upload', {
         method: "POST",

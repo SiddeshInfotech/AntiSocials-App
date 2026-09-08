@@ -451,7 +451,7 @@ export default function ReleaseScreen() {
 
     // Fade white bloom overlay in
     whiteBloomOpacity.value = withTiming(1.0, { duration: 2500 });
-    
+
     // Confetti particles rising
     titleConfettiY.value = withTiming(-100, { duration: 3000, easing: Easing.out(Easing.cubic) });
 
@@ -646,7 +646,6 @@ export default function ReleaseScreen() {
             player={videoPlayer}
             style={StyleSheet.absoluteFillObject}
             contentFit="cover"
-            allowsFullscreen={false}
             allowsPictureInPicture={false}
           />
         </View>
@@ -830,8 +829,8 @@ export default function ReleaseScreen() {
             <View style={styles.stepContainer}>
               <View style={styles.subtitleWrapper}>
                 <Text style={styles.subtitleText}>
-                  {allMerged 
-                    ? "Everything is released. You feel lighter." 
+                  {allMerged
+                    ? "Everything is released. You feel lighter."
                     : "Tap each floating stress element to dissolve it into the energy orb."}
                 </Text>
               </View>

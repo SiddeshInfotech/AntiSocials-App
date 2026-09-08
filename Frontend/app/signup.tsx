@@ -21,6 +21,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as SecureStore from 'expo-secure-store';
 import { API_BASE_URL, apiFetch } from '../constants/Api';
 import { resolveImageUrl } from '../constants/ImageUtils';
+import { appendFileToFormData } from './create-post';
 
 export default function Signup() {
   const router = useRouter();
@@ -142,11 +143,7 @@ export default function Signup() {
       }
 
       const formData = new FormData();
-      formData.append('image', {
-        uri,
-        name: filename,
-        type,
-      } as any);
+      await appendFileToFormData(formData, 'image', uri, filename, type);
 
       console.log('📤 [Signup] Uploading image:', { uri, filename, type });
 

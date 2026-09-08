@@ -12,13 +12,14 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
-import { useIsFocused } from "@react-navigation/native";
+import { useIsFocused } from "expo-router";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import StoryCard, { StoryType } from "../../components/StoryCard";
 import StoryCommentModal from "../../components/StoryCommentModal";
 import * as SecureStore from "expo-secure-store";
 import * as ImagePicker from "expo-image-picker";
 import { apiFetch } from "../../constants/Api";
+import { appendFileToFormData } from "../create-post";
 import { resolveImageUrl, resolveAvatarUrl, resolveStoryMediaUrl } from "../../constants/ImageUtils";
 import { formatTimeAgo, isStoryExpired } from "../../constants/DateUtils";
 
@@ -163,7 +164,7 @@ export default function StoriesFeed() {
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.All,
+      mediaTypes: ['images', 'videos'] as any,
       allowsEditing: false,
       quality: 0.5,
     });
@@ -180,7 +181,7 @@ export default function StoriesFeed() {
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.All,
+      mediaTypes: ['images', 'videos'] as any,
       allowsEditing: false,
       quality: 0.5,
     });
@@ -207,7 +208,7 @@ export default function StoriesFeed() {
           : `image/jpeg`;
 
       const formData = new FormData();
-      formData.append("image", { uri, name: filename, type } as any);
+      await appendFileToFormData(formData, "image", uri, filename, type);
 
       console.log("📤 [Stories Tab Upload] Uploading media...");
       const uploadRes = await apiFetch("/upload", {
@@ -365,7 +366,7 @@ export default function StoriesFeed() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
-      {isFocused && <StatusBar style="dark" backgroundColor="#FAFAFA" />}
+      {isFocused && <StatusBar style="dark" />}
 
       <FlatList
         data={stories}

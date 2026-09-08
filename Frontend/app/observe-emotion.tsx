@@ -20,7 +20,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import * as SecureStore from 'expo-secure-store';
 import { apiFetch, API_BASE_URL } from '../constants/Api';
-import { getRandomReflection, type EmotionId, type Reflection } from './reflection-library';
+import { getRandomReflection, type EmotionId, type Reflection } from '../constants/reflection-library';
 
 const { width, height } = Dimensions.get('window');
 

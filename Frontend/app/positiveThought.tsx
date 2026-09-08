@@ -15,7 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import * as Haptics from 'expo-haptics';
-import { Audio } from 'expo-av';
+import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import { apiFetch, API_BASE_URL } from '../constants/Api';
 
 const { width, height } = Dimensions.get('window');
@@ -160,7 +160,7 @@ export default function ObserveThoughtsScreen() {
   const [isAudioLoading, setIsAudioLoading] = useState(false);
   const [isVolumeActive, setIsVolumeActive] = useState(false);
 
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const soundRef = useRef<any>(null);
   const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Ken Burns & slide fade animations
@@ -181,7 +181,7 @@ export default function ObserveThoughtsScreen() {
   const updateVolume = async (val: number) => {
     setVolume(val);
     if (soundRef.current) {
-      await soundRef.current.setVolumeAsync(val);
+      soundRef.current.volume = val;
     }
   };
 
@@ -226,25 +226,21 @@ export default function ObserveThoughtsScreen() {
     try {
       setIsAudioLoading(true);
       if (soundRef.current) {
-        await soundRef.current.unloadAsync();
+        try { soundRef.current.remove(); } catch(e){}
         soundRef.current = null;
       }
 
-      await Audio.setAudioModeAsync({
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: true,
-        playThroughEarpieceAndroid: false,
+      await setAudioModeAsync({
+        playsInSilentMode: true,
       });
 
-      const { sound } = await Audio.Sound.createAsync(
-        SLIDES[index].audio,
-        {
-          shouldPlay: playImmediate && isPlaying,
-          volume: volume,
-          isLooping: true
-        }
-      );
-      soundRef.current = sound;
+      const player = createAudioPlayer(SLIDES[index].audio);
+      player.volume = volume;
+      player.loop = true;
+      if (playImmediate && isPlaying) {
+        player.play();
+      }
+      soundRef.current = player;
       setIsAudioLoading(false);
     } catch (err) {
       console.error('Audio load error:', err);
@@ -354,8 +350,7 @@ export default function ObserveThoughtsScreen() {
 
   const handleSessionEnd = async () => {
     if (soundRef.current) {
-      await soundRef.current.stopAsync();
-      await soundRef.current.unloadAsync();
+      try { soundRef.current.pause(); soundRef.current.remove(); } catch(e){}
       soundRef.current = null;
     }
     await SecureStore.deleteItemAsync('observe_thoughts_progress');
@@ -388,7 +383,7 @@ export default function ObserveThoughtsScreen() {
 
     return () => {
       if (soundRef.current) {
-        soundRef.current.unloadAsync();
+        try { soundRef.current.remove(); } catch(e){}
       }
     };
   }, []);
@@ -397,10 +392,10 @@ export default function ObserveThoughtsScreen() {
     if (!soundRef.current) return;
     try {
       if (isPlaying) {
-        await soundRef.current.pauseAsync();
+        soundRef.current.pause();
         setIsPlaying(false);
       } else {
-        await soundRef.current.playAsync();
+        soundRef.current.play();
         setIsPlaying(true);
       }
     } catch (e) {}
@@ -601,7 +596,7 @@ export default function ObserveThoughtsScreen() {
           <View style={styles.sessionHeader}>
             <TouchableOpacity
               onPress={async () => {
-                if (soundRef.current) await soundRef.current.pauseAsync();
+                if (soundRef.current) soundRef.current.pause();
                 router.back();
               }}
               style={styles.glassBackBtn}

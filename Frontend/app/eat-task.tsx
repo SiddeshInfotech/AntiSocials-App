@@ -27,7 +27,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Video, ResizeMode } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import * as SecureStore from 'expo-secure-store';
@@ -39,6 +39,12 @@ const EAT_VIDEO_BACKGROUND = require('../assets/videos/Eating_food_consciously_2
 export default function EatTaskScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
+
+  const eatPlayer = useVideoPlayer(EAT_VIDEO_BACKGROUND, (player) => {
+    player.loop = true;
+    player.muted = true;
+    player.play();
+  });
 
   // Page Step: 1: Introduction | 2: Mindful Bite Experience | 3: Share Moment | 4: Completion
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
@@ -99,7 +105,7 @@ export default function EatTaskScreen() {
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'] as any,
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.8,
@@ -239,13 +245,11 @@ export default function EatTaskScreen() {
       {step === 2 && (
         <View style={StyleSheet.absoluteFillObject}>
           {/* Full-Screen Video Background */}
-          <Video
-            source={EAT_VIDEO_BACKGROUND}
+          <VideoView
+            player={eatPlayer}
             style={StyleSheet.absoluteFillObject}
-            resizeMode={ResizeMode.COVER}
-            shouldPlay
-            isLooping
-            isMuted
+            contentFit="cover"
+            nativeControls={false}
           />
 
           {/* Very Light Warm Translucent Gradient Overlay for Maximum Video Brightness */}

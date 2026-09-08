@@ -549,19 +549,18 @@ export default function BrainVsCameraScreen() {
           <View style={styles.responsiveContainer}>
             
             {/* Split Illustration */}
-            <Animated.View 
-              entering={FadeInDown.duration(900)} 
-              style={[styles.welcomeHeroContainer, animatedHeroStyle]}
-            >
-              <LinearGradient 
-                colors={['rgba(56, 189, 248, 0.18)', 'rgba(167, 139, 250, 0.18)']} 
-                style={styles.heroGlow} 
-              />
-              <Image
-                source={require('../assets/images/brain_vs_camera_hero.png')}
-                style={styles.heroImage}
-                resizeMode="contain"
-              />
+            <Animated.View entering={FadeInDown.duration(900)}>
+              <Animated.View style={[styles.welcomeHeroContainer, animatedHeroStyle]}>
+                <LinearGradient 
+                  colors={['rgba(56, 189, 248, 0.18)', 'rgba(167, 139, 250, 0.18)']} 
+                  style={styles.heroGlow} 
+                />
+                <Image
+                  source={require('../assets/images/brain_vs_camera_hero.png')}
+                  style={styles.heroImage}
+                  resizeMode="contain"
+                />
+              </Animated.View>
             </Animated.View>
 
             <Animated.View entering={FadeInDown.delay(250).duration(800)} style={styles.welcomeIntro}>
@@ -717,25 +716,24 @@ export default function BrainVsCameraScreen() {
                 </Animated.View>
 
                 {/* Unique Premium Orb/Journal Input Experience */}
-                <Animated.View 
-                  entering={FadeInDown.delay(200).duration(800)} 
-                  style={[styles.premiumThoughtContainer, animatedInputCardStyle]}
-                >
-                  {/* Glowing Memory Orb behind input */}
-                  <Animated.View style={[styles.memoryOrb, animatedOrbStyle]} />
-                  
-                  <Text style={styles.worryCardLabel}>💭 Floating Journal</Text>
-                  <TextInput
-                    style={styles.worryInput}
-                    multiline
-                    numberOfLines={5}
-                    placeholder="My friend didn't reply to my message..."
-                    placeholderTextColor="rgba(255, 255, 255, 0.3)"
-                    value={thought}
-                    onChangeText={handleThoughtChange}
-                    maxLength={200}
-                  />
-                  <Text style={styles.worryCharCount}>{thought.length} / 200</Text>
+                <Animated.View entering={FadeInDown.delay(200).duration(800)}>
+                  <Animated.View style={[styles.premiumThoughtContainer, animatedInputCardStyle]}>
+                    {/* Glowing Memory Orb behind input */}
+                    <Animated.View style={[styles.memoryOrb, animatedOrbStyle]} />
+                    
+                    <Text style={styles.worryCardLabel}>💭 Floating Journal</Text>
+                    <TextInput
+                      style={styles.worryInput}
+                      multiline
+                      numberOfLines={5}
+                      placeholder="My friend didn't reply to my message..."
+                      placeholderTextColor="rgba(255, 255, 255, 0.3)"
+                      value={thought}
+                      onChangeText={handleThoughtChange}
+                      maxLength={200}
+                    />
+                    <Text style={styles.worryCharCount}>{thought.length} / 200</Text>
+                  </Animated.View>
                 </Animated.View>
 
                 {/* Interactive suggestion builder */}
@@ -1245,15 +1243,14 @@ export default function BrainVsCameraScreen() {
           <ScrollView contentContainerStyle={styles.completeScroll} showsVerticalScrollIndicator={false}>
             
             {/* Animated Trophy badge */}
-            <Animated.View 
-              entering={FadeInDown.delay(100).duration(800).springify()} 
-              style={[styles.successTrophyContainer, animatedTrophyStyle]}
-            >
-              <LinearGradient 
-                colors={['rgba(251, 191, 36, 0.25)', 'rgba(245, 158, 11, 0.05)']} 
-                style={styles.trophyGlowRing} 
-              />
-              <MaterialCommunityIcons name="trophy-award" size={88} color="#FBBF24" />
+            <Animated.View entering={FadeInDown.delay(100).duration(800).springify()}>
+              <Animated.View style={[styles.successTrophyContainer, animatedTrophyStyle]}>
+                <LinearGradient 
+                  colors={['rgba(251, 191, 36, 0.25)', 'rgba(245, 158, 11, 0.05)']} 
+                  style={styles.trophyGlowRing} 
+                />
+                <MaterialCommunityIcons name="trophy-award" size={88} color="#FBBF24" />
+              </Animated.View>
             </Animated.View>
 
             <Animated.View entering={FadeInDown.delay(250).duration(800)} style={styles.completeHeader}>

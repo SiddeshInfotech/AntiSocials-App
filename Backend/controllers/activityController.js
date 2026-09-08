@@ -1,4 +1,34 @@
 const db = require('../db');
+const { recordExperienceInternal } = require('./lifeScoreController');
+
+const mapActivityToLifeCategory = (categoryStr, titleStr) => {
+    const text = `${categoryStr || ''} ${titleStr || ''}`.toLowerCase();
+    if (text.includes('travel') || text.includes('trip') || text.includes('trek') || text.includes('camp') || text.includes('hike') || text.includes('mountain')) {
+        return 'travel_exploration';
+    }
+    if (text.includes('adventure') || text.includes('climb') || text.includes('surf') || text.includes('kayak') || text.includes('skate') || text.includes('paraglid')) {
+        return 'adventure_new_experiences';
+    }
+    if (text.includes('learn') || text.includes('workshop') || text.includes('book') || text.includes('study') || text.includes('class') || text.includes('code') || text.includes('tech')) {
+        return 'education_learning';
+    }
+    if (text.includes('volunteer') || text.includes('charity') || text.includes('ngo') || text.includes('cleanup') || text.includes('clean') || text.includes('community')) {
+        return 'community_contribution';
+    }
+    if (text.includes('fitness') || text.includes('gym') || text.includes('run') || text.includes('yoga') || text.includes('sports') || text.includes('cricket') || text.includes('swim') || text.includes('football') || text.includes('cycle')) {
+        return 'health_fitness_physical';
+    }
+    if (text.includes('art') || text.includes('music') || text.includes('paint') || text.includes('dance') || text.includes('craft') || text.includes('cook') || text.includes('photo') || text.includes('theatre')) {
+        return 'creativity_hobbies_passion';
+    }
+    if (text.includes('culture') || text.includes('food') || text.includes('fest') || text.includes('dinner') || text.includes('heritage') || text.includes('museum')) {
+        return 'culture_social_experiences';
+    }
+    if (text.includes('meditat') || text.includes('mindful') || text.includes('spiritual') || text.includes('courage') || text.includes('speech') || text.includes('public')) {
+        return 'personal_growth_courage';
+    }
+    return 'culture_social_experiences';
+};
 
 const parseMemberPreview = (raw) => {
     let list = raw;
@@ -634,6 +664,23 @@ exports.joinActivity = async (req, res) => {
             'INSERT INTO activity_participants (activity_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
             [id, userId]
         );
+
+        // Record Life Experience update (idempotent, won't duplicate if already joined)
+        db.query('SELECT category, title FROM activities WHERE id = $1', [id])
+            .then(actDetails => {
+                if (actDetails.rows.length > 0) {
+                    const lifeCategory = mapActivityToLifeCategory(actDetails.rows[0].category, actDetails.rows[0].title);
+                    recordExperienceInternal({
+                        userId,
+                        experience_id: `activity_join_${id}`,
+                        category_slug: lifeCategory,
+                        source_type: 'activity_join',
+                        source_id: String(id),
+                        score_delta: 3.0,
+                    }).catch(() => {});
+                }
+            })
+            .catch(() => {});
 
         const memberInfo = await getActivityMemberInfo(id);
 

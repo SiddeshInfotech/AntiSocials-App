@@ -45,7 +45,7 @@ interface AIResult {
 // ── Custom Empathetic AI Insight Generator ───────────────────────────────
 const generateAIResult = (thought: string): AIResult => {
   const text = thought.toLowerCase();
-  
+
   // Default values
   let insight = "This recurring thought suggests that there is a topic or situation that is holding significant importance or feels unfinished in your mind. Recurring thoughts often reflect core goals, fears, or situations that are asking for resolution.";
   let whyReturns = "The mind repeats thoughts when it feels there is an unresolved emotion, a potential risk, or a target that hasn't been met yet. It acts as an internal alert system to keep you focused on what it perceives as important.";
@@ -168,7 +168,7 @@ function GradBtn({ label, onPress, disabled }: { label: string; onPress: () => v
       <Pressable
         onPressIn={() => {
           if (!disabled) {
-            try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch(e){}
+            try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch (e) { }
             sc.value = withSpring(0.96);
           }
         }}
@@ -196,7 +196,7 @@ export default function WriteRecurringThoughtScreen() {
   const [screen, setScreen] = useState<ScreenState>('welcome');
   const [thoughtText, setThoughtText] = useState('');
   const [aiResult, setAiResult] = useState<AIResult | null>(null);
-  
+
   // Loading screen active texts state
   const [loadingTextIndex, setLoadingTextIndex] = useState(0);
 
@@ -209,8 +209,8 @@ export default function WriteRecurringThoughtScreen() {
       await apiFetch('/api/tasks/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ 
-          task_name: 'Write Recurring Thought', 
+        body: JSON.stringify({
+          task_name: 'Write Recurring Thought',
           points: 500,
           thought: thoughtText
         }),
@@ -279,7 +279,7 @@ export default function WriteRecurringThoughtScreen() {
     return (
       <View style={styles.root}>
         <StatusBar style="light" />
-        
+
         {/* Full-Screen Edge-to-Edge Background */}
         <View style={styles.backgroundContainer}>
           <Animated.Image
@@ -303,7 +303,7 @@ export default function WriteRecurringThoughtScreen() {
 
         <SafeAreaView style={styles.safeArea}>
           <View style={styles.responsiveContainer}>
-            
+
             <Animated.View entering={FadeInDown.duration(1000)} style={styles.welcomeIntro}>
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>🌱 Self-Reflection Task</Text>
@@ -351,7 +351,7 @@ export default function WriteRecurringThoughtScreen() {
 
         <SafeAreaView style={styles.safeArea}>
           <View style={styles.responsiveContainer}>
-            
+
             <View style={styles.header}>
               <TouchableOpacity onPress={() => setScreen('welcome')} style={styles.glassBackBtn}>
                 <Feather name="chevron-left" size={24} color="#FFF" />
@@ -360,8 +360,8 @@ export default function WriteRecurringThoughtScreen() {
               <View style={{ width: 44 }} />
             </View>
 
-            <ScrollView 
-              contentContainerStyle={styles.scrollContent} 
+            <ScrollView
+              contentContainerStyle={styles.scrollContent}
               showsVerticalScrollIndicator={false}
             >
               <Animated.View entering={FadeInDown.duration(800)} style={styles.sectionHeader}>
@@ -433,7 +433,7 @@ export default function WriteRecurringThoughtScreen() {
 
         <SafeAreaView style={styles.safeArea}>
           <View style={styles.responsiveContainer}>
-            
+
             <View style={styles.header}>
               <TouchableOpacity onPress={() => setScreen('examples')} style={styles.glassBackBtn}>
                 <Feather name="chevron-left" size={24} color="#FFF" />
@@ -442,8 +442,8 @@ export default function WriteRecurringThoughtScreen() {
               <View style={{ width: 44 }} />
             </View>
 
-            <ScrollView 
-              contentContainerStyle={styles.scrollContent} 
+            <ScrollView
+              contentContainerStyle={styles.scrollContent}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
@@ -456,7 +456,7 @@ export default function WriteRecurringThoughtScreen() {
               <Animated.View entering={FadeInDown.delay(200).duration(800)} style={styles.notebookContainer}>
                 {/* Decorative Pen Illustration */}
                 <MaterialCommunityIcons name="feather" size={28} color="rgba(140, 125, 112, 0.5)" style={styles.featherPenIcon} />
-                
+
                 {/* Background paper lines */}
                 <View style={styles.notebookLinesWrapper}>
                   {Array.from({ length: 9 }).map((_, i) => (
@@ -479,10 +479,10 @@ export default function WriteRecurringThoughtScreen() {
             </ScrollView>
 
             <View style={{ width: '100%', alignItems: 'center' }}>
-              <GradBtn 
-                label="Analyze My Thought" 
-                onPress={handleStartAnalysis} 
-                disabled={!thoughtText.trim()} 
+              <GradBtn
+                label="Analyze My Thought"
+                onPress={handleStartAnalysis}
+                disabled={!thoughtText.trim()}
               />
             </View>
 
@@ -506,9 +506,9 @@ export default function WriteRecurringThoughtScreen() {
 
         <SafeAreaView style={styles.safeArea}>
           <View style={[styles.responsiveContainer, { justifyContent: 'center', alignItems: 'center' }]}>
-            
+
             <ActivityIndicator size="large" color={C.violet} style={{ marginBottom: 30 }} />
-            
+
             <Animated.View entering={FadeIn.duration(500)} style={styles.loadingTextContainer}>
               <Text style={styles.loadingText}>{loadingTexts[loadingTextIndex]}</Text>
             </Animated.View>
@@ -539,7 +539,7 @@ export default function WriteRecurringThoughtScreen() {
 
         <SafeAreaView style={styles.safeArea}>
           <View style={styles.responsiveContainer}>
-            
+
             <View style={styles.header}>
               <TouchableOpacity onPress={() => setScreen('write')} style={styles.glassBackBtn}>
                 <Feather name="chevron-left" size={24} color="#FFF" />
@@ -548,8 +548,8 @@ export default function WriteRecurringThoughtScreen() {
               <View style={{ width: 44 }} />
             </View>
 
-            <ScrollView 
-              contentContainerStyle={styles.scrollContent} 
+            <ScrollView
+              contentContainerStyle={styles.scrollContent}
               showsVerticalScrollIndicator={false}
             >
               <Animated.View entering={FadeInDown.duration(800)} style={styles.analysisHeader}>
@@ -618,7 +618,7 @@ export default function WriteRecurringThoughtScreen() {
   return (
     <View style={styles.root}>
       <StatusBar style="light" />
-      
+
       <View style={styles.backgroundContainer}>
         <Image
           source={require('../assets/images/sun_rise_from_moutain_phot_202607011041.jpeg')}
@@ -633,9 +633,9 @@ export default function WriteRecurringThoughtScreen() {
 
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.responsiveContainer}>
-          
+
           <ScrollView contentContainerStyle={styles.completeScroll} showsVerticalScrollIndicator={false}>
-            
+
             <Animated.View entering={FadeInDown.duration(900)} style={styles.completeHeader}>
               <Text style={styles.completeTitle}>✨ Reflection Complete</Text>
               <Text style={styles.completeSubtitle}>

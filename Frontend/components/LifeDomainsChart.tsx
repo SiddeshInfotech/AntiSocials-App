@@ -259,8 +259,63 @@ const AnimatedOwl = () => {
   );
 };
 
-export default function LifeDomainsChart() {
+interface LifeDomainsChartProps {
+  lifeScoreData?: any;
+}
+
+const DOMAIN_CATEGORY_MAP: Record<string, string> = {
+  Mental: 'personal_growth_courage',
+  Physical: 'health_fitness_physical',
+  Social: 'relationships_family',
+  Spiritual: 'culture_social_experiences',
+  Career: 'education_learning',
+  Financial: 'age_life_stage',
+  Environment: 'community_contribution',
+  Growth: 'adventure_new_experiences',
+};
+
+export default function LifeDomainsChart({ lifeScoreData }: LifeDomainsChartProps = {}) {
   const [activeDomain, setActiveDomain] = useState<string | null>(null);
+
+  const isQuizCompleted = Boolean(
+    lifeScoreData?.quizCompleted ??
+    lifeScoreData?.quiz_completed ??
+    lifeScoreData?.data?.quizCompleted ??
+    lifeScoreData?.data?.quiz_completed
+  );
+
+  const rawOverall =
+    lifeScoreData?.overallScore ??
+    lifeScoreData?.overall_score ??
+    lifeScoreData?.data?.overallScore ??
+    lifeScoreData?.data?.overall_score ??
+    lifeScoreData?.current?.overall ??
+    lifeScoreData?.data?.currentScores?.overallScore ??
+    0;
+  const overallCurrent = Math.round(Number(rawOverall) * 10) / 10;
+
+  const categoryScores: Record<string, number> =
+    lifeScoreData?.categoryScores ??
+    lifeScoreData?.current?.categories ??
+    lifeScoreData?.data?.categoryScores ??
+    lifeScoreData?.data?.currentScores ??
+    {};
+
+  const domainsList = DOMAINS.map((d) => {
+    const catSlug = DOMAIN_CATEGORY_MAP[d.name];
+    const realScore = isQuizCompleted && catSlug && categoryScores[catSlug] !== undefined
+      ? Number(categoryScores[catSlug])
+      : d.progress;
+    // Scale 0..100 to arc length (max 80)
+    const scaledProgress = Math.min(80, Math.max(10, Math.round((realScore / 100) * 80)));
+    return {
+      ...d,
+      realScore: Math.round(realScore * 10) / 10,
+      progress: scaledProgress,
+    };
+  });
+
+  const activeDomainObj = domainsList.find((d) => d.name === activeDomain);
 
   const handleDomainPress = (name: string) => {
     setActiveDomain((prev) => (prev === name ? null : name));
@@ -268,6 +323,24 @@ export default function LifeDomainsChart() {
 
   return (
     <View style={styles.domainCard}>
+      {/* Life Domains Header — Clearly showing Overall Score in XX/100 Format */}
+      <View style={styles.chartHeader}>
+        <View>
+          <Text style={styles.chartHeaderTitle}>Life Domains</Text>
+          <Text style={styles.chartHeaderSubtitle}>Equilibrium & Dimension Health</Text>
+        </View>
+        {isQuizCompleted ? (
+          <View style={styles.chartScoreBadge}>
+            <Text style={styles.chartScoreLabel}>TOTAL LIFE SCORE</Text>
+            <Text style={styles.chartScoreValue}>{overallCurrent.toFixed(1)}/100</Text>
+          </View>
+        ) : (
+          <View style={styles.chartPendingBadge}>
+            <Text style={styles.chartPendingText}>Quiz Pending</Text>
+          </View>
+        )}
+      </View>
+
       <View style={styles.svgChartContainer}>
         <Svg width="320" height="320" viewBox="0 0 320 320">
           {/* Thin axis lines intersecting the wheel */}
@@ -323,7 +396,7 @@ export default function LifeDomainsChart() {
           />
 
           <G rotation="-90" origin="160, 160">
-            {DOMAINS.map((d) => (
+            {domainsList.map((d) => (
               <G key={d.name + "arc"} rotation={d.rotation} origin="160, 160">
                 <Circle
                   cx="160"
@@ -353,7 +426,7 @@ export default function LifeDomainsChart() {
         </Svg>
 
         <View style={[StyleSheet.absoluteFill, { zIndex: 10 }]}>
-          {DOMAINS.map((d) => {
+          {domainsList.map((d) => {
             const rad = (d.angle - 90) * (Math.PI / 180);
             const xPercentage = 50 + 44 * Math.cos(rad);
             const yPercentage = 50 + 44 * Math.sin(rad);
@@ -376,7 +449,9 @@ export default function LifeDomainsChart() {
 
       {activeDomain ? (
         <Animated.View style={styles.domainActionSheet}>
-          <Text style={styles.domainActionTitle}>Review {activeDomain}</Text>
+          <Text style={styles.domainActionTitle}>
+            Review {activeDomain} • {activeDomainObj?.realScore ?? 0}/100
+          </Text>
           <TouchableOpacity
             style={styles.domainActionBtn}
             onPress={() => {
@@ -406,8 +481,58 @@ const styles = StyleSheet.create({
     marginBottom: 40,
     backgroundColor: "#111111", // Exact black card
     borderRadius: 25,
-    paddingVertical: 35,
+    paddingTop: 24,
+    paddingBottom: 35,
     alignItems: "center",
+  },
+  chartHeader: {
+    width: "100%",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 22,
+    marginBottom: 16,
+  },
+  chartHeaderTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#FFFFFF",
+  },
+  chartHeaderSubtitle: {
+    fontSize: 12,
+    color: "#9CA3AF",
+    marginTop: 2,
+  },
+  chartScoreBadge: {
+    backgroundColor: "rgba(139, 92, 246, 0.2)",
+    borderWidth: 1,
+    borderColor: "#8B5CF6",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    alignItems: "flex-end",
+  },
+  chartScoreLabel: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: "#C4B5FD",
+    letterSpacing: 0.5,
+  },
+  chartScoreValue: {
+    fontSize: 16,
+    fontWeight: "900",
+    color: "#FFFFFF",
+  },
+  chartPendingBadge: {
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  chartPendingText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#D1D5DB",
   },
   svgChartContainer: {
     width: 320,

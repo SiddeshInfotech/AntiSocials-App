@@ -32,7 +32,7 @@ export default function YourInterestsScreen() {
         if (response.ok) {
           const data = await response.json();
           const interestsArray = data.interests || (Array.isArray(data) ? data : []);
-          
+
           // Normalize to match EXACT case of INTERESTS_LIST, or keep custom interest
           const normalizedInterests = interestsArray.map((savedInterest: string) => {
             const exactMatch = INTERESTS_LIST.find(
@@ -129,8 +129,8 @@ export default function YourInterestsScreen() {
             {Array.from(new Set([...INTERESTS_LIST, ...Array.from(selectedInterests)])).map((interest, index) => {
               const isSelected = selectedInterests.has(interest);
               return (
-                <TouchableOpacity 
-                  key={index} 
+                <TouchableOpacity
+                  key={index}
                   style={[styles.interestPill, isSelected && styles.interestPillSelected]}
                   onPress={() => toggleInterest(interest)}
                 >

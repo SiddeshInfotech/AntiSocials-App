@@ -1,5 +1,6 @@
 const db = require('../db');
 const pointsStreakService = require('../services/pointsStreakService');
+const { calculateConnectorLevel, getConnectorLevelDetails } = require('../constants/lifeExperienceData');
 
 // 3-tier relationship model. CLOSE = highest trust, GROWING_FOLLOWER = default for new connections.
 const RELATIONSHIP_TIERS = ['CLOSE', 'FAMILY_REGULAR', 'GROWING_FOLLOWER'];
@@ -36,11 +37,6 @@ exports.getProfile = async (req, res) => {
         if (userResult.rows.length === 0) {
             return res.status(404).json({ error: 'User not found' });
         }
-        const user = {
-            ...userResult.rows[0],
-            points: taskPoints,
-            streak_count: summary.currentStreak
-        };
 
         // Fetch stats
         const activitiesResult = await db.query('SELECT COUNT(*) FROM activity_participants WHERE user_id = $1', [userId]);
@@ -52,6 +48,27 @@ exports.getProfile = async (req, res) => {
         const storiesResult = await db.query("SELECT COUNT(*) FROM stories WHERE user_id = $1", [userId]);
         const storiesCount = parseInt(storiesResult.rows[0].count, 10);
 
+        // Fetch Life Experience score, connector level, and quizCompleted
+        const lifeScoreResult = await db.query(
+            'SELECT current_overall_score, connector_level, quiz_completed FROM life_experience_scores WHERE user_id = $1',
+            [userId]
+        ).catch(() => ({ rows: [] }));
+        const lifeScoreRow = lifeScoreResult.rows[0];
+        const overallLifeScore = lifeScoreRow ? parseFloat(lifeScoreRow.current_overall_score || 0) : 0;
+        const connectorLevel = (lifeScoreRow && lifeScoreRow.connector_level !== null && lifeScoreRow.connector_level !== undefined)
+            ? parseInt(lifeScoreRow.connector_level, 10)
+            : calculateConnectorLevel(overallLifeScore);
+        const levelDetails = getConnectorLevelDetails(overallLifeScore);
+        const quizCompleted = Boolean(lifeScoreRow?.quiz_completed || userResult.rows[0].quiz_completed);
+
+        const user = {
+            ...userResult.rows[0],
+            points: taskPoints,
+            streak_count: summary.currentStreak,
+            quizCompleted,
+            quiz_completed: quizCompleted,
+        };
+
         const stats = {
             activitiesJoined,
             tasksCompleted,
@@ -62,7 +79,15 @@ exports.getProfile = async (req, res) => {
             streak: summary.currentStreak,
             longestStreak: summary.longestStreak,
             storiesCount,
-            postsCount: 0 // Placeholder if posts exist in future
+            postsCount: 0, // Placeholder if posts exist in future
+            connectorLevel,
+            connector_level: connectorLevel,
+            rank: 'Connector',
+            rankLevel: connectorLevel,
+            levelDetails,
+            overallLifeScore,
+            quizCompleted,
+            quiz_completed: quizCompleted,
         };
 
         // Fetch interests

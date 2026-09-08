@@ -7,7 +7,6 @@
     "allowSyntheticDefaultImports": true,
     "moduleResolution": "bundler",
     "skipLibCheck": true,
-    "baseUrl": ".",
     "paths": {
       "@/*": [
         "./*"

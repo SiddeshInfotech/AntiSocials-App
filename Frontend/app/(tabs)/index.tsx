@@ -1,8 +1,13 @@
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { useIsFocused } from "@react-navigation/native";
+import { useIsFocused } from "expo-router";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import TasksJourneySection from "../../components/TasksJourneySection";
 import CircularHabitDashboard from "../../components/CircularHabitDashboard";
+import StoryCard, { StoryType } from "../../components/StoryCard";
+import StoryCommentModal from "../../components/StoryCommentModal";
+import PostCard, { PostType } from "../../components/PostCard";
+import PostCommentModal from "../../components/PostCommentModal";
+import { appendFileToFormData } from "../create-post";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
@@ -37,7 +42,35 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import Svg, { Circle, G, Line } from "react-native-svg";
-import { Video, ResizeMode } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
+
+function StoryViewerVideo({ uri, isPaused, style }: { uri: string; isPaused: boolean; style: any }) {
+  const player = useVideoPlayer(uri, (player) => {
+    player.loop = true;
+    if (!isPaused) player.play();
+    else player.pause();
+  });
+
+  useEffect(() => {
+    if (!isPaused) player.play();
+    else player.pause();
+  }, [isPaused, player]);
+
+  return (
+    <VideoView player={player} style={style} contentFit="contain" nativeControls={false} />
+  );
+}
+
+function PreviewStoryVideo({ uri, style }: { uri: string; style: any }) {
+  const player = useVideoPlayer(uri, (player) => {
+    player.loop = true;
+    player.play();
+  });
+
+  return (
+    <VideoView player={player} style={style} contentFit="cover" nativeControls={false} />
+  );
+}
 
 const { width, height } = Dimensions.get("window");
 
@@ -692,6 +725,16 @@ export default function HomeScreen() {
   const [previewStoryMedia, setPreviewStoryMedia] = useState<string | null>(null);
   const [previewMediaType, setPreviewMediaType] = useState<'image' | 'video'>('image');
 
+  // Active Feed State
+  const [feedPosts, setFeedPosts] = useState<PostType[]>([]);
+  const [feedLoading, setFeedLoading] = useState<boolean>(true);
+  const [feedPage, setFeedPage] = useState<number>(1);
+  const [feedHasMore, setFeedHasMore] = useState<boolean>(true);
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
+  const [activeCommentPost, setActiveCommentPost] = useState<PostType | null>(null);
+  const [postCommentModalVisible, setPostCommentModalVisible] = useState<boolean>(false);
+  const [currentUserId, setCurrentUserId] = useState<string | number | null>(null);
+
   // Multi-Story Viewer State & Controls
   const [activeStoryList, setActiveStoryList] = useState<any[]>([]);
   const [activeStoryIndex, setActiveStoryIndex] = useState<number>(0);
@@ -937,8 +980,90 @@ export default function HomeScreen() {
       }
       fetchHomeData();
       fetchUserSummary();
+      fetchFeedPosts();
     }
   }, [isFocused, updatedPoints, updatedStreak]);
+
+  const fetchFeedPosts = async (pageToFetch: number = 1, isRefreshing: boolean = false) => {
+    try {
+      if (pageToFetch === 1 && !isRefreshing) {
+        setFeedLoading(true);
+      } else if (pageToFetch > 1) {
+        setIsLoadingMore(true);
+      }
+
+      const token = await SecureStore.getItemAsync("token");
+      let storedUserId = await SecureStore.getItemAsync("userId");
+      if (storedUserId) {
+        setCurrentUserId(storedUserId);
+      }
+      if (!token) return;
+
+      const response = await apiFetch(`/api/posts/feed?page=${pageToFetch}&limit=10`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (Array.isArray(data.posts)) {
+          if (pageToFetch === 1) {
+            setFeedPosts(data.posts);
+          } else {
+            setFeedPosts((prev) => {
+              const existingIds = new Set(prev.map((p) => String(p.id)));
+              const newUniquePosts = data.posts.filter((p: any) => !existingIds.has(String(p.id)));
+              return [...prev, ...newUniquePosts];
+            });
+          }
+          setFeedPage(pageToFetch);
+          setFeedHasMore(Boolean(data.hasMore));
+        }
+      }
+    } catch (e) {
+      console.error("fetchFeedPosts error:", e);
+    } finally {
+      setFeedLoading(false);
+      setIsLoadingMore(false);
+      setRefreshing(false);
+    }
+  };
+
+  const handleLoadMorePosts = () => {
+    if (!feedLoading && !isLoadingMore && feedHasMore) {
+      fetchFeedPosts(feedPage + 1);
+    }
+  };
+
+  const handlePostLikeToggle = (postId: string | number, isLiked: boolean, newCount: number) => {
+    setFeedPosts((prev) =>
+      prev.map((item) =>
+        String(item.id) === String(postId)
+          ? { ...item, is_liked_by_user: isLiked, likes_count: newCount }
+          : item
+      )
+    );
+  };
+
+  const handleOpenPostComments = (post: PostType) => {
+    setActiveCommentPost(post);
+    setPostCommentModalVisible(true);
+  };
+
+  const handlePostCommentsCountChange = (postId: string | number, count: number) => {
+    setFeedPosts((prev) =>
+      prev.map((item) =>
+        String(item.id) === String(postId) ? { ...item, comments_count: count } : item
+      )
+    );
+  };
+
+  const handlePostDeleteSuccess = (postId: string | number) => {
+    setFeedPosts((prev) => prev.filter((item) => String(item.id) !== String(postId)));
+  };
+
+  const handleNavigateToAddPost = () => {
+    router.push("/create-post");
+  };
 
   const fetchUserSummary = async () => {
     try {
@@ -1012,6 +1137,7 @@ export default function HomeScreen() {
     setRefreshing(true);
     fetchHomeData();
     fetchUserSummary();
+    fetchFeedPosts(1, true);
   };
 
   const handleTaskPress = (label: string) => {
@@ -1068,11 +1194,6 @@ export default function HomeScreen() {
   };
 
   const handleAddStory = async () => {
-    const validOwn = (homeData?.own_stories || []).filter((s: any) => s && s.media_url && typeof s.media_url === "string" && s.media_url.trim() !== "");
-    if (validOwn.length > 0) {
-      Alert.alert("Active Story Exists", "You already have an active story.");
-      return;
-    }
     if (Platform.OS === "web") {
       const choice = window.confirm(
         "Press OK to Upload from Gallery, or Cancel to open Camera.",
@@ -1083,7 +1204,7 @@ export default function HomeScreen() {
         openCamera();
       }
     } else {
-      Alert.alert("Add Story", "Choose an option to share your moment", [
+      Alert.alert("Add Your Post", "Choose an option to share your moment with the community", [
         { text: "Cancel", style: "cancel" },
         { text: "Take Photo", onPress: openCamera },
         { text: "Upload from Gallery", onPress: pickImage },
@@ -1104,7 +1225,7 @@ export default function HomeScreen() {
       const type = previewMediaType === 'video' ? 'video/mp4' : (match ? `image/${match[1]}` : `image/jpeg`);
 
       const formData = new FormData();
-      formData.append('image', { uri: previewStoryMedia, name: filename, type } as any);
+      await appendFileToFormData(formData, 'image', previewStoryMedia, filename, type);
 
       console.log('📤 [Story Upload] Sending media to /upload...');
       const uploadRes = await apiFetch('/upload', {
@@ -1162,6 +1283,7 @@ export default function HomeScreen() {
 
         // Background sync to ensure all data is fresh
         fetchHomeData().catch((syncErr) => console.error("Error refreshing home data after upload:", syncErr));
+        fetchFeedPosts().catch((syncErr) => console.error("Error refreshing feed posts after upload:", syncErr));
 
         Alert.alert("Success", "Story uploaded successfully!");
       } else {
@@ -1224,7 +1346,7 @@ export default function HomeScreen() {
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.All,
+      mediaTypes: ['images', 'videos'] as any,
       allowsEditing: false,
       quality: 0.5,
     });
@@ -1242,7 +1364,7 @@ export default function HomeScreen() {
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.All,
+      mediaTypes: ['images', 'videos'] as any,
       allowsEditing: false,
       quality: 0.5,
     });
@@ -1268,7 +1390,7 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {isFocused && <StatusBar style="dark" backgroundColor="#ffffff" />}
+      {isFocused && <StatusBar style="dark" />}
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -1359,20 +1481,89 @@ export default function HomeScreen() {
 
         <TasksJourneySection completedTasks={homeData?.completedTasks || []} />
 
-        {/* --- Feed Locked Section --- */}
-        <View style={styles.feedLockedContainer}>
-          <View style={styles.lockOutline}>
-            <Feather name="lock" size={40} color="#a1a1aa" />
+        {/* --- Active Feed Section --- */}
+        <View style={styles.feedSectionContainer}>
+          {/* Feed Header */}
+          <View style={styles.feedHeaderRow}>
+            <View style={styles.feedTitleGroup}>
+              <Text style={styles.feedTitleText}>Feed</Text>
+              <View style={styles.feedLiveDot} />
+            </View>
           </View>
-          <Text style={styles.feedLockedTitle}>Feed Locked</Text>
-          <Text style={styles.feedLockedSub}>
-            Complete at least 1 task to unlock the community feed
-          </Text>
-          <TouchableOpacity style={styles.greyButton} activeOpacity={0.7}>
-            <Text style={styles.greyButtonText}>
-              Show up for yourself first
-            </Text>
+
+          {/* Centered Circular Add Your Post Entry Card */}
+          <TouchableOpacity
+            style={styles.addPostCenteredCard}
+            activeOpacity={0.85}
+            onPress={handleNavigateToAddPost}
+          >
+            <LinearGradient
+              colors={["rgba(168, 85, 247, 0.15)", "rgba(236, 72, 153, 0.08)", "rgba(15, 23, 42, 0.8)"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.addPostCenteredGradient}
+            >
+              <View style={styles.addPostBigCircleWrapper}>
+                <LinearGradient
+                  colors={["#a855f7", "#ec4899"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.addPostBigCircleBtn}
+                >
+                  <Feather name="plus" size={24} color="#FFFFFF" />
+                </LinearGradient>
+              </View>
+              <Text style={styles.addPostCenteredTitle}>Add Your Post</Text>
+            </LinearGradient>
           </TouchableOpacity>
+
+          {/* Community Feed Posts */}
+          {feedLoading && feedPosts.length === 0 ? (
+            <View style={styles.feedLoadingContainer}>
+              <ActivityIndicator size="small" color="#ec4899" />
+            </View>
+          ) : feedPosts && feedPosts.length > 0 ? (
+            <View style={styles.feedListContainer}>
+              {feedPosts.map((postItem) => (
+                <PostCard
+                  key={postItem.id}
+                  post={postItem}
+                  currentUserId={currentUserId || homeData?.user?.id}
+                  onLikeToggle={handlePostLikeToggle}
+                  onOpenComments={handleOpenPostComments}
+                  onDeleteSuccess={handlePostDeleteSuccess}
+                />
+              ))}
+
+              {feedHasMore ? (
+                <TouchableOpacity
+                  style={styles.loadMoreBtn}
+                  onPress={handleLoadMorePosts}
+                  disabled={isLoadingMore}
+                >
+                  {isLoadingMore ? (
+                    <ActivityIndicator size="small" color="#a855f7" />
+                  ) : (
+                    <Text style={styles.loadMoreBtnText}>Load Older Posts</Text>
+                  )}
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          ) : (
+            <View style={styles.emptyFeedContainer}>
+              <Feather name="rss" size={38} color="#64748B" style={{ marginBottom: 12 }} />
+              <Text style={styles.emptyFeedTitle}>No Posts in Your Feed Yet</Text>
+              <Text style={styles.emptyFeedSubtitle}>
+                Follow members of the community or share your first post!
+              </Text>
+              <TouchableOpacity
+                style={styles.emptyFeedActionBtn}
+                onPress={handleNavigateToAddPost}
+              >
+                <Text style={styles.emptyFeedActionBtnText}>Create a Post ✨</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </ScrollView>
 
@@ -1462,20 +1653,10 @@ export default function HomeScreen() {
                   }
 
                   return isVideo ? (
-                    <Video
-                      source={{ uri: resolvedMedia }}
+                    <StoryViewerVideo
+                      uri={resolvedMedia}
+                      isPaused={isStoryPaused}
                       style={styles.storyViewerImage}
-                      resizeMode={ResizeMode.CONTAIN}
-                      shouldPlay={!isStoryPaused}
-                      isLooping
-                      useNativeControls={false}
-                      onLoadStart={() => setViewerMediaLoading(true)}
-                      onLoad={() => setViewerMediaLoading(false)}
-                      onError={(e) => {
-                        console.log(`❌ [StoryViewer] Video error for ${resolvedMedia}:`, e);
-                        setViewerMediaLoading(false);
-                        setViewerMediaError(true);
-                      }}
                     />
                   ) : (
                     <Image
@@ -1628,12 +1809,9 @@ export default function HomeScreen() {
             {/* Immersive Media Preview */}
             <View style={{ flex: 1, borderRadius: 20, overflow: 'hidden', marginHorizontal: 0, marginTop: 0 }}>
               {previewMediaType === 'video' ? (
-                <Video
-                  source={{ uri: previewStoryMedia || '' }}
+                <PreviewStoryVideo
+                  uri={previewStoryMedia || ''}
                   style={{ flex: 1 }}
-                  resizeMode={ResizeMode.COVER}
-                  shouldPlay
-                  isLooping
                 />
               ) : (
                 <Image source={{ uri: previewStoryMedia || '' }} style={{ flex: 1 }} resizeMode="cover" />
@@ -1788,6 +1966,18 @@ export default function HomeScreen() {
           </Modal>
         </SafeAreaView>
       </Modal>
+
+      {/* Post Comment Modal */}
+      <PostCommentModal
+        visible={postCommentModalVisible}
+        postId={activeCommentPost?.id || null}
+        postAuthor={activeCommentPost?.display_name || activeCommentPost?.username}
+        onClose={() => {
+          setPostCommentModalVisible(false);
+          setActiveCommentPost(null);
+        }}
+        onCommentsCountChange={handlePostCommentsCountChange}
+      />
 
     </SafeAreaView>
   );
@@ -2511,40 +2701,164 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 20,
   },
-  feedLockedContainer: {
+  feedSectionContainer: {
+    width: "100%",
+    paddingHorizontal: 16,
+    paddingTop: 24,
+    paddingBottom: 40,
+  },
+  feedHeaderRow: {
+    flexDirection: "row",
     alignItems: "center",
-    marginVertical: 40,
-    paddingHorizontal: 20,
+    justifyContent: "space-between",
+    marginBottom: 14,
   },
-  lockOutline: {
-    padding: 15,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: "#d4d4d8",
-    marginBottom: 15,
+  feedTitleGroup: {
+    flexDirection: "row",
+    alignItems: "center",
   },
-  feedLockedTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#3f3f46",
-    marginBottom: 8,
+  feedTitleText: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    letterSpacing: -0.5,
   },
-  feedLockedSub: {
-    fontSize: 14,
-    color: "#52525b",
-    textAlign: "center",
+  feedLiveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#10b981",
+    marginLeft: 8,
+  },
+  addPostCardPrompt: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(24, 24, 27, 0.65)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     marginBottom: 20,
   },
-  greyButton: {
-    backgroundColor: "#f4f4f5",
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 20,
+  promptUserAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#27272a",
   },
-  greyButtonText: {
-    color: "#52525b",
-    fontWeight: "600",
+  promptPlaceholderText: {
+    flex: 1,
+    color: "#a1a1aa",
     fontSize: 14,
+    marginLeft: 12,
+  },
+  promptActionBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  feedLoadingContainer: {
+    paddingVertical: 40,
+    alignItems: "center",
+  },
+  feedListContainer: {
+    gap: 16,
+  },
+  addPostCenteredCard: {
+    marginBottom: 20,
+    borderRadius: 20,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(168, 85, 247, 0.25)",
+    backgroundColor: "#0F172A",
+    shadowColor: "#8b5cf6",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  addPostCenteredGradient: {
+    paddingVertical: 22,
+    paddingHorizontal: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  addPostBigCircleWrapper: {
+    marginBottom: 10,
+    shadowColor: "#ec4899",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  addPostBigCircleBtn: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  addPostCenteredTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    letterSpacing: -0.2,
+  },
+  loadMoreBtn: {
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    backgroundColor: "rgba(168, 85, 247, 0.12)",
+    borderColor: "rgba(168, 85, 247, 0.3)",
+    borderWidth: 1,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginVertical: 12,
+  },
+  loadMoreBtnText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#A855F7",
+  },
+  emptyFeedContainer: {
+    paddingVertical: 36,
+    paddingHorizontal: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(15, 23, 42, 0.6)",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+  },
+  emptyFeedTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#F8FAFC",
+    textAlign: "center",
+    marginBottom: 6,
+  },
+  emptyFeedSubtitle: {
+    fontSize: 14,
+    color: "#94A3B8",
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: 18,
+  },
+  emptyFeedActionBtn: {
+    backgroundColor: "#9333EA",
+    paddingVertical: 12,
+    paddingHorizontal: 22,
+    borderRadius: 12,
+    shadowColor: "#9333EA",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  emptyFeedActionBtnText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#FFFFFF",
   },
 });
 

@@ -1,0 +1,6 @@
+otp.txt
+*.log
+!pinggy_tunnel.log
+!pinggy_tunnel_err.log
+.DS_Store
+Thumbs.db

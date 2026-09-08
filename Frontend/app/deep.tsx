@@ -32,7 +32,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import * as SecureStore from 'expo-secure-store';
-import { Video, ResizeMode } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { apiFetch } from '../constants/Api';
 
 const COLORS = {
@@ -193,7 +193,7 @@ const DraggableAppIcon = ({
         if (inVaultX && inVaultY) {
           // Locked / Absorbed inside Vault!
           setIsLocked(true);
-          
+
           RNAnimated.parallel([
             RNAnimated.spring(pan, {
               toValue: { x: vaultCenter.x - data.initialX, y: vaultCenter.y - data.initialY },
@@ -274,6 +274,13 @@ const DraggableAppIcon = ({
 export default function DeepScreen() {
   const router = useRouter();
   const { width, height } = useWindowDimensions();
+
+  const bgVideoSource = require('../assets/videos/animated_phot.mp4');
+  const bgPlayer = useVideoPlayer(bgVideoSource, (player) => {
+    player.loop = true;
+    player.muted = true;
+    player.play();
+  });
 
   // Desktop limits
   const isDesktop = width > 768;
@@ -386,7 +393,7 @@ export default function DeepScreen() {
     setLockedApps((prev) => {
       if (prev.includes(id)) return prev;
       const newList = [...prev, id];
-      
+
       // Auto-trigger completion sequence immediately on locking all selected apps
       if (newList.length === activeAppList.length) {
         setTimeout(triggerFinalSequence, 400);
@@ -408,7 +415,7 @@ export default function DeepScreen() {
 
   const triggerFinalSequence = () => {
     triggerHaptic('success');
-    
+
     // Rotate lock, animate click shut
     lockRotate.value = withTiming(360, { duration: 800, easing: Easing.out(Easing.back()) });
 
@@ -527,13 +534,11 @@ export default function DeepScreen() {
 
       {/* Full-screen looping background video */}
       <View style={StyleSheet.absoluteFillObject}>
-        <Video
-          source={require('../assets/videos/animated_phot.mp4')}
+        <VideoView
+          player={bgPlayer}
           style={StyleSheet.absoluteFillObject}
-          resizeMode={ResizeMode.COVER}
-          shouldPlay
-          isLooping
-          isMuted
+          contentFit="cover"
+          nativeControls={false}
         />
         {/* Dark overlay: 55% during activity, lighter 42% on completion */}
         <View
@@ -584,7 +589,7 @@ export default function DeepScreen() {
 
               <BlurView intensity={20} tint="dark" style={styles.selectionGlassCard}>
                 <Text style={styles.selectionCardHeader}>Select Your Biggest Distractions</Text>
-                
+
                 <ScrollView contentContainerStyle={styles.chipsScrollContainer} showsVerticalScrollIndicator={false}>
                   <View style={styles.chipsGrid}>
                     {AVAILABLE_APPS.map((app) => {

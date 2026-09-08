@@ -22,18 +22,6 @@ import * as SecureStore from 'expo-secure-store';
 import * as Haptics from 'expo-haptics';
 import { apiFetch } from '../constants/Api';
 
-const ORBIT_RADIUS = 50;
-const DIGIT_NODE_SIZE = 34;
-
-// Precise coordinates for each of the 6 digits: from input positions to 60-degree circular orbit
-const DIGIT_TRANSITIONS = [0, 1, 2, 3, 4, 5].map((i) => {
-  const xStart = (i - 2.5) * 54;
-  const yStart = 0;
-  const angle = (i * 60 - 90) * (Math.PI / 180);
-  const xCircle = ORBIT_RADIUS * Math.cos(angle);
-  const yCircle = ORBIT_RADIUS * Math.sin(angle);
-  return { xStart, yStart, xCircle, yCircle };
-});
 
 export default function VerifyOtpScreen() {
   const router = useRouter();
@@ -65,25 +53,20 @@ export default function VerifyOtpScreen() {
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
-  // 1. Cinematic Detach, Orbit & Verification Energy Values
-  const formProgress = useRef(new Animated.Value(0)).current;
-  const orbitRotation = useRef(new Animated.Value(0)).current;
-  const colorProgress = useRef(new Animated.Value(0)).current;
-  const digitsCollapse = useRef(new Animated.Value(1)).current;
-  const digitsOpacity = useRef(new Animated.Value(1)).current;
-  const trailGlowOpacity = useRef(new Animated.Value(0)).current;
+  // Animated values for input fade & success circle stage
+  const formOpacity = useRef(new Animated.Value(1)).current;
+  const formScale = useRef(new Animated.Value(1)).current;
 
-  // 2. Center Merge, Success Badge & Aura Ripple Values
   const successScale = useRef(new Animated.Value(0)).current;
   const successOpacity = useRef(new Animated.Value(0)).current;
-  const checkScale = useRef(new Animated.Value(0.6)).current;
+  const checkScale = useRef(new Animated.Value(0)).current;
   const checkOpacity = useRef(new Animated.Value(0)).current;
-  const auraRippleScale = useRef(new Animated.Value(0.9)).current;
-  const auraRippleOpacity = useRef(new Animated.Value(0.5)).current;
+  const auraRippleScale = useRef(new Animated.Value(0.8)).current;
+  const auraRippleOpacity = useRef(new Animated.Value(0)).current;
 
-  // 3. Confirmation Label Values
+  // Confirmation Label Values
   const confirmationOpacity = useRef(new Animated.Value(0)).current;
-  const confirmationTranslateY = useRef(new Animated.Value(8)).current;
+  const confirmationTranslateY = useRef(new Animated.Value(10)).current;
 
   useEffect(() => {
     // Play intro animation on mount
@@ -116,88 +99,44 @@ export default function VerifyOtpScreen() {
   const triggerSuccessAnimation = (destination: string = '/(tabs)') => {
     setIsAnimating(true);
 
-    // Reset all animated properties
-    formProgress.setValue(0);
-    orbitRotation.setValue(0);
-    colorProgress.setValue(0);
-    digitsCollapse.setValue(1);
-    digitsOpacity.setValue(1);
-    trailGlowOpacity.setValue(0);
-
+    // Reset animated values
+    formOpacity.setValue(1);
+    formScale.setValue(1);
     successScale.setValue(0);
     successOpacity.setValue(0);
-    checkScale.setValue(0.6);
+    checkScale.setValue(0);
     checkOpacity.setValue(0);
-    auraRippleScale.setValue(0.9);
-    auraRippleOpacity.setValue(0.5);
-
+    auraRippleScale.setValue(0.8);
+    auraRippleOpacity.setValue(0);
     confirmationOpacity.setValue(0);
-    confirmationTranslateY.setValue(8);
+    confirmationTranslateY.setValue(10);
 
-    // =========================================================================
-    // STEP 1: FLUID DETACHMENT & MOVE INTO CIRCULAR ORBIT (0 - 400ms)
-    // =========================================================================
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    } catch (_) {}
+
+    // STEP 1: Smoothly scale down and fade out OTP input fields in place
     Animated.parallel([
-      Animated.timing(formProgress, {
-        toValue: 1,
-        duration: 400,
-        easing: Easing.bezier(0.16, 1, 0.3, 1),
+      Animated.timing(formOpacity, {
+        toValue: 0,
+        duration: 220,
+        easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
-      Animated.timing(trailGlowOpacity, {
-        toValue: 0.35,
-        duration: 450,
+      Animated.timing(formScale, {
+        toValue: 0.85,
+        duration: 220,
+        easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
-      }),
-      Animated.timing(colorProgress, {
-        toValue: 1,
-        duration: 2800,
-        easing: Easing.inOut(Easing.cubic),
-        useNativeDriver: false,
       }),
     ]).start();
 
-    // =========================================================================
-    // STEP 2: 3-SECOND CINEMATIC ORBIT ROTATION (380ms - 3380ms)
-    // =========================================================================
-    setTimeout(() => {
-      Animated.timing(orbitRotation, {
-        toValue: 1,
-        duration: 3000,
-        easing: Easing.bezier(0.25, 0.1, 0.15, 1),
-        useNativeDriver: true,
-      }).start();
-    }, 380);
-
-    // =========================================================================
-    // STEP 3: DECELERATE, MERGE INWARD & REVEAL SUCCESS BADGE (3380ms)
-    // =========================================================================
+    // STEP 2: Spring reveal centered green success circle & checkmark
     setTimeout(() => {
       setIsVerifiedState(true);
-      try {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      } catch (_) {}
 
       Animated.parallel([
-        // Digits smoothly move toward center & fade
-        Animated.timing(digitsCollapse, {
-          toValue: 0.1,
-          duration: 220,
-          easing: Easing.bezier(0.4, 0, 0.2, 1),
-          useNativeDriver: true,
-        }),
-        Animated.timing(digitsOpacity, {
-          toValue: 0,
-          duration: 180,
-          useNativeDriver: true,
-        }),
-        Animated.timing(trailGlowOpacity, {
-          toValue: 0,
-          duration: 180,
-          useNativeDriver: true,
-        }),
-
-        // Green verification circle springs into center
+        // Green success circle spring expand
         Animated.timing(successOpacity, {
           toValue: 1,
           duration: 180,
@@ -205,50 +144,55 @@ export default function VerifyOtpScreen() {
         }),
         Animated.spring(successScale, {
           toValue: 1,
-          friction: 7,
-          tension: 60,
+          friction: 6,
+          tension: 55,
           useNativeDriver: true,
         }),
 
-        // Animated checkmark reveal
+        // Soft outer green aura ripple
         Animated.sequence([
-          Animated.delay(60),
-          Animated.parallel([
-            Animated.timing(checkOpacity, {
-              toValue: 1,
-              duration: 180,
-              useNativeDriver: true,
-            }),
-            Animated.spring(checkScale, {
-              toValue: 1,
-              friction: 6,
-              tension: 70,
-              useNativeDriver: true,
-            }),
-          ]),
-        ]),
-
-        // Soft aura ripple wave
-        Animated.sequence([
-          Animated.delay(80),
+          Animated.timing(auraRippleOpacity, {
+            toValue: 0.6,
+            duration: 120,
+            useNativeDriver: true,
+          }),
           Animated.parallel([
             Animated.timing(auraRippleScale, {
-              toValue: 1.6,
-              duration: 650,
+              toValue: 1.8,
+              duration: 600,
               easing: Easing.out(Easing.cubic),
               useNativeDriver: true,
             }),
             Animated.timing(auraRippleOpacity, {
               toValue: 0,
-              duration: 650,
+              duration: 600,
+              easing: Easing.out(Easing.quad),
               useNativeDriver: true,
             }),
           ]),
         ]),
 
-        // "Verified Successfully" text
+        // Animated checkmark pop
         Animated.sequence([
           Animated.delay(100),
+          Animated.parallel([
+            Animated.timing(checkOpacity, {
+              toValue: 1,
+              duration: 160,
+              useNativeDriver: true,
+            }),
+            Animated.spring(checkScale, {
+              toValue: 1,
+              friction: 5,
+              tension: 75,
+              useNativeDriver: true,
+            }),
+          ]),
+        ]),
+
+        // Verified confirmation badge reveal below
+        Animated.sequence([
+          Animated.delay(150),
           Animated.parallel([
             Animated.timing(confirmationOpacity, {
               toValue: 1,
@@ -258,20 +202,18 @@ export default function VerifyOtpScreen() {
             Animated.timing(confirmationTranslateY, {
               toValue: 0,
               duration: 220,
-              easing: Easing.out(Easing.cubic),
+              easing: Easing.out(Easing.back(1)),
               useNativeDriver: true,
             }),
           ]),
         ]),
       ]).start();
-    }, 3380);
+    }, 120);
 
-    // =========================================================================
-    // STEP 4: DIRECTLY OPEN ANTISOCIAL HOME (NO INTERMEDIATE SCREEN)
-    // =========================================================================
+    // STEP 3: Continue to destination tab cleanly after animation completes
     setTimeout(() => {
       router.replace(destination as any);
-    }, 4150);
+    }, 1350);
   };
 
   const handleOtpChange = (value: string, index: number) => {
@@ -429,34 +371,6 @@ export default function VerifyOtpScreen() {
 
   const isOtpComplete = otp.every(digit => digit !== '');
 
-  // 3 Full rotations (1080deg) over 3 seconds
-  const spin = orbitRotation.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '1080deg'],
-  });
-
-  // Counter-rotation keeps numbers strictly upright and readable while rotating
-  const counterSpin = orbitRotation.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '-1080deg'],
-  });
-
-  // Color interpolations to verified green
-  const nodeBorderColor = colorProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['#9333EA', '#10B981'],
-  });
-
-  const nodeBgColor = colorProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['#FAF5FF', '#ECFDF5'],
-  });
-
-  const nodeTextColor = colorProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['#7E22CE', '#059669'],
-  });
-
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
@@ -505,108 +419,44 @@ export default function VerifyOtpScreen() {
 
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-            {/* Middle Section: Inputs OR In-Place Circular Animation */}
+            {/* Middle Section: Stable Centered OTP Section */}
             <View style={styles.otpSection}>
-              {!isAnimating ? (
-                /* 6-Digit Horizontal Inputs */
-                <View style={styles.otpContainer}>
-                  {otp.map((digit, index) => (
-                    <TextInput
-                      key={index}
-                      ref={(ref) => { inputRefs.current[index] = ref; }}
-                      style={[
-                        styles.otpInput,
-                        error ? styles.otpInputError : null,
-                        digit ? styles.otpInputFilled : null
-                      ]}
-                      value={digit}
-                      onChangeText={(val) => handleOtpChange(val, index)}
-                      onKeyPress={(e) => handleKeyPress(e, index)}
-                      keyboardType="number-pad"
-                      maxLength={1}
-                      selectTextOnFocus
-                      selectionColor="#9333EA"
-                      editable={!isLoading && !isAnimating}
-                    />
-                  ))}
-                </View>
-              ) : (
-                /* Cinematic In-Place Orbit Stage */
-                <View style={styles.animationStage}>
-                  {/* Subtle Light Trail Halo Ring */}
-                  <Animated.View
+              {/* 6-Digit Horizontal Inputs */}
+              <Animated.View
+                style={[
+                  styles.otpContainer,
+                  {
+                    opacity: formOpacity,
+                    transform: [{ scale: formScale }],
+                  },
+                ]}
+                pointerEvents={isAnimating ? 'none' : 'auto'}
+              >
+                {otp.map((digit, index) => (
+                  <TextInput
+                    key={index}
+                    ref={(ref) => { inputRefs.current[index] = ref; }}
                     style={[
-                      styles.trailGlowRing,
-                      { opacity: trailGlowOpacity },
+                      styles.otpInput,
+                      error ? styles.otpInputError : null,
+                      digit ? styles.otpInputFilled : null
                     ]}
+                    value={digit}
+                    onChangeText={(val) => handleOtpChange(val, index)}
+                    onKeyPress={(e) => handleKeyPress(e, index)}
+                    keyboardType="number-pad"
+                    maxLength={1}
+                    selectTextOnFocus
+                    selectionColor="#9333EA"
+                    editable={!isLoading && !isAnimating}
                   />
+                ))}
+              </Animated.View>
 
-                  {/* Rotating Orbit Container */}
-                  <Animated.View
-                    style={[
-                      styles.orbitContainer,
-                      {
-                        transform: [{ rotate: spin }],
-                      },
-                    ]}
-                  >
-                    <Animated.View
-                      style={[
-                        StyleSheet.absoluteFillObject,
-                        {
-                          opacity: digitsOpacity,
-                          transform: [{ scale: digitsCollapse }],
-                        },
-                      ]}
-                    >
-                      {DIGIT_TRANSITIONS.map((item, index) => {
-                        const translateX = formProgress.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [item.xStart, item.xCircle],
-                        });
-                        const translateY = formProgress.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [item.yStart, item.yCircle],
-                        });
-
-                        return (
-                          <Animated.View
-                            key={index}
-                            style={[
-                              styles.orbitingDigitNode,
-                              {
-                                transform: [
-                                  { translateX },
-                                  { translateY },
-                                ],
-                                borderColor: nodeBorderColor,
-                                backgroundColor: nodeBgColor,
-                              },
-                            ]}
-                          >
-                            <Animated.View
-                              style={{
-                                transform: [{ rotate: counterSpin }],
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                              }}
-                            >
-                              <Animated.Text
-                                style={[
-                                  styles.orbitingDigitText,
-                                  { color: nodeTextColor },
-                                ]}
-                              >
-                                {otp[index] || ''}
-                              </Animated.Text>
-                            </Animated.View>
-                          </Animated.View>
-                        );
-                      })}
-                    </Animated.View>
-                  </Animated.View>
-
-                  {/* Soft Aura Ripple Wave */}
+              {/* Perfectly Centered Green Success Circle Stage */}
+              {isAnimating && (
+                <View style={styles.animationStage} pointerEvents="none">
+                  {/* Soft Green Outer Aura Ripple */}
                   <Animated.View
                     style={[
                       styles.auraRipple,
@@ -617,7 +467,7 @@ export default function VerifyOtpScreen() {
                     ]}
                   />
 
-                  {/* Minimal Green Success Circle */}
+                  {/* Main Centered Green Success Check Circle */}
                   <Animated.View
                     style={[
                       styles.successCheckCircle,
@@ -633,7 +483,7 @@ export default function VerifyOtpScreen() {
                         transform: [{ scale: checkScale }],
                       }}
                     >
-                      <Feather name="check" size={26} color="#FFFFFF" />
+                      <Feather name="check" size={30} color="#FFFFFF" />
                     </Animated.View>
                   </Animated.View>
                 </View>
@@ -670,11 +520,11 @@ export default function VerifyOtpScreen() {
                     <ActivityIndicator color="#fff" />
                   ) : (
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-                      <MaterialCommunityIcons 
-                        name="whatsapp" 
-                        size={22} 
-                        color={!isOtpComplete ? "#9CA3AF" : "#FFFFFF"} 
-                        style={{ marginRight: 8 }} 
+                      <MaterialCommunityIcons
+                        name="whatsapp"
+                        size={22}
+                        color={!isOtpComplete ? "#9CA3AF" : "#FFFFFF"}
+                        style={{ marginRight: 8 }}
                       />
                       <Text style={[
                         styles.buttonText,
@@ -775,10 +625,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   otpSection: {
-    height: 124,
+    height: 110,
+    width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
+    position: 'relative',
   },
   otpContainer: {
     flexDirection: 'row',
@@ -845,69 +697,31 @@ const styles = StyleSheet.create({
   },
 
   // Cinematic Orbit Stage
+  // Centered Success Stage
   animationStage: {
-    width: 144,
-    height: 124,
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
-  },
-  trailGlowRing: {
-    position: 'absolute',
-    width: ORBIT_RADIUS * 2 + 10,
-    height: ORBIT_RADIUS * 2 + 10,
-    borderRadius: (ORBIT_RADIUS * 2 + 10) / 2,
-    borderWidth: 1.5,
-    borderColor: '#10B981',
-    borderStyle: 'dashed',
-  },
-  orbitContainer: {
-    width: 144,
-    height: 124,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'absolute',
-  },
-  orbitingDigitNode: {
-    position: 'absolute',
-    left: 72 - DIGIT_NODE_SIZE / 2,
-    top: 62 - DIGIT_NODE_SIZE / 2,
-    width: DIGIT_NODE_SIZE,
-    height: DIGIT_NODE_SIZE,
-    borderRadius: DIGIT_NODE_SIZE / 2,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.22,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  orbitingDigitText: {
-    fontSize: 15,
-    fontWeight: '700',
   },
   auraRipple: {
     position: 'absolute',
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    backgroundColor: 'rgba(16, 185, 129, 0.22)',
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: 'rgba(16, 185, 129, 0.25)',
   },
   successCheckCircle: {
-    position: 'absolute',
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: '#10B981',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 7,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 8,
   },
   verifiedConfirmationWrap: {
     alignItems: 'center',

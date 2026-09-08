@@ -72,51 +72,50 @@ const DayTaskBadge = ({
   }));
 
   return (
-    <Animated.View
-      entering={FadeInDown.delay(index * 70).springify().damping(12)}
-      style={[styles.stageBadgeWrap, animatedStyle]}
-    >
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={handlePress}
-        disabled={isCompleted}
-        style={[
-          styles.circularBadge,
-          isNext && styles.circularBadgeCurrent,
-          isCompleted && !isNext && styles.circularBadgeUnlocked,
-        ]}
-      >
-        {/* Small Purple Task-Slot Number Badge */}
-        <View style={[styles.stageNumberPill, isNext && styles.stageNumberPillCurrent]}>
-          <Text style={styles.stageNumberText}>{index + 1}</Text>
-        </View>
-
-        {/* Center Emoji Container for perfect optical alignment */}
-        <View style={styles.emojiContainer}>
-          <Text style={styles.emojiText}>{task.emoji}</Text>
-        </View>
-
-        {/* Completed Checkmark Indicator */}
-        {isCompleted && (
-          <View style={styles.completedCheckMark}>
-            <Text style={styles.checkMarkText}>✓</Text>
-          </View>
-        )}
-      </TouchableOpacity>
-
-      {/* Life Dimension Label */}
-      <View style={[styles.labelPill, isNext && styles.labelPillCurrent]}>
-        <Text
+    <Animated.View entering={FadeInDown.delay(index * 70).springify().damping(12)}>
+      <Animated.View style={[styles.stageBadgeWrap, animatedStyle]}>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={handlePress}
+          disabled={isCompleted}
           style={[
-            styles.labelText,
-            isNext && styles.labelTextCurrent,
-            isCompleted && !isNext && styles.labelTextUnlocked,
+            styles.circularBadge,
+            isNext && styles.circularBadgeCurrent,
+            isCompleted && !isNext && styles.circularBadgeUnlocked,
           ]}
-          numberOfLines={1}
         >
-          {dimension}
-        </Text>
-      </View>
+          {/* Small Purple Task-Slot Number Badge */}
+          <View style={[styles.stageNumberPill, isNext && styles.stageNumberPillCurrent]}>
+            <Text style={styles.stageNumberText}>{index + 1}</Text>
+          </View>
+
+          {/* Center Emoji Container for perfect optical alignment */}
+          <View style={styles.emojiContainer}>
+            <Text style={styles.emojiText}>{task.emoji}</Text>
+          </View>
+
+          {/* Completed Checkmark Indicator */}
+          {isCompleted && (
+            <View style={styles.completedCheckMark}>
+              <Text style={styles.checkMarkText}>✓</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+
+        {/* Life Dimension Label */}
+        <View style={[styles.labelPill, isNext && styles.labelPillCurrent]}>
+          <Text
+            style={[
+              styles.labelText,
+              isNext && styles.labelTextCurrent,
+              isCompleted && !isNext && styles.labelTextUnlocked,
+            ]}
+            numberOfLines={1}
+          >
+            {dimension}
+          </Text>
+        </View>
+      </Animated.View>
     </Animated.View>
   );
 };

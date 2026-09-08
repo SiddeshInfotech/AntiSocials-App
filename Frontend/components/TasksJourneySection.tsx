@@ -128,7 +128,16 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
               styles.topTabItem,
               activeTab === tab && styles.topTabItemActive,
             ]}
-            onPress={() => setActiveTab(tab)}
+            onPress={() => {
+              setActiveTab(tab);
+              if (tab === "100-Day Journey") {
+                router.push("/journey-100" as any);
+              } else if (tab === "Monthly Buckets") {
+                router.push("/monthly-progress" as any);
+              } else if (tab === "Lifetime") {
+                router.push("/lifetime-progress" as any);
+              }
+            }}
             activeOpacity={0.7}
           >
             {tab === "100-Day Journey" && (
@@ -243,12 +252,19 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
 
       {/* DAY 1 OF 100 CARD */}
       <View style={styles.dayBigCard}>
-        <View style={styles.dayBigRow}>
+        <TouchableOpacity
+          style={styles.dayBigRow}
+          activeOpacity={0.8}
+          onPress={() => router.push("/journey-100" as any)}
+        >
           <View style={styles.dayBigCircle}>
             <Text style={styles.dayBigCircleText}>{activePrototype}</Text>
           </View>
           <View style={{ flex: 1, marginLeft: 16 }}>
-            <Text style={styles.dayBigTitle}>Day {activePrototype} of 100</Text>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <Text style={styles.dayBigTitle}>Day {activePrototype} of 100</Text>
+              <Feather name="chevron-right" size={18} color="#9ca3af" />
+            </View>
             <Text style={styles.dayBigSubtitle}>{activeStage.title}</Text>
             <View style={styles.dayBigProgressBg}>
               <View
@@ -259,7 +275,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
               />
             </View>
           </View>
-        </View>
+        </TouchableOpacity>
 
         <ScrollView
           horizontal

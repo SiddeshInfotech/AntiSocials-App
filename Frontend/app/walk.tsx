@@ -225,7 +225,6 @@ export default function WalkSlowlyScreen() {
                 player={videoPlayer}
                 style={styles.heroVideo}
                 contentFit="cover"
-                allowsFullscreen={false}
                 allowsPictureInPicture={false}
               />
               <View style={styles.vLabelWrap}>

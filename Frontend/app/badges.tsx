@@ -75,7 +75,7 @@ export default function BadgesScreen() {
     }
   };
 
-  const unlockPercentage = stats.totalCount > 0 
+  const unlockPercentage = stats.totalCount > 0
     ? Math.round((stats.unlockedCount / stats.totalCount) * 100)
     : 0;
 
@@ -84,8 +84,8 @@ export default function BadgesScreen() {
       <StatusBar barStyle="dark-content" />
       {/* Top Nav Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton} 
+        <TouchableOpacity
+          style={styles.backButton}
           onPress={() => router.back()}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
@@ -121,9 +121,9 @@ export default function BadgesScreen() {
         </View>
 
         {/* Category Selector Tabs */}
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false} 
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
           style={styles.categoriesScroll}
           contentContainerStyle={{ paddingHorizontal: 20 }}
         >
@@ -157,13 +157,13 @@ export default function BadgesScreen() {
           <View style={styles.badgesListContainer}>
             {filteredBadges.map(badge => {
               const isUnlocked = badge.isUnlocked;
-              const progressPct = badge.maxProgress > 0 
+              const progressPct = badge.maxProgress > 0
                 ? Math.min(100, Math.round((badge.progress / badge.maxProgress) * 100))
                 : 0;
 
               return (
-                <View 
-                  key={badge.id} 
+                <View
+                  key={badge.id}
                   style={[
                     styles.badgeCard,
                     isUnlocked ? styles.badgeCardUnlocked : styles.badgeCardLocked

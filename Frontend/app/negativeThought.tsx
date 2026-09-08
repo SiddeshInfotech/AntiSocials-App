@@ -766,8 +766,10 @@ function CompleteScreen({ affirmation, onHome }: any) {
       <SafeAreaView style={{ flex:1 }}>
         <ScrollView contentContainerStyle={{ padding:24, alignItems:'center' }} showsVerticalScrollIndicator={false}>
           {/* Sun glow illustration */}
-          <Animated.View entering={FadeIn.duration(1000)} style={[ss.completeSunWrap, sunStyle]}>
-            <LinearGradient colors={[C.gold,C.sunrise,'#7C3AED']} style={ss.completeSun} />
+          <Animated.View entering={FadeIn.duration(1000)}>
+            <Animated.View style={[ss.completeSunWrap, sunStyle]}>
+              <LinearGradient colors={[C.gold,C.sunrise,'#7C3AED']} style={ss.completeSun} />
+            </Animated.View>
           </Animated.View>
 
           <Animated.View entering={FadeInDown.delay(300).duration(700)}>

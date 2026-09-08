@@ -2,12 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, RefreshControl, ActivityIndicator, Image, Alert, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useIsFocused } from 'expo-router';
 import { resolveImageUrl } from '../../constants/ImageUtils';
-
 import { API_BASE_URL, apiFetch } from '../../constants/Api';
 import * as SecureStore from 'expo-secure-store';
-import { useIsFocused } from '@react-navigation/native';
 import * as Location from 'expo-location';
 
 export interface MemberPreview {

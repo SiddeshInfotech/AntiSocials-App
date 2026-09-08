@@ -122,11 +122,11 @@ const AmbientParticleItem = ({ width, height }: { width: number; height: number 
 };
 
 // Embers rising slowly in the background
-const AmbientParticles = ({ 
+const AmbientParticles = ({
   count = 20,
   width,
   height
-}: { 
+}: {
   count?: number;
   width: number;
   height: number;
@@ -193,11 +193,11 @@ const FlyingLeafItem = ({ width, height }: { width: number; height: number }) =>
 };
 
 // Leaves flying in the background for Screen 8
-const FlyingLeaves = ({ 
-  width, 
-  height 
-}: { 
-  width: number; 
+const FlyingLeaves = ({
+  width,
+  height
+}: {
+  width: number;
   height: number;
 }) => {
   return (
@@ -479,7 +479,7 @@ export default function NoticeFearScreen() {
   }
 
   return (
-    <KeyboardAvoidingView 
+    <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.keyboardContainer}
     >
@@ -517,7 +517,7 @@ export default function NoticeFearScreen() {
         {/* Desktop Wrapper Layout */}
         <View style={[styles.viewportWrapper, { width: containerWidth }]}>
           <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-            
+
             {/* Header with back button */}
             {step > 1 && step <= 10 && (
               <View style={styles.headerBar}>
@@ -539,7 +539,7 @@ export default function NoticeFearScreen() {
               {step === 1 && (
                 <View style={styles.screenWrapper}>
                   <View style={styles.introTopSpace} />
-                  
+
                   <Animated.View style={styles.centerSection} entering={FadeIn.duration(800)}>
                     <Text style={styles.immersiveTitle}>Notice Fear</Text>
                     <View style={styles.titleDivider} />
@@ -549,8 +549,8 @@ export default function NoticeFearScreen() {
                   </Animated.View>
 
                   <Animated.View style={styles.buttonSection} entering={FadeInDown.delay(300).duration(800)}>
-                    <TouchableOpacity 
-                      onPress={handleNextStep} 
+                    <TouchableOpacity
+                      onPress={handleNextStep}
                       activeOpacity={0.8}
                       style={styles.glowingGlassBtn}
                     >
@@ -979,24 +979,24 @@ export default function NoticeFearScreen() {
                             value={customReminderInput}
                             onChangeText={setCustomReminderInput}
                           />
-                          <TouchableOpacity 
+                          <TouchableOpacity
                             onPress={() => {
                               if (customReminderInput.trim()) {
                                 setSelectedReminder(customReminderInput);
                                 triggerHaptic('light');
                               }
-                            }} 
+                            }}
                             style={styles.customReminderSaveBtn}
                           >
                             <Feather name="check" size={16} color={COLORS.white} />
                           </TouchableOpacity>
                         </View>
                       ) : (
-                        <TouchableOpacity 
+                        <TouchableOpacity
                           onPress={() => {
                             triggerHaptic('light');
                             setShowCustomInput(true);
-                          }} 
+                          }}
                           style={styles.addCustomCardBtn}
                           activeOpacity={0.8}
                         >
@@ -1096,7 +1096,7 @@ export default function NoticeFearScreen() {
                     </View>
 
                     <Text style={styles.compTitleText}>Observation Complete</Text>
-                    
+
                     <Text style={styles.compMessageDesc}>
                       Fear was acknowledged.{"\n"}
                       Not defeated.{"\n"}
@@ -1139,7 +1139,7 @@ export default function NoticeFearScreen() {
 
                     <View style={styles.screenCenter}>
                       <Text style={styles.immersiveTitle}>Well Done!</Text>
-                      
+
                       <Text style={[styles.immersiveSubtitle, { color: COLORS.white, opacity: 0.95 }]}>
                         You showed up for yourself.{"\n"}That's something to be proud of.
                       </Text>
@@ -1148,7 +1148,7 @@ export default function NoticeFearScreen() {
                       <BlurView intensity={25} tint="dark" style={styles.rewardGlassCard}>
                         <Text style={styles.rewardCardTitle}>Reward Earned</Text>
                         <Text style={styles.rewardCardValue}>✨ +{pointsAwarded} Mind Points</Text>
-                        
+
                         <View style={styles.badgeContainer}>
                           <Feather name="award" size={14} color={COLORS.amber} />
                           <Text style={styles.badgeText}>Fear Observer</Text>
@@ -1157,8 +1157,8 @@ export default function NoticeFearScreen() {
                     </View>
 
                     <View style={styles.buttonSection}>
-                      <TouchableOpacity 
-                        onPress={handleFinish} 
+                      <TouchableOpacity
+                        onPress={handleFinish}
                         activeOpacity={0.8}
                         style={[styles.primaryActionBtn, { shadowColor: COLORS.amber }]}
                       >

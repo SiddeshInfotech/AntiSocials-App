@@ -7,6 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as SecureStore from 'expo-secure-store';
 import { API_BASE_URL, apiFetch } from '../constants/Api';
 import { resolveImageUrl } from '../constants/ImageUtils';
+import { appendFileToFormData } from './create-post';
 
 export default function EditProfileScreen() {
   const router = useRouter();
@@ -29,7 +30,7 @@ export default function EditProfileScreen() {
       try {
         const userId = await SecureStore.getItemAsync('userId');
         const token = await SecureStore.getItemAsync('token');
-        
+
         if (!token) {
           router.replace('/' as any);
           return;
@@ -110,7 +111,7 @@ export default function EditProfileScreen() {
       else if (ext === 'heic' || ext === 'heif') type = 'image/heic';
 
       const formData = new FormData();
-      formData.append('image', { uri, name: filename, type } as any);
+      await appendFileToFormData(formData, 'image', uri, filename, type);
 
       console.log('📤 [EditProfile] Uploading image:', { uri, filename, type });
 

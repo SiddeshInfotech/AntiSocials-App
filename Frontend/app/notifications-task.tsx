@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { VideoView, useVideoPlayer } from 'expo-video';
-import { Audio } from 'expo-av';
+import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -146,7 +146,7 @@ export default function NotificationsTaskScreen() {
   const appState = useRef(AppState.currentState);
   const isWaitingForPermission = useRef(false);
   const endTimeRef = useRef<number>(0);
-  const alarmSoundRef = useRef<Audio.Sound | null>(null);
+  const alarmSoundRef = useRef<any>(null);
   const lastPress = useRef(0);
 
   // Video Players Initialization
@@ -272,28 +272,19 @@ export default function NotificationsTaskScreen() {
     }
   }, [screen, isActive, isPaused]);
 
-  // Play Completion Sound
   const playCompletionSound = useCallback(async () => {
     try {
       if (Platform.OS !== 'web') {
-        await Audio.setAudioModeAsync({
-          allowsRecordingIOS: false,
-          playsInSilentModeIOS: true,
+        await setAudioModeAsync({
+          playsInSilentMode: true,
         });
       }
-      const { sound } = await Audio.Sound.createAsync(
-        ALARM_SOUND,
-        { shouldPlay: true, volume: 0.85 }
-      );
-      alarmSoundRef.current = sound;
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) {
-          sound.unloadAsync().catch(() => {});
-          alarmSoundRef.current = null;
-        }
-      });
+      const player = createAudioPlayer(ALARM_SOUND);
+      player.volume = 0.85;
+      player.play();
+      alarmSoundRef.current = player;
     } catch (err) {
-      console.warn('[NotificationsTask] Sound error:', err);
+      console.warn('[NotificationsTask] Alarm sound error:', err);
     }
   }, []);
 

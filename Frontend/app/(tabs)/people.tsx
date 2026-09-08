@@ -20,7 +20,7 @@ import {
 } from "react-native";
 import ConnectionGraph, { ConnectedUserNode } from "../../components/ConnectionGraph";
 import { StatusBar } from "expo-status-bar";
-import { useIsFocused } from "@react-navigation/native";
+import { useIsFocused } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import * as ImagePicker from "expo-image-picker";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -879,7 +879,7 @@ export default function People() {
           />
         }
       >
-        {isFocused && <StatusBar style="dark" backgroundColor="#ffffff" />}
+        {isFocused && <StatusBar style="dark" />}
 
         {/* ======================================================== */}
         {/* TOP HEADER & SEGMENTED TABS */}
