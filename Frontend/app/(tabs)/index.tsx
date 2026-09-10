@@ -1490,21 +1490,23 @@ export default function HomeScreen() {
               <View style={styles.feedLiveDot} />
             </View>
 
-            <TouchableOpacity
-              style={styles.createPostHeaderBtn}
-              activeOpacity={0.8}
-              onPress={handleNavigateToAddPost}
-            >
-              <LinearGradient
-                colors={["#a855f7", "#ec4899"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.createPostHeaderGradient}
+            {feedPosts && feedPosts.length > 0 ? (
+              <TouchableOpacity
+                style={styles.createPostHeaderBtn}
+                activeOpacity={0.8}
+                onPress={handleNavigateToAddPost}
               >
-                <Feather name="plus" size={15} color="#FFFFFF" style={{ marginRight: 5 }} />
-                <Text style={styles.createPostHeaderBtnText}>Create a Post</Text>
-              </LinearGradient>
-            </TouchableOpacity>
+                <LinearGradient
+                  colors={["#a855f7", "#ec4899"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.createPostHeaderGradient}
+                >
+                  <Feather name="plus" size={15} color="#FFFFFF" style={{ marginRight: 5 }} />
+                  <Text style={styles.createPostHeaderBtnText}>Create a Post</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            ) : null}
           </View>
 
 
