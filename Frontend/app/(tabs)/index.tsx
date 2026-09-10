@@ -1489,33 +1489,24 @@ export default function HomeScreen() {
               <Text style={styles.feedTitleText}>Feed</Text>
               <View style={styles.feedLiveDot} />
             </View>
+
+            <TouchableOpacity
+              style={styles.createPostHeaderBtn}
+              activeOpacity={0.8}
+              onPress={handleNavigateToAddPost}
+            >
+              <LinearGradient
+                colors={["#a855f7", "#ec4899"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.createPostHeaderGradient}
+              >
+                <Feather name="plus" size={15} color="#FFFFFF" style={{ marginRight: 5 }} />
+                <Text style={styles.createPostHeaderBtnText}>Create a Post</Text>
+              </LinearGradient>
+            </TouchableOpacity>
           </View>
 
-          {/* Centered Circular Add Your Post Entry Card */}
-          <TouchableOpacity
-            style={styles.addPostCenteredCard}
-            activeOpacity={0.85}
-            onPress={handleNavigateToAddPost}
-          >
-            <LinearGradient
-              colors={["rgba(168, 85, 247, 0.15)", "rgba(236, 72, 153, 0.08)", "rgba(15, 23, 42, 0.8)"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.addPostCenteredGradient}
-            >
-              <View style={styles.addPostBigCircleWrapper}>
-                <LinearGradient
-                  colors={["#a855f7", "#ec4899"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.addPostBigCircleBtn}
-                >
-                  <Feather name="plus" size={24} color="#FFFFFF" />
-                </LinearGradient>
-              </View>
-              <Text style={styles.addPostCenteredTitle}>Add Your Post</Text>
-            </LinearGradient>
-          </TouchableOpacity>
 
           {/* Community Feed Posts */}
           {feedLoading && feedPosts.length === 0 ? (
@@ -2730,32 +2721,27 @@ const styles = StyleSheet.create({
     backgroundColor: "#10b981",
     marginLeft: 8,
   },
-  addPostCardPrompt: {
+  createPostHeaderBtn: {
+    borderRadius: 20,
+    overflow: "hidden",
+    shadowColor: "#ec4899",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  createPostHeaderGradient: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(24, 24, 27, 0.65)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.08)",
-    borderRadius: 16,
+    paddingVertical: 8,
     paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginBottom: 20,
+    borderRadius: 20,
   },
-  promptUserAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#27272a",
-  },
-  promptPlaceholderText: {
-    flex: 1,
-    color: "#a1a1aa",
-    fontSize: 14,
-    marginLeft: 12,
-  },
-  promptActionBadge: {
-    flexDirection: "row",
-    alignItems: "center",
+  createPostHeaderBtnText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "700",
+    letterSpacing: -0.2,
   },
   feedLoadingContainer: {
     paddingVertical: 40,
@@ -2763,46 +2749,6 @@ const styles = StyleSheet.create({
   },
   feedListContainer: {
     gap: 16,
-  },
-  addPostCenteredCard: {
-    marginBottom: 20,
-    borderRadius: 20,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "rgba(168, 85, 247, 0.25)",
-    backgroundColor: "#0F172A",
-    shadowColor: "#8b5cf6",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  addPostCenteredGradient: {
-    paddingVertical: 22,
-    paddingHorizontal: 24,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  addPostBigCircleWrapper: {
-    marginBottom: 10,
-    shadowColor: "#ec4899",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  addPostBigCircleBtn: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  addPostCenteredTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#FFFFFF",
-    letterSpacing: -0.2,
   },
   loadMoreBtn: {
     paddingVertical: 14,
