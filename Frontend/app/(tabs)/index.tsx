@@ -1078,7 +1078,9 @@ export default function HomeScreen() {
     router.push("/create-post");
   };
 
-  // --- Feed Scrolling Time Points Deduction Logic ---
+  // --- Feed Scrolling Time Points Deduction Logic (TESTING: 10s milestone interval) ---
+  const FEED_DEDUCTION_INTERVAL_SECONDS = 10;
+
   const deductFeedPoints = async (milestoneIdx: number) => {
     if (isDeductingRef.current || milestoneIdx <= highestDeductedMilestoneRef.current) {
       return;
@@ -1104,7 +1106,7 @@ export default function HomeScreen() {
 
         if (data.totalPoints !== undefined || data.total_points !== undefined) {
           const newPts = Number(data.totalPoints ?? data.total_points ?? 0);
-          console.log(`⏱️ [Feed Scrolling Time Deduction] Milestone ${milestoneIdx} hit (${milestoneIdx * 5}m): -${data.pointsDeducted} pts. New total: ${newPts}`);
+          console.log(`⏱️ [Feed Scrolling Time Deduction] Milestone ${milestoneIdx} hit (${milestoneIdx * FEED_DEDUCTION_INTERVAL_SECONDS}s): -${data.pointsDeducted} pts. New total: ${newPts}`);
           setHomeData((prev: any) => ({
             ...(prev || {}),
             total_points: newPts,
@@ -1151,8 +1153,8 @@ export default function HomeScreen() {
 
           const savedSecStr = await SecureStore.getItemAsync("feed_active_seconds");
           let savedSec = savedSecStr ? parseInt(savedSecStr, 10) : 0;
-          if (isNaN(savedSec) || savedSec < serverMax * 300) {
-            savedSec = serverMax * 300;
+          if (isNaN(savedSec) || savedSec < serverMax * FEED_DEDUCTION_INTERVAL_SECONDS) {
+            savedSec = serverMax * FEED_DEDUCTION_INTERVAL_SECONDS;
           }
           activeFeedSecondsRef.current = savedSec;
           console.log(`⏱️ [Feed Tracking Initialized] Server Max Milestone: ${serverMax}, Active Seconds: ${savedSec}`);
@@ -1193,7 +1195,7 @@ export default function HomeScreen() {
       activeFeedSecondsRef.current += 1;
       const currentSeconds = activeFeedSecondsRef.current;
 
-      const milestone = Math.floor(currentSeconds / 300);
+      const milestone = Math.floor(currentSeconds / FEED_DEDUCTION_INTERVAL_SECONDS);
       if (milestone > highestDeductedMilestoneRef.current && milestone >= 1) {
         deductFeedPoints(milestone);
       }
