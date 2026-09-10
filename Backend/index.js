@@ -8234,6 +8234,101 @@ app.get('/api/user/summary', authenticateToken, async (req, res) => {
     }
 });
 
+// Feed Scrolling Time Points Deduction Endpoints
+app.get('/api/user/feed-deduct', authenticateToken, async (req, res) => {
+    try {
+        const userId = parseInt(req.user.id, 10);
+        const resList = await db.query(
+            "SELECT task_name FROM points_history WHERE user_id = $1 AND source = 'feed_scrolling_penalty'",
+            [userId]
+        );
+        let maxMilestone = 0;
+        for (const row of resList.rows) {
+            const match = /feed_scrolling_milestone_(\d+)/.exec(row.task_name || '');
+            if (match) {
+                const m = parseInt(match[1], 10);
+                if (m > maxMilestone) maxMilestone = m;
+            }
+        }
+        res.json({ maxMilestone, totalDeductions: resList.rows.length });
+    } catch (e) {
+        console.error('Error in GET /api/user/feed-deduct:', e);
+        res.status(500).json({ error: 'Failed to fetch deduction status' });
+    }
+});
+
+app.post('/api/user/feed-deduct', authenticateToken, async (req, res) => {
+    try {
+        const userId = parseInt(req.user.id, 10);
+        const { milestoneIndex } = req.body || {};
+        const idx = parseInt(milestoneIndex, 10);
+
+        if (!idx || isNaN(idx) || idx < 1) {
+            return res.status(400).json({ error: 'Valid milestoneIndex is required (1 for 5m, 2 for 10m, etc.)' });
+        }
+
+        const taskName = `feed_scrolling_milestone_${idx}`;
+
+        // 1. Prevent duplicate deduction for this milestone
+        const existingRes = await db.query(
+            'SELECT id FROM points_history WHERE user_id = $1 AND task_name = $2',
+            [userId, taskName]
+        );
+
+        const pointsSumRes = await db.query(
+            'SELECT COALESCE(SUM(points), 0) as total FROM points_history WHERE user_id = $1',
+            [userId]
+        );
+        let currentPoints = parseInt(pointsSumRes.rows[0]?.total || 0, 10);
+
+        if (existingRes.rows.length > 0) {
+            return res.json({
+                success: true,
+                message: 'Milestone already deducted',
+                alreadyDeducted: true,
+                pointsDeducted: 0,
+                totalPoints: Math.max(0, currentPoints),
+                total_points: Math.max(0, currentPoints)
+            });
+        }
+
+        // 2. Deduct exactly 20 points, capped at currentPoints so points NEVER become negative
+        const pointsToDeduct = Math.min(20, Math.max(0, currentPoints));
+
+        if (pointsToDeduct > 0) {
+            await db.query(
+                `INSERT INTO points_history (user_id, points, source, task_name, created_at)
+                 VALUES ($1, $2, 'feed_scrolling_penalty', $3, NOW())`,
+                [userId, -pointsToDeduct, taskName]
+            );
+        } else {
+            // Record milestone with 0 deduction so milestone is marked as processed without duplicate attempts
+            await db.query(
+                `INSERT INTO points_history (user_id, points, source, task_name, created_at)
+                 VALUES ($1, 0, 'feed_scrolling_penalty', $3, NOW())`,
+                [userId, taskName]
+            );
+        }
+
+        // 3. Update users table points
+        const newTotal = Math.max(0, currentPoints - pointsToDeduct);
+        await db.query('UPDATE users SET points = $1 WHERE id = $2', [newTotal, userId]);
+
+        console.log(`⏱️ [Feed Scrolling Deduction] User ${userId}, Milestone ${idx} (${idx * 5} min), Deducted: ${pointsToDeduct}, New Total: ${newTotal}`);
+
+        res.json({
+            success: true,
+            milestoneIndex: idx,
+            pointsDeducted: pointsToDeduct,
+            totalPoints: newTotal,
+            total_points: newTotal
+        });
+    } catch (error) {
+        console.error('❌ Error in POST /api/user/feed-deduct:', error);
+        res.status(500).json({ error: 'Failed to process feed time deduction' });
+    }
+});
+
 const activityRoutes = require('./routes/activityRoutes');
 
 const homeController = require('./controllers/homeController');

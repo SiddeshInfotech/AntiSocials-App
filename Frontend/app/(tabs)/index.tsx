@@ -33,6 +33,10 @@ import {
   PanResponder,
   ActivityIndicator,
   RefreshControl,
+  AppState,
+  AppStateStatus,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from "react-native";
 import { apiFetch, API_BASE_URL } from "../../constants/Api";
 import { resolveImageUrl, resolveAvatarUrl, resolveStoryMediaUrl, DEFAULT_AVATAR } from "../../constants/ImageUtils";
@@ -735,6 +739,15 @@ export default function HomeScreen() {
   const [postCommentModalVisible, setPostCommentModalVisible] = useState<boolean>(false);
   const [currentUserId, setCurrentUserId] = useState<string | number | null>(null);
 
+  // Feed Scrolling Time & Deduction Tracking State
+  const feedSectionYRef = useRef<number>(0);
+  const isInFeedSectionRef = useRef<boolean>(false);
+  const lastFeedInteractionRef = useRef<number>(0);
+  const activeFeedSecondsRef = useRef<number>(0);
+  const highestDeductedMilestoneRef = useRef<number>(0);
+  const isDeductingRef = useRef<boolean>(false);
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+
   // Multi-Story Viewer State & Controls
   const [activeStoryList, setActiveStoryList] = useState<any[]>([]);
   const [activeStoryIndex, setActiveStoryIndex] = useState<number>(0);
@@ -1064,6 +1077,134 @@ export default function HomeScreen() {
   const handleNavigateToAddPost = () => {
     router.push("/create-post");
   };
+
+  // --- Feed Scrolling Time Points Deduction Logic ---
+  const deductFeedPoints = async (milestoneIdx: number) => {
+    if (isDeductingRef.current || milestoneIdx <= highestDeductedMilestoneRef.current) {
+      return;
+    }
+    isDeductingRef.current = true;
+    try {
+      const token = await SecureStore.getItemAsync("token");
+      if (!token) return;
+
+      const res = await apiFetch("/api/user/feed-deduct", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ milestoneIndex: milestoneIdx }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        highestDeductedMilestoneRef.current = Math.max(highestDeductedMilestoneRef.current, milestoneIdx);
+        await SecureStore.setItemAsync("feed_deducted_milestone", String(highestDeductedMilestoneRef.current));
+
+        if (data.totalPoints !== undefined || data.total_points !== undefined) {
+          const newPts = Number(data.totalPoints ?? data.total_points ?? 0);
+          console.log(`⏱️ [Feed Scrolling Time Deduction] Milestone ${milestoneIdx} hit (${milestoneIdx * 5}m): -${data.pointsDeducted} pts. New total: ${newPts}`);
+          setHomeData((prev: any) => ({
+            ...(prev || {}),
+            total_points: newPts,
+            user: {
+              ...(prev?.user || {}),
+              points: newPts,
+            },
+          }));
+        }
+      }
+    } catch (err) {
+      console.error("❌ Error deducting feed points:", err);
+    } finally {
+      isDeductingRef.current = false;
+    }
+  };
+
+  const handleMainScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const scrollY = e.nativeEvent.contentOffset.y;
+    const feedTop = feedSectionYRef.current;
+
+    if (feedTop > 0 && scrollY >= feedTop - 120) {
+      isInFeedSectionRef.current = true;
+      lastFeedInteractionRef.current = Date.now();
+    } else {
+      isInFeedSectionRef.current = false;
+    }
+  };
+
+  // Sync deduction status & restore accumulated feed browsing seconds on load
+  useEffect(() => {
+    const initFeedTracking = async () => {
+      try {
+        const token = await SecureStore.getItemAsync("token");
+        if (!token) return;
+
+        const res = await apiFetch("/api/user/feed-deduct", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (res.ok && data.maxMilestone !== undefined) {
+          const serverMax = Number(data.maxMilestone);
+          highestDeductedMilestoneRef.current = Math.max(highestDeductedMilestoneRef.current, serverMax);
+
+          const savedSecStr = await SecureStore.getItemAsync("feed_active_seconds");
+          let savedSec = savedSecStr ? parseInt(savedSecStr, 10) : 0;
+          if (isNaN(savedSec) || savedSec < serverMax * 300) {
+            savedSec = serverMax * 300;
+          }
+          activeFeedSecondsRef.current = savedSec;
+          console.log(`⏱️ [Feed Tracking Initialized] Server Max Milestone: ${serverMax}, Active Seconds: ${savedSec}`);
+        }
+      } catch (e) {
+        console.error("Error initializing feed tracking:", e);
+      }
+    };
+
+    initFeedTracking();
+  }, []);
+
+  // Listen for AppState changes to pause tracking when app is in background
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
+      appStateRef.current = nextAppState;
+    });
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  // Active Feed Scrolling Timer:
+  // Starts ONLY when user has reached the Feed section and is actively browsing/scrolling.
+  // Pauses when user leaves Feed, scrolls up to Tasks/other sections, switches tabs, or leaves app.
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const isActivelyBrowsing =
+        isFocused &&
+        appStateRef.current === "active" &&
+        isInFeedSectionRef.current &&
+        viewingStory === null &&
+        !postCommentModalVisible &&
+        Date.now() - lastFeedInteractionRef.current < 25000;
+
+      if (!isActivelyBrowsing) return;
+
+      activeFeedSecondsRef.current += 1;
+      const currentSeconds = activeFeedSecondsRef.current;
+
+      const milestone = Math.floor(currentSeconds / 300);
+      if (milestone > highestDeductedMilestoneRef.current && milestone >= 1) {
+        deductFeedPoints(milestone);
+      }
+
+      if (currentSeconds % 10 === 0) {
+        SecureStore.setItemAsync("feed_active_seconds", String(currentSeconds)).catch(() => {});
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isFocused, viewingStory, postCommentModalVisible]);
 
   const fetchUserSummary = async () => {
     try {
@@ -1398,6 +1539,8 @@ export default function HomeScreen() {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
+        scrollEventThrottle={32}
+        onScroll={handleMainScroll}
       >
         {/* Top Header */}
         <View style={[styles.header, { paddingTop: Math.max(insets.top, 25) }]}>
@@ -1482,7 +1625,17 @@ export default function HomeScreen() {
         <TasksJourneySection completedTasks={homeData?.completedTasks || []} />
 
         {/* --- Active Feed Section --- */}
-        <View style={styles.feedSectionContainer}>
+        <View
+          style={styles.feedSectionContainer}
+          onLayout={(e) => {
+            feedSectionYRef.current = e.nativeEvent.layout.y;
+          }}
+          onTouchStart={() => {
+            if (isInFeedSectionRef.current) {
+              lastFeedInteractionRef.current = Date.now();
+            }
+          }}
+        >
           {/* Feed Header */}
           <View style={styles.feedHeaderRow}>
             <View style={styles.feedTitleGroup}>
