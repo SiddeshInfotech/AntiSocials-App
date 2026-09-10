@@ -12,21 +12,31 @@ import {
   Platform,
   KeyboardAvoidingView,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { useRouter } from "expo-router";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as SecureStore from "expo-secure-store";
 import * as ImagePicker from "expo-image-picker";
+import { File as ExpoFile, Paths } from "expo-file-system";
+import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { apiFetch } from "../constants/Api";
-import { CATEGORIES_DATA, MainCategory, searchCategories } from "../constants/categoriesData";
+import {
+  CATEGORIES_DATA,
+  MainCategory,
+  searchCategories,
+} from "../constants/categoriesData";
 
 export interface AttachedMediaItem {
   uri: string;
   type: "image" | "video";
   fileName?: string;
   mimeType?: string;
+  base64?: string;
 }
 
 /**
@@ -36,24 +46,37 @@ export interface AttachedMediaItem {
 export function normalizeMediaUri(uri: string): string {
   if (!uri || typeof uri !== "string") return "";
   let cleanUri = uri.trim();
-  if (cleanUri.includes("?")) {
-    cleanUri = cleanUri.split("?")[0];
-  }
   try {
     if (cleanUri.includes("%")) {
       cleanUri = decodeURIComponent(cleanUri);
-      if (cleanUri.includes("%")) {
-        cleanUri = decodeURIComponent(cleanUri);
-      }
     }
-  } catch (_) {}
+  } catch (_) { }
 
   if (Platform.OS !== "web") {
-    if (cleanUri.startsWith("/") && !cleanUri.startsWith("file://") && !cleanUri.startsWith("content://")) {
+    if (
+      cleanUri.startsWith("/") &&
+      !cleanUri.startsWith("file://") &&
+      !cleanUri.startsWith("content://")
+    ) {
       cleanUri = `file://${cleanUri}`;
     }
   }
   return cleanUri;
+}
+
+/**
+ * Writes image bytes into the app cache (readable by Expo fetch) and appends that file.
+ */
+async function appendBase64AsCacheFile(
+  formData: FormData,
+  fieldName: string,
+  base64: string,
+  finalName: string,
+) {
+  const dest = new ExpoFile(Paths.cache, `${Date.now()}-${finalName}`);
+  dest.create({ overwrite: true });
+  dest.write(base64, { encoding: "base64" });
+  formData.append(fieldName, dest);
 }
 
 /**
@@ -64,7 +87,8 @@ export async function appendFileToFormData(
   fieldName: string,
   uri: string,
   fileName?: string,
-  mimeType?: string
+  mimeType?: string,
+  base64?: string,
 ) {
   if (!uri || typeof uri !== "string" || uri.trim().length === 0) {
     throw new Error("Invalid media URI provided.");
@@ -79,7 +103,12 @@ export async function appendFileToFormData(
   const ext = match ? match[1].toLowerCase() : "";
 
   if (!type || type === "image" || type === "video") {
-    if (ext === "mp4" || ext === "mov" || ext === "mkv" || mimeType?.includes("video")) {
+    if (
+      ext === "mp4" ||
+      ext === "mov" ||
+      ext === "mkv" ||
+      mimeType?.includes("video")
+    ) {
       type = ext === "mov" ? "video/quicktime" : "video/mp4";
     } else if (ext === "png") {
       type = "image/png";
@@ -96,15 +125,20 @@ export async function appendFileToFormData(
     if (type.includes("png")) finalName += ".png";
     else if (type.includes("gif")) finalName += ".gif";
     else if (type.includes("webp")) finalName += ".webp";
-    else if (type.includes("video") || type.includes("mp4")) finalName += ".mp4";
+    else if (type.includes("video") || type.includes("mp4"))
+      finalName += ".mp4";
     else finalName += ".jpg";
   }
 
-  console.log(`📸 [appendFileToFormData] Appending field="${fieldName}" OS=${Platform.OS}:`, {
-    uri: cleanUri,
-    name: finalName,
-    type,
-  });
+  console.log(
+    `📸 [appendFileToFormData] Appending field="${fieldName}" OS=${Platform.OS}:`,
+    {
+      uri,
+      name: finalName,
+      type,
+      hasBase64: Boolean(base64),
+    },
+  );
 
   if (Platform.OS === "web") {
     try {
@@ -113,16 +147,41 @@ export async function appendFileToFormData(
       const fileObj = new File([blob], finalName, { type });
       formData.append(fieldName, fileObj);
     } catch (e) {
-      formData.append(fieldName, { uri: cleanUri, name: finalName, type } as any);
+      formData.append(fieldName, {
+        uri: cleanUri,
+        name: finalName,
+        type,
+      } as any);
     }
-  } else {
-    // Native React Native FormData part object format (strictly guarantees string values for uri, name, type)
-    formData.append(fieldName, {
-      uri: String(cleanUri),
-      name: String(finalName),
-      type: String(type),
-    } as any);
+    return;
   }
+
+  if (base64) {
+    await appendBase64AsCacheFile(formData, fieldName, base64, finalName);
+    return;
+  }
+
+  if (type.startsWith("image")) {
+    const format = type.includes("png") ? SaveFormat.PNG : SaveFormat.JPEG;
+    const result = await manipulateAsync(uri, [], {
+      compress: 1,
+      format,
+      base64: true,
+    });
+    if (!result.base64) {
+      throw new Error("Could not read image data.");
+    }
+    await appendBase64AsCacheFile(
+      formData,
+      fieldName,
+      result.base64,
+      finalName,
+    );
+    return;
+  }
+
+  const file = new ExpoFile(uri);
+  formData.append(fieldName, file);
 }
 
 export default function CreatePostScreen() {
@@ -130,11 +189,16 @@ export default function CreatePostScreen() {
   const insets = useSafeAreaInsets();
 
   // Selection & Form state
-  const [selectedMainCategory, setSelectedMainCategory] = useState<MainCategory | null>(null);
-  const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
+  const [selectedMainCategory, setSelectedMainCategory] =
+    useState<MainCategory | null>(null);
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(
+    null,
+  );
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [caption, setCaption] = useState<string>("");
-  const [attachedMedia, setAttachedMedia] = useState<AttachedMediaItem | null>(null);
+  const [attachedMedia, setAttachedMedia] = useState<AttachedMediaItem | null>(
+    null,
+  );
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   // Filtered categories based on search
@@ -158,7 +222,9 @@ export default function CreatePostScreen() {
 
   const handlePickMedia = async () => {
     if (Platform.OS === "web") {
-      const choice = window.confirm("Press OK to Upload from Gallery, or Cancel to open Camera.");
+      const choice = window.confirm(
+        "Press OK to Upload from Gallery, or Cancel to open Camera.",
+      );
       if (choice) {
         pickFromGallery();
       } else {
@@ -180,9 +246,10 @@ export default function CreatePostScreen() {
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['images', 'videos'] as any,
+      mediaTypes: ["images", "videos"] as any,
       allowsEditing: false,
       quality: 0.7,
+      base64: true,
     });
     if (!result.canceled && result.assets && result.assets.length > 0) {
       const asset = result.assets[0];
@@ -196,6 +263,7 @@ export default function CreatePostScreen() {
         type: isVid ? "video" : "image",
         fileName: asset.fileName || undefined,
         mimeType: asset.mimeType || undefined,
+        base64: asset.base64 || undefined,
       });
     }
   };
@@ -207,9 +275,10 @@ export default function CreatePostScreen() {
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images', 'videos'] as any,
+      mediaTypes: ["images", "videos"] as any,
       allowsEditing: false,
       quality: 0.7,
+      base64: true,
     });
     if (!result.canceled && result.assets && result.assets.length > 0) {
       const asset = result.assets[0];
@@ -223,43 +292,63 @@ export default function CreatePostScreen() {
         type: isVid ? "video" : "image",
         fileName: asset.fileName || undefined,
         mimeType: asset.mimeType || undefined,
+        base64: asset.base64 || undefined,
       });
     }
   };
 
   const isPostValid = useMemo(() => {
     const hasCategory = !!selectedMainCategory && !!selectedSubcategory;
-    const hasContent = caption.trim().length > 0 || (!!attachedMedia && !!attachedMedia.uri);
+    const hasContent =
+      caption.trim().length > 0 || (!!attachedMedia && !!attachedMedia.uri);
     return hasCategory && hasContent;
   }, [selectedMainCategory, selectedSubcategory, caption, attachedMedia]);
 
   const handlePublishPost = async () => {
+    console.log("Entering handlePublishPost");
     if (!isPostValid || !selectedMainCategory || !selectedSubcategory) {
-      Alert.alert("Incomplete Post", "Please select a Category, Subcategory, and add text or media.");
+      Alert.alert(
+        "Incomplete Post",
+        "Please select a Category, Subcategory, and add text or media.",
+      );
       return;
     }
 
+    console.log("Post is valid");
     try {
+      console.log("Trying to submit post");
       setIsSubmitting(true);
+
+      console.log("Getting token");
       const token = await SecureStore.getItemAsync("token");
+      console.log("Token:", token);
       if (!token) {
         Alert.alert("Authentication Error", "Please sign in again.");
         return;
       }
 
+      console.log("Token obtained");
       let uploadedMediaUrl: string | null = null;
       let uploadedMediaType: string | null = null;
 
+      console.log("Uploading media");
       // 1. Upload media if attached
       if (attachedMedia && attachedMedia.uri) {
-        console.log("📤 [Post Creation] Uploading media:", attachedMedia.uri, "type:", attachedMedia.type);
+        console.log(
+          "📤 [Post Creation] Uploading media:",
+          attachedMedia.uri,
+          "type:",
+          attachedMedia.type,
+        );
         const formData = new FormData();
         await appendFileToFormData(
           formData,
           "image",
           attachedMedia.uri,
           attachedMedia.fileName,
-          attachedMedia.mimeType || (attachedMedia.type === "video" ? "video/mp4" : "image/jpeg")
+          attachedMedia.mimeType ||
+          (attachedMedia.type === "video" ? "video/mp4" : "image/jpeg"),
+          attachedMedia.base64,
         );
 
         const uploadRes = await apiFetch("/upload", {
@@ -269,7 +358,11 @@ export default function CreatePostScreen() {
         });
 
         const uploadData = await uploadRes.json();
-        console.log("📥 [Post Creation] Upload status:", uploadRes.status, uploadData);
+        console.log(
+          "📥 [Post Creation] Upload status:",
+          uploadRes.status,
+          uploadData,
+        );
         if (!uploadRes.ok || (!uploadData?.imageUrl && !uploadData?.mediaUrl)) {
           throw new Error(uploadData?.error || "Media upload failed.");
         }
@@ -283,7 +376,13 @@ export default function CreatePostScreen() {
         subcategory: selectedSubcategory,
         caption: caption.trim(),
         media_url: uploadedMediaUrl,
-        media_type: uploadedMediaType || (uploadedMediaUrl ? (uploadedMediaUrl.endsWith(".mp4") ? "video" : "image") : null),
+        media_type:
+          uploadedMediaType ||
+          (uploadedMediaUrl
+            ? uploadedMediaUrl.endsWith(".mp4")
+              ? "video"
+              : "image"
+            : null),
       };
 
       console.log("📤 [Post Creation] Submitting post payload:", payload);
@@ -307,11 +406,17 @@ export default function CreatePostScreen() {
           },
         ]);
       } else {
-        Alert.alert("Publishing Error", data.error || "Could not publish post.");
+        Alert.alert(
+          "Publishing Error",
+          data.error || "Could not publish post.",
+        );
       }
     } catch (e: any) {
       console.error("❌ Error publishing post:", e);
-      Alert.alert("Post Error", e?.message || "Failed to publish post. Please check your connection.");
+      Alert.alert(
+        "Post Error",
+        e?.message || "Failed to publish post. Please check your connection.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -325,7 +430,9 @@ export default function CreatePostScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         {/* Navigation Top Header */}
-        <View style={[styles.navHeader, { paddingTop: Math.max(insets.top, 12) }]}>
+        <View
+          style={[styles.navHeader, { paddingTop: Math.max(insets.top, 12) }]}
+        >
           <TouchableOpacity
             style={styles.backBtn}
             onPress={() => router.back()}
@@ -344,12 +451,21 @@ export default function CreatePostScreen() {
           {/* STEP 1: CATEGORY SELECTION */}
           {!selectedSubcategory ? (
             <View style={styles.stepContainer}>
-              <Text style={styles.stepHeading}>What would you like to post about?</Text>
-              <Text style={styles.stepSubheading}>Choose a category to organize your post in the community feed.</Text>
+              <Text style={styles.stepHeading}>
+                What would you like to post about?
+              </Text>
+              <Text style={styles.stepSubheading}>
+                Choose a category to organize your post in the community feed.
+              </Text>
 
               {/* Search Field */}
               <View style={styles.searchBarContainer}>
-                <Feather name="search" size={18} color="#71717a" style={{ marginRight: 10 }} />
+                <Feather
+                  name="search"
+                  size={18}
+                  color="#71717a"
+                  style={{ marginRight: 10 }}
+                />
                 <TextInput
                   style={styles.searchInput}
                   placeholder="Search categories..."
@@ -369,16 +485,25 @@ export default function CreatePostScreen() {
               {selectedMainCategory ? (
                 <View style={styles.subcategorySection}>
                   <View style={styles.selectedMainBadgeRow}>
-                    <Text style={styles.selectedMainLabel}>Main Category: </Text>
+                    <Text style={styles.selectedMainLabel}>
+                      Main Category:{" "}
+                    </Text>
                     <View style={styles.mainBadge}>
-                      <Text style={styles.mainBadgeText}>{selectedMainCategory.name}</Text>
+                      <Text style={styles.mainBadgeText}>
+                        {selectedMainCategory.name}
+                      </Text>
                     </View>
-                    <TouchableOpacity onPress={handleResetCategory} style={styles.changeMainBtn}>
+                    <TouchableOpacity
+                      onPress={handleResetCategory}
+                      style={styles.changeMainBtn}
+                    >
                       <Text style={styles.changeMainBtnText}>Change</Text>
                     </TouchableOpacity>
                   </View>
 
-                  <Text style={styles.selectSubHeading}>Select a Subcategory:</Text>
+                  <Text style={styles.selectSubHeading}>
+                    Select a Subcategory:
+                  </Text>
 
                   <View style={styles.subCategoryGrid}>
                     {selectedMainCategory.subcategories.map((sub) => {
@@ -415,61 +540,70 @@ export default function CreatePostScreen() {
               ) : (
                 /* List Main Categories */
                 <View style={styles.mainCategoryList}>
-                  {filteredCategories.map(({ mainCategory, matchingSubcategories }) => {
-                    const isSelected = false;
-                    return (
-                      <TouchableOpacity
-                        key={mainCategory.name}
-                        style={[
-                          styles.mainCategoryCard,
-                          isSelected && styles.mainCategoryCardSelected,
-                        ]}
-                        activeOpacity={0.8}
-                        onPress={() => handleSelectMainCategory(mainCategory)}
-                      >
-                        <View style={styles.mainCategoryCardLeft}>
-                          <View
-                            style={[
-                              styles.categoryIconCircle,
-                              isSelected && styles.categoryIconCircleSelected,
-                            ]}
-                          >
-                            <Ionicons
-                              name="folder-open-outline"
-                              size={18}
-                              color={isSelected ? "#EA580C" : "#f97316"}
-                            />
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Text
+                  {filteredCategories.map(
+                    ({ mainCategory, matchingSubcategories }) => {
+                      const isSelected = false;
+                      return (
+                        <TouchableOpacity
+                          key={mainCategory.name}
+                          style={[
+                            styles.mainCategoryCard,
+                            isSelected && styles.mainCategoryCardSelected,
+                          ]}
+                          activeOpacity={0.8}
+                          onPress={() => handleSelectMainCategory(mainCategory)}
+                        >
+                          <View style={styles.mainCategoryCardLeft}>
+                            <View
                               style={[
-                                styles.mainCategoryName,
-                                isSelected && styles.mainCategoryNameSelected,
+                                styles.categoryIconCircle,
+                                isSelected && styles.categoryIconCircleSelected,
                               ]}
                             >
-                              {mainCategory.name}
-                            </Text>
-                            <Text style={styles.subCountText}>
-                              {searchQuery.length > 0
-                                ? `${matchingSubcategories.length} matching subcategories`
-                                : `${mainCategory.subcategories.length} subcategories`}
-                            </Text>
+                              <Ionicons
+                                name="folder-open-outline"
+                                size={18}
+                                color={isSelected ? "#EA580C" : "#f97316"}
+                              />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Text
+                                style={[
+                                  styles.mainCategoryName,
+                                  isSelected && styles.mainCategoryNameSelected,
+                                ]}
+                              >
+                                {mainCategory.name}
+                              </Text>
+                              <Text style={styles.subCountText}>
+                                {searchQuery.length > 0
+                                  ? `${matchingSubcategories.length} matching subcategories`
+                                  : `${mainCategory.subcategories.length} subcategories`}
+                              </Text>
+                            </View>
                           </View>
-                        </View>
-                        <Feather
-                          name="chevron-right"
-                          size={20}
-                          color={isSelected ? "#EA580C" : "#71717a"}
-                        />
-                      </TouchableOpacity>
-                    );
-                  })}
+                          <Feather
+                            name="chevron-right"
+                            size={20}
+                            color={isSelected ? "#EA580C" : "#71717a"}
+                          />
+                        </TouchableOpacity>
+                      );
+                    },
+                  )}
                   {filteredCategories.length === 0 && (
                     <View style={styles.emptySearchState}>
-                      <Ionicons name="search-outline" size={32} color="#a1a1aa" />
-                      <Text style={styles.emptySearchTitle}>No categories found</Text>
+                      <Ionicons
+                        name="search-outline"
+                        size={32}
+                        color="#a1a1aa"
+                      />
+                      <Text style={styles.emptySearchTitle}>
+                        No categories found
+                      </Text>
                       <Text style={styles.emptySearchSub}>
-                        Try searching for something else like "Sports", "Fitness", "Food" or "Programming"
+                        Try searching for something else like "Sports",
+                        "Fitness", "Food" or "Programming"
                       </Text>
                     </View>
                   )}
@@ -481,13 +615,31 @@ export default function CreatePostScreen() {
             <View style={styles.stepContainer}>
               {/* Category Breadcrumb Bar */}
               <View style={styles.lockedCategoryBar}>
-                <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
-                  <Ionicons name="pricetag-outline" size={16} color="#EA580C" style={{ marginRight: 6 }} />
-                  <Text style={styles.lockedMainText}>{selectedMainCategory?.name}</Text>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    flex: 1,
+                  }}
+                >
+                  <Ionicons
+                    name="pricetag-outline"
+                    size={16}
+                    color="#EA580C"
+                    style={{ marginRight: 6 }}
+                  />
+                  <Text style={styles.lockedMainText}>
+                    {selectedMainCategory?.name}
+                  </Text>
                   <Text style={styles.lockedDotText}> · </Text>
-                  <Text style={styles.lockedSubText}>{selectedSubcategory}</Text>
+                  <Text style={styles.lockedSubText}>
+                    {selectedSubcategory}
+                  </Text>
                 </View>
-                <TouchableOpacity onPress={handleResetCategory} style={styles.editCategoryBtn}>
+                <TouchableOpacity
+                  onPress={handleResetCategory}
+                  style={styles.editCategoryBtn}
+                >
                   <Text style={styles.editCategoryBtnText}>Edit</Text>
                 </TouchableOpacity>
               </View>
@@ -513,16 +665,31 @@ export default function CreatePostScreen() {
                       <View
                         style={[
                           styles.attachedImagePreview,
-                          { backgroundColor: "#18181b", justifyContent: "center", alignItems: "center" },
+                          {
+                            backgroundColor: "#18181b",
+                            justifyContent: "center",
+                            alignItems: "center",
+                          },
                         ]}
                       >
                         <Ionicons name="videocam" size={44} color="#EA580C" />
-                        <Text style={{ color: "#FFFFFF", marginTop: 8, fontSize: 13, fontWeight: "600" }}>
-                          Video Attached ({attachedMedia.fileName || "video.mp4"})
+                        <Text
+                          style={{
+                            color: "#FFFFFF",
+                            marginTop: 8,
+                            fontSize: 13,
+                            fontWeight: "600",
+                          }}
+                        >
+                          Video Attached (
+                          {attachedMedia.fileName || "video.mp4"})
                         </Text>
                       </View>
                     ) : (
-                      <Image source={{ uri: attachedMedia.uri }} style={styles.attachedImagePreview} />
+                      <Image
+                        source={{ uri: attachedMedia.uri }}
+                        style={styles.attachedImagePreview}
+                      />
                     )}
                     <TouchableOpacity
                       style={styles.removeImageBtn}
@@ -540,8 +707,15 @@ export default function CreatePostScreen() {
                     activeOpacity={0.8}
                     onPress={handlePickMedia}
                   >
-                    <Ionicons name="image-outline" size={20} color="#EA580C" style={{ marginRight: 8 }} />
-                    <Text style={styles.addMediaBtnText}>Attach Photo / Video (Optional)</Text>
+                    <Ionicons
+                      name="image-outline"
+                      size={20}
+                      color="#EA580C"
+                      style={{ marginRight: 8 }}
+                    />
+                    <Text style={styles.addMediaBtnText}>
+                      Attach Photo / Video (Optional)
+                    </Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -551,15 +725,25 @@ export default function CreatePostScreen() {
 
         {/* STEP 3: POST CTA BUTTON */}
         {selectedSubcategory && (
-          <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+          <View
+            style={[
+              styles.bottomBar,
+              { paddingBottom: Math.max(insets.bottom, 16) },
+            ]}
+          >
             <TouchableOpacity
-              style={[styles.publishBtn, !isPostValid && styles.publishBtnDisabled]}
+              style={[
+                styles.publishBtn,
+                !isPostValid && styles.publishBtnDisabled,
+              ]}
               activeOpacity={0.85}
               disabled={!isPostValid || isSubmitting}
               onPress={handlePublishPost}
             >
               <LinearGradient
-                colors={isPostValid ? ["#f97316", "#ea580c"] : ["#e4e4e7", "#e4e4e7"]}
+                colors={
+                  isPostValid ? ["#f97316", "#ea580c"] : ["#e4e4e7", "#e4e4e7"]
+                }
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.publishBtnGradient}
@@ -568,10 +752,20 @@ export default function CreatePostScreen() {
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
                   <>
-                    <Text style={[styles.publishBtnText, !isPostValid && { color: "#a1a1aa" }]}>
+                    <Text
+                      style={[
+                        styles.publishBtnText,
+                        !isPostValid && { color: "#a1a1aa" },
+                      ]}
+                    >
                       Post
                     </Text>
-                    <Ionicons name="send" size={16} color={isPostValid ? "#FFFFFF" : "#a1a1aa"} style={{ marginLeft: 8 }} />
+                    <Ionicons
+                      name="send"
+                      size={16}
+                      color={isPostValid ? "#FFFFFF" : "#a1a1aa"}
+                      style={{ marginLeft: 8 }}
+                    />
                   </>
                 )}
               </LinearGradient>
