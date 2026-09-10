@@ -745,6 +745,7 @@ export default function HomeScreen() {
   const lastFeedInteractionRef = useRef<number>(0);
   const activeFeedSecondsRef = useRef<number>(0);
   const highestDeductedMilestoneRef = useRef<number>(0);
+  const attemptedMilestonesRef = useRef<Set<number>>(new Set());
   const isDeductingRef = useRef<boolean>(false);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
 
@@ -1078,13 +1079,19 @@ export default function HomeScreen() {
     router.push("/create-post");
   };
 
-  // --- Feed Scrolling Time Points Deduction Logic (TESTING: 10s milestone interval) ---
-  const FEED_DEDUCTION_INTERVAL_SECONDS = 10;
+  // --- Feed Scrolling Time Points Deduction Logic (5 minutes / 300s milestone interval) ---
+  const FEED_DEDUCTION_INTERVAL_SECONDS = 300;
 
   const deductFeedPoints = async (milestoneIdx: number) => {
-    if (isDeductingRef.current || milestoneIdx <= highestDeductedMilestoneRef.current) {
+    if (
+      isDeductingRef.current ||
+      milestoneIdx <= highestDeductedMilestoneRef.current ||
+      attemptedMilestonesRef.current.has(milestoneIdx)
+    ) {
       return;
     }
+    // Mark as attempted immediately to prevent duplicate trigger loops
+    attemptedMilestonesRef.current.add(milestoneIdx);
     isDeductingRef.current = true;
     try {
       const token = await SecureStore.getItemAsync("token");
@@ -1099,14 +1106,21 @@ export default function HomeScreen() {
         body: JSON.stringify({ milestoneIndex: milestoneIdx }),
       });
 
-      const data = await res.json();
-      if (res.ok && data.success) {
+      let data: any = null;
+      try {
+        const text = await res.text();
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        data = null;
+      }
+
+      if (res.ok && data && (data.success || data.alreadyDeducted)) {
         highestDeductedMilestoneRef.current = Math.max(highestDeductedMilestoneRef.current, milestoneIdx);
         await SecureStore.setItemAsync("feed_deducted_milestone", String(highestDeductedMilestoneRef.current));
 
         if (data.totalPoints !== undefined || data.total_points !== undefined) {
           const newPts = Number(data.totalPoints ?? data.total_points ?? 0);
-          console.log(`⏱️ [Feed Scrolling Time Deduction] Milestone ${milestoneIdx} hit (${milestoneIdx * FEED_DEDUCTION_INTERVAL_SECONDS}s): -${data.pointsDeducted} pts. New total: ${newPts}`);
+          console.log(`⏱️ [Feed Scrolling Time Deduction] Milestone ${milestoneIdx} hit (${milestoneIdx * FEED_DEDUCTION_INTERVAL_SECONDS}s): -${data.pointsDeducted ?? 0} pts. New total: ${newPts}`);
           setHomeData((prev: any) => ({
             ...(prev || {}),
             total_points: newPts,
@@ -1116,6 +1130,8 @@ export default function HomeScreen() {
             },
           }));
         }
+      } else if (!res.ok) {
+        console.warn(`⚠️ [Feed Deduction] Server responded with status ${res.status} for milestone ${milestoneIdx}`);
       }
     } catch (err) {
       console.error("❌ Error deducting feed points:", err);
@@ -1146,10 +1162,21 @@ export default function HomeScreen() {
         const res = await apiFetch("/api/user/feed-deduct", {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const data = await res.json();
-        if (res.ok && data.maxMilestone !== undefined) {
+
+        let data: any = null;
+        try {
+          const text = await res.text();
+          data = text ? JSON.parse(text) : null;
+        } catch {
+          data = null;
+        }
+
+        if (res.ok && data && data.maxMilestone !== undefined) {
           const serverMax = Number(data.maxMilestone);
           highestDeductedMilestoneRef.current = Math.max(highestDeductedMilestoneRef.current, serverMax);
+          for (let i = 1; i <= serverMax; i++) {
+            attemptedMilestonesRef.current.add(i);
+          }
 
           const savedSecStr = await SecureStore.getItemAsync("feed_active_seconds");
           let savedSec = savedSecStr ? parseInt(savedSecStr, 10) : 0;
@@ -1196,7 +1223,11 @@ export default function HomeScreen() {
       const currentSeconds = activeFeedSecondsRef.current;
 
       const milestone = Math.floor(currentSeconds / FEED_DEDUCTION_INTERVAL_SECONDS);
-      if (milestone > highestDeductedMilestoneRef.current && milestone >= 1) {
+      if (
+        milestone >= 1 &&
+        milestone > highestDeductedMilestoneRef.current &&
+        !attemptedMilestonesRef.current.has(milestone)
+      ) {
         deductFeedPoints(milestone);
       }
 
