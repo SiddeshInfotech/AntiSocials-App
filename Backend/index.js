@@ -251,9 +251,11 @@ const initDB = async () => {
                 caption TEXT,
                 media_url TEXT,
                 media_type VARCHAR(50) DEFAULT 'image',
+                media_format VARCHAR(20) DEFAULT 'portrait',
                 created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
             );
+            ALTER TABLE posts ADD COLUMN IF NOT EXISTS media_format VARCHAR(20) DEFAULT 'portrait';
         `);
 
         await db.query(`

@@ -17,15 +17,21 @@ import { apiFetch } from "../constants/Api";
 import { resolveAvatarUrl, resolveStoryMediaUrl } from "../constants/ImageUtils";
 import { useVideoPlayer, VideoView } from "expo-video";
 
-function PostVideoPlayer({ uri }: { uri: string }) {
+function PostVideoPlayer({ uri, isSquare }: { uri: string; isSquare?: boolean }) {
   const player = useVideoPlayer(uri, (p) => {
     p.loop = true;
   });
 
   return (
     <VideoView
-      style={{ width: "100%", height: 260, borderRadius: 16 }}
+      style={{
+        width: "100%",
+        aspectRatio: isSquare ? 1 : 4 / 5,
+        borderRadius: 14,
+      }}
       player={player}
+      contentFit="cover"
+      nativeControls={false}
     />
   );
 }
@@ -41,6 +47,7 @@ export interface PostType {
   caption?: string | null;
   media_url?: string | null;
   media_type?: string | null;
+  media_format?: "portrait" | "square" | string | null;
   created_at: string;
   likes_count: number;
   comments_count: number;
@@ -241,14 +248,16 @@ export default function PostCard({
           (typeof post.media_url === "string" &&
             (post.media_url.toLowerCase().endsWith(".mp4") || post.media_url.toLowerCase().endsWith(".mov")));
 
+        const isSquare = post.media_format === "square";
+
         return (
           <View style={styles.mediaWrap}>
             {isVideo ? (
-              <PostVideoPlayer uri={resolvedMedia} />
+              <PostVideoPlayer uri={resolvedMedia} isSquare={isSquare} />
             ) : (
               <Image
                 source={{ uri: resolvedMedia }}
-                style={styles.mediaImage}
+                style={isSquare ? styles.mediaImageSquare : styles.mediaImagePortrait}
                 resizeMode="cover"
                 onError={() => {
                   console.warn(`[PostCard] Failed to load image at: ${resolvedMedia}`);
@@ -399,10 +408,17 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     overflow: "hidden",
     marginBottom: 12,
-  },
-  mediaImage: {
     width: "100%",
-    height: 240,
+    backgroundColor: "#09090b",
+  },
+  mediaImagePortrait: {
+    width: "100%",
+    aspectRatio: 4 / 5,
+    borderRadius: 14,
+  },
+  mediaImageSquare: {
+    width: "100%",
+    aspectRatio: 1,
     borderRadius: 14,
   },
   actionBar: {

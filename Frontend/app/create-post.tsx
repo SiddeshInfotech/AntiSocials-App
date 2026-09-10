@@ -24,6 +24,7 @@ import * as SecureStore from "expo-secure-store";
 import * as ImagePicker from "expo-image-picker";
 import { File as ExpoFile, Paths } from "expo-file-system";
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
+import { useVideoPlayer, VideoView } from "expo-video";
 import { apiFetch } from "../constants/Api";
 import {
   CATEGORIES_DATA,
@@ -37,6 +38,32 @@ export interface AttachedMediaItem {
   fileName?: string;
   mimeType?: string;
   base64?: string;
+}
+
+function CreatePostVideoPreview({
+  uri,
+  isSquare,
+}: {
+  uri: string;
+  isSquare: boolean;
+}) {
+  const player = useVideoPlayer(uri, (p) => {
+    p.loop = true;
+    p.play();
+  });
+
+  return (
+    <VideoView
+      style={{
+        width: "100%",
+        aspectRatio: isSquare ? 1 : 4 / 5,
+        borderRadius: 14,
+      }}
+      player={player}
+      contentFit="cover"
+      nativeControls={false}
+    />
+  );
 }
 
 /**
@@ -199,6 +226,7 @@ export default function CreatePostScreen() {
   const [attachedMedia, setAttachedMedia] = useState<AttachedMediaItem | null>(
     null,
   );
+  const [mediaFormat, setMediaFormat] = useState<"portrait" | "square">("portrait");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   // Filtered categories based on search
@@ -383,6 +411,7 @@ export default function CreatePostScreen() {
               ? "video"
               : "image"
             : null),
+        media_format: mediaFormat,
       };
 
       console.log("📤 [Post Creation] Submitting post payload:", payload);
@@ -658,42 +687,93 @@ export default function CreatePostScreen() {
                   maxLength={1000}
                 />
 
+                {/* Media Adjustment: Exactly 2 options - Portrait vs Square */}
+                {attachedMedia && (
+                  <View style={styles.formatSelectorContainer}>
+                    <Text style={styles.formatSelectorLabel}>Media Format</Text>
+                    <View style={styles.formatOptionsRow}>
+                      <TouchableOpacity
+                        style={[
+                          styles.formatOptionBtn,
+                          mediaFormat === "portrait" && styles.formatOptionBtnActive,
+                        ]}
+                        activeOpacity={0.8}
+                        onPress={() => setMediaFormat("portrait")}
+                      >
+                        <Ionicons
+                          name="phone-portrait-outline"
+                          size={18}
+                          color={mediaFormat === "portrait" ? "#EA580C" : "#71717a"}
+                        />
+                        <Text
+                          style={[
+                            styles.formatOptionText,
+                            mediaFormat === "portrait" && styles.formatOptionTextActive,
+                          ]}
+                        >
+                          Portrait
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.formatOptionBtn,
+                          mediaFormat === "square" && styles.formatOptionBtnActive,
+                        ]}
+                        activeOpacity={0.8}
+                        onPress={() => setMediaFormat("square")}
+                      >
+                        <Ionicons
+                          name="square-outline"
+                          size={17}
+                          color={mediaFormat === "square" ? "#EA580C" : "#71717a"}
+                        />
+                        <Text
+                          style={[
+                            styles.formatOptionText,
+                            mediaFormat === "square" && styles.formatOptionTextActive,
+                          ]}
+                        >
+                          Square
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+
                 {/* Attached Media Preview */}
                 {attachedMedia && (
-                  <View style={styles.attachedImageContainer}>
+                  <View
+                    style={[
+                      styles.attachedImageContainer,
+                      mediaFormat === "square"
+                        ? styles.previewSquare
+                        : styles.previewPortrait,
+                    ]}
+                  >
                     {attachedMedia.type === "video" ? (
-                      <View
-                        style={[
-                          styles.attachedImagePreview,
-                          {
-                            backgroundColor: "#18181b",
-                            justifyContent: "center",
-                            alignItems: "center",
-                          },
-                        ]}
-                      >
-                        <Ionicons name="videocam" size={44} color="#EA580C" />
-                        <Text
-                          style={{
-                            color: "#FFFFFF",
-                            marginTop: 8,
-                            fontSize: 13,
-                            fontWeight: "600",
-                          }}
-                        >
-                          Video Attached (
-                          {attachedMedia.fileName || "video.mp4"})
-                        </Text>
-                      </View>
+                      <CreatePostVideoPreview
+                        uri={attachedMedia.uri}
+                        isSquare={mediaFormat === "square"}
+                      />
                     ) : (
                       <Image
                         source={{ uri: attachedMedia.uri }}
-                        style={styles.attachedImagePreview}
+                        style={[
+                          styles.attachedImagePreview,
+                          mediaFormat === "square"
+                            ? styles.previewSquare
+                            : styles.previewPortrait,
+                        ]}
+                        resizeMode="cover"
                       />
                     )}
                     <TouchableOpacity
                       style={styles.removeImageBtn}
-                      onPress={() => setAttachedMedia(null)}
+                      onPress={() => {
+                        setAttachedMedia(null);
+                        setMediaFormat("portrait");
+                      }}
                     >
                       <Feather name="x" size={16} color="#FFFFFF" />
                     </TouchableOpacity>
@@ -1036,14 +1116,64 @@ const styles = StyleSheet.create({
   },
   attachedImageContainer: {
     position: "relative",
-    marginTop: 16,
+    marginTop: 14,
     borderRadius: 14,
     overflow: "hidden",
+    backgroundColor: "#09090b",
+    width: "100%",
   },
   attachedImagePreview: {
     width: "100%",
-    height: 220,
     borderRadius: 14,
+    backgroundColor: "#09090b",
+  },
+  previewPortrait: {
+    aspectRatio: 4 / 5,
+  },
+  previewSquare: {
+    aspectRatio: 1,
+  },
+  formatSelectorContainer: {
+    marginTop: 16,
+    marginBottom: 2,
+  },
+  formatSelectorLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#64748B",
+    marginBottom: 8,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  formatOptionsRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  formatOptionBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: "#E2E8F0",
+    backgroundColor: "#FFFFFF",
+    gap: 8,
+  },
+  formatOptionBtnActive: {
+    borderColor: "#EA580C",
+    backgroundColor: "#FFF7ED",
+  },
+  formatOptionText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#64748B",
+  },
+  formatOptionTextActive: {
+    color: "#EA580C",
+    fontWeight: "700",
   },
   removeImageBtn: {
     position: "absolute",

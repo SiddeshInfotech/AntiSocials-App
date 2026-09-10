@@ -37,6 +37,7 @@ exports.getPosts = async (req, res) => {
         p.caption,
         p.media_url,
         p.media_type,
+        p.media_format,
         p.created_at,
         p.updated_at,
         u.username,
@@ -100,7 +101,7 @@ exports.getPosts = async (req, res) => {
 exports.createPost = async (req, res) => {
   try {
     const userId = req.user.id;
-    let { main_category, subcategory, caption, media_url, media_type } = req.body || {};
+    let { main_category, subcategory, caption, media_url, media_type, media_format } = req.body || {};
 
     const uploadedFile = req.file || (req.files && req.files.length > 0 ? req.files[0] : null);
     if (uploadedFile) {
@@ -121,9 +122,11 @@ exports.createPost = async (req, res) => {
       return res.status(400).json({ error: 'Post must contain either text content or an attached photo/video.' });
     }
 
+    const chosenFormat = media_format === 'square' ? 'square' : 'portrait';
+
     const insertQuery = `
-      INSERT INTO posts (user_id, main_category, subcategory, caption, media_url, media_type)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      INSERT INTO posts (user_id, main_category, subcategory, caption, media_url, media_type, media_format)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *
     `;
 
@@ -133,7 +136,8 @@ exports.createPost = async (req, res) => {
       subcategory.trim(),
       hasCaption ? caption.trim() : '',
       hasMedia ? media_url.trim() : null,
-      media_type || (hasMedia && media_url.toLowerCase().endsWith('.mp4') ? 'video' : 'image')
+      media_type || (hasMedia && media_url.toLowerCase().endsWith('.mp4') ? 'video' : 'image'),
+      chosenFormat
     ];
 
     const result = await db.query(insertQuery, values);
