@@ -901,7 +901,7 @@ export function isBucketComplete(bucketIndex: number, completedTasks: string[] |
 // Set to true to temporarily unlock ALL Days and Tasks for testing.
 // To restore original locking behavior, simply set this constant to false.
 // ============================================================================
-export const TEMPORARY_UNLOCK_ALL_FOR_TESTING = true;
+export const TEMPORARY_UNLOCK_ALL_FOR_TESTING = false;
 
 // Highest day-bucket reachable given completion of every prior bucket's 7 tasks.
 // Bucket 0 (Day 1) is always unlocked. This is the one generic mechanism that
