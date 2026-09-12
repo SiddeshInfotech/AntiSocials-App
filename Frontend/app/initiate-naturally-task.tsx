@@ -826,11 +826,12 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 40,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'stretch',
   },
   heroWindowContainer: {
     marginBottom: 20,
     alignItems: 'center',
+    alignSelf: 'center',
   },
   heroWindowFrame: {
     width: 120,
@@ -886,6 +887,7 @@ const styles = StyleSheet.create({
 
   glassCard: {
     width: '100%',
+    alignSelf: 'stretch',
     backgroundColor: 'rgba(35, 52, 46, 0.9)',
     borderRadius: 28,
     padding: 24,
@@ -989,6 +991,7 @@ const styles = StyleSheet.create({
 
   startButton: {
     width: '100%',
+    alignSelf: 'stretch',
     height: 52,
     borderRadius: 26,
     overflow: 'hidden',

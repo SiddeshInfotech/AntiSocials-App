@@ -1,1299 +1,1956 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  StyleSheet,
   View,
   Text,
+  StyleSheet,
   TouchableOpacity,
-  Pressable,
-  TextInput,
-  useWindowDimensions,
-  Platform,
-  Alert,
-  ActivityIndicator,
-  ScrollView,
-  KeyboardAvoidingView,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withRepeat,
-  withSequence,
-  withSpring,
+  Animated,
   Easing,
-  FadeIn,
-  FadeOut,
-} from 'react-native-reanimated';
-import Svg, { Circle } from 'react-native-svg';
-import { Feather, MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
-import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+  Dimensions,
+  Pressable,
+  Alert,
+  AppState,
+  ScrollView,
+  Platform
+} from 'react-native';
 import { useRouter } from 'expo-router';
-import * as Haptics from 'expo-haptics';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as SecureStore from 'expo-secure-store';
-import { API_BASE_URL, apiFetch } from '../constants/Api';
+import * as Haptics from 'expo-haptics';
+import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
+import Svg, { Circle, Rect, Path, G, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
+import { apiFetch } from '../constants/Api';
 
-const TASK_DURATION = 300; // 5 minutes (300 seconds)
+const { width, height } = Dimensions.get('window');
+const TASK_DURATION_SECONDS = 300; // Exact 5 minutes (300 seconds)
 
-// Rating Options for Screen 4
-const EXPERIENCE_RATINGS = [
-  { id: 'easy', label: 'Easy', emoji: '😄' },
-  { id: 'manageable', label: 'Manageable', emoji: '😌' },
-  { id: 'difficult', label: 'Difficult', emoji: '😔' },
-  { id: 'very_hard', label: 'Very Hard', emoji: '😤' },
+// Confetti particles for completion page
+const CONFETTI_PARTICLES = Array.from({ length: 24 }, (_, i) => ({
+  id: i,
+  x: Math.random() * (width - 40) + 20,
+  color: ['#10b981', '#06b6d4', '#3b82f6', '#f59e0b', '#ec4899', '#8b5cf6'][i % 6],
+  size: 6 + Math.random() * 8,
+  delay: (i % 8) * 150,
+  duration: 2200 + Math.random() * 800,
+}));
+
+// Drifting thought impulses for Page 1 & Page 2 animations
+const IMPULSE_WORDS = [
+  'Quick check?',
+  'New alert?',
+  'Just 10 seconds...',
+  'Did someone reply?',
+  'Boredom urge',
 ];
 
 export default function ObserveTaskScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { width, height } = useWindowDimensions();
 
-  // Screen Flow Step: 1: Intro | 2: Observe Together | 3: Your Mission (Timer) | 4: Share Experience | 5: Surprised Most | 6: Beautiful Reflection
-  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5 | 6>(1);
+  // ----------------------------------------------------
+  // PRIMARY SCREEN / PAGE STATE
+  // EXACTLY 3 PAGES: 1 (intro), 2 (observation), 3 (completion)
+  // ----------------------------------------------------
+  const [page, setPage] = useState<1 | 2 | 3>(1);
 
-  // Timer state
-  const [isActive, setIsActive] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(TASK_DURATION);
-  const [isLoading, setIsLoading] = useState(false);
+  // Timer States for Page 2
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(TASK_DURATION_SECONDS);
+  const [activeGuidanceIndex, setActiveGuidanceIndex] = useState(0);
 
-  // User input states
-  const [selectedRating, setSelectedRating] = useState<string>('easy');
-  const [experienceText, setExperienceText] = useState<string>('');
-  const [surpriseText, setSurpriseText] = useState<string>('');
+  // Backend & Reward States for Page 3
+  const [isAwarding, setIsAwarding] = useState(false);
+  const [rewardStatus, setRewardStatus] = useState<'pending' | 'success' | 'already_claimed' | 'error'>('pending');
+  const [userTotalPoints, setUserTotalPoints] = useState<number | null>(null);
+  const [currentStreak, setCurrentStreak] = useState<number | null>(null);
 
-  const lastPress = useRef(0);
+  // Guard ref to ensure backend points are awarded STRICTLY ONCE
+  const hasAwardedRef = useRef(false);
+
+  // Accurate drift-free timer tracking refs
   const endTimeRef = useRef<number>(0);
+  const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const appStateRef = useRef(AppState.currentState);
 
-  // Haptic feedback helper
-  const triggerHaptic = useCallback((type: 'light' | 'medium' | 'success' | 'warning' = 'light') => {
-    if (Platform.OS === 'web') return;
+  // ----------------------------------------------------
+  // ANIMATION REFS
+  // ----------------------------------------------------
+  // Page cross-fade transitions
+  const pageFadeAnim = useRef(new Animated.Value(1)).current;
+  const pageSlideAnim = useRef(new Animated.Value(0)).current;
+
+  // Ambient breathing background aura
+  const ambientBreathAnim = useRef(new Animated.Value(1)).current;
+  const ambientGlowAnim = useRef(new Animated.Value(0.4)).current;
+
+  // Page 1 Floating Phone Hologram & Ripple Waves
+  const phoneFloatAnim = useRef(new Animated.Value(0)).current;
+  const rippleWaveAnim1 = useRef(new Animated.Value(0)).current;
+  const rippleWaveAnim2 = useRef(new Animated.Value(0)).current;
+  const impulseWordIndex = useRef(0);
+  const [currentImpulseText, setCurrentImpulseText] = useState(IMPULSE_WORDS[0]);
+  const impulseOpacityAnim = useRef(new Animated.Value(0)).current;
+  const impulseYAnim = useRef(new Animated.Value(10)).current;
+
+  // Page 2 Zen Circle & Breathing Aura
+  const zenBreathScaleAnim = useRef(new Animated.Value(1)).current;
+  const zenBreathTextAnim = useRef(new Animated.Value(0.7)).current;
+  const timerGlowPulse = useRef(new Animated.Value(0.7)).current;
+
+  // Page 3 Trophy / Confetti Animations
+  const trophyScaleAnim = useRef(new Animated.Value(0)).current;
+  const celebrationAuraAnim = useRef(new Animated.Value(0)).current;
+  const rewardCardSlideAnim = useRef(new Animated.Value(30)).current;
+  const rewardCardOpacityAnim = useRef(new Animated.Value(0)).current;
+  const confettiFallAnims = useRef(CONFETTI_PARTICLES.map(() => new Animated.Value(0))).current;
+
+  // Safe Haptics helper
+  const triggerHaptic = (type: 'light' | 'medium' | 'success' | 'warning' = 'light') => {
     try {
-      if (type === 'light') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      else if (type === 'medium') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      else if (type === 'success') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      else if (type === 'warning') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    } catch (e) {}
-  }, []);
-
-  // Floating Flame / Energy Animation for Screen 1 Glass Dome
-  const flameFloatY = useSharedValue(0);
-  const flameScale = useSharedValue(1);
-  const flameGlowOpacity = useSharedValue(0.7);
-
-  useEffect(() => {
-    flameFloatY.value = withRepeat(
-      withSequence(
-        withTiming(-8, { duration: 2200, easing: Easing.inOut(Easing.ease) }),
-        withTiming(8, { duration: 2200, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1,
-      true
-    );
-
-    flameScale.value = withRepeat(
-      withSequence(
-        withTiming(1.08, { duration: 1800, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0.94, { duration: 1800, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1,
-      true
-    );
-
-    flameGlowOpacity.value = withRepeat(
-      withSequence(
-        withTiming(0.95, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0.5, { duration: 2000, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1,
-      true
-    );
-  }, []);
-
-  const animatedFlameStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: flameFloatY.value }, { scale: flameScale.value }],
-    opacity: flameGlowOpacity.value,
-  }));
-
-  // Step 2 Sunset Landscape Floating Notif Particles
-  const notifFloatY = useSharedValue(0);
-  useEffect(() => {
-    notifFloatY.value = withRepeat(
-      withSequence(
-        withTiming(-6, { duration: 2500, easing: Easing.inOut(Easing.ease) }),
-        withTiming(6, { duration: 2500, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1,
-      true
-    );
-  }, []);
-
-  const animatedNotifStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: notifFloatY.value }],
-  }));
-
-const JarOrbItem = ({ index }: { index: number }) => {
-  const pY = useSharedValue(Math.random() * 40 - 20);
-  const pX = useSharedValue(Math.random() * 30 - 15);
-  useEffect(() => {
-    pY.value = withRepeat(
-      withSequence(
-        withTiming(pY.value - 12, { duration: 2000 + index * 400, easing: Easing.inOut(Easing.ease) }),
-        withTiming(pY.value + 12, { duration: 2000 + index * 400, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1,
-      true
-    );
-  }, []);
-  const style = useAnimatedStyle(() => ({
-    transform: [{ translateX: pX.value }, { translateY: pY.value }],
-  }));
-  return <Animated.View style={[styles.jarOrbParticle, style]} />;
-};
-
-  // Timer Tick Loop for Step 3
-  useEffect(() => {
-    let timer: ReturnType<typeof setInterval>;
-    if (step === 3 && isActive && !isPaused && timeLeft > 0) {
-      endTimeRef.current = Date.now() + timeLeft * 1000;
-      timer = setInterval(() => {
-        setTimeLeft((prev) => {
-          if (prev <= 1) {
-            setIsActive(false);
-            triggerHaptic('success');
-            setStep(4); // Move to Screen 4 (Share Your Experience)
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-    return () => {
-      if (timer) clearInterval(timer);
-    };
-  }, [step, isActive, isPaused, timeLeft]);
-
-  const handleStartObservation = () => {
-    triggerHaptic('medium');
-    setStep(2);
-  };
-
-  const handleBeginMissionTimer = () => {
-    triggerHaptic('medium');
-    setIsActive(true);
-    setIsPaused(false);
-  };
-
-  const handleDevSkip = () => {
-    if (__DEV__) {
-      const time = Date.now();
-      const delta = time - lastPress.current;
-      lastPress.current = time;
-      if (delta < 350) {
-        triggerHaptic('warning');
-        if (step === 3) setTimeLeft(3);
-        else if (step < 6) setStep((step + 1) as any);
+      if (type === 'success') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else if (type === 'warning') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      } else if (type === 'medium') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      } else {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
+    } catch {
+      // Haptics unavailable on some platforms/devices
     }
   };
 
-  // Complete Task Backend Integration
-  const completeTaskBackend = async () => {
-    if (isLoading) return;
-    setIsLoading(true);
-    triggerHaptic('medium');
+  // ----------------------------------------------------
+  // AMBIENT BACKGROUND & FLOATING ANIMATIONS
+  // ----------------------------------------------------
+  useEffect(() => {
+    // 1. Ambient background breathing loop
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(ambientBreathAnim, {
+          toValue: 1.08,
+          duration: 4500,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(ambientBreathAnim, {
+          toValue: 1.0,
+          duration: 4500,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
 
-    let pointsData = { pointsAdded: '10', totalPoints: '0', streak: '0' };
-    try {
-      const token = await SecureStore.getItemAsync('token');
-      if (token) {
-        const response = await apiFetch('/api/tasks/complete', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            task_name: 'Observe urge to check phone',
-            rating: selectedRating,
-            experience_notes: experienceText,
-            surprise_notes: surpriseText,
+    // 2. Ambient glow pulse
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(ambientGlowAnim, {
+          toValue: 0.85,
+          duration: 3200,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(ambientGlowAnim, {
+          toValue: 0.35,
+          duration: 3200,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // 3. Floating Phone movement
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(phoneFloatAnim, {
+          toValue: -14,
+          duration: 3500,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(phoneFloatAnim, {
+          toValue: 0,
+          duration: 3500,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // 4. Concentric Ripple waves
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(rippleWaveAnim1, {
+          toValue: 1,
+          duration: 3000,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(rippleWaveAnim1, {
+          toValue: 0,
+          duration: 0,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    setTimeout(() => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(rippleWaveAnim2, {
+            toValue: 1,
+            duration: 3000,
+            easing: Easing.out(Easing.ease),
+            useNativeDriver: true,
           }),
-        });
-        const data = await response.json();
-        if (response.ok || data.success) {
-          pointsData = {
-            pointsAdded: data.pointsAdded?.toString() || '10',
-            totalPoints: data.totalPoints?.toString() || '0',
-            streak: data.streak?.toString() || '0',
-          };
+          Animated.timing(rippleWaveAnim2, {
+            toValue: 0,
+            duration: 0,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    }, 1500);
+
+    // 5. Zen breath cycle for Page 2
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(zenBreathScaleAnim, {
+          toValue: 1.18,
+          duration: 4000,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(zenBreathScaleAnim, {
+          toValue: 0.96,
+          duration: 4000,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // 6. Timer glow pulsation
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(timerGlowPulse, {
+          toValue: 1,
+          duration: 1800,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(timerGlowPulse, {
+          toValue: 0.65,
+          duration: 1800,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
+
+  // Impulse thoughts loop on Page 1
+  useEffect(() => {
+    if (page !== 1) return;
+
+    const impulseInterval = setInterval(() => {
+      Animated.sequence([
+        Animated.timing(impulseOpacityAnim, {
+          toValue: 0,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+        Animated.timing(impulseYAnim, {
+          toValue: 15,
+          duration: 10,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        impulseWordIndex.current = (impulseWordIndex.current + 1) % IMPULSE_WORDS.length;
+        setCurrentImpulseText(IMPULSE_WORDS[impulseWordIndex.current]);
+
+        Animated.parallel([
+          Animated.timing(impulseOpacityAnim, {
+            toValue: 1,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+          Animated.timing(impulseYAnim, {
+            toValue: 0,
+            duration: 600,
+            easing: Easing.out(Easing.back(1.5)),
+            useNativeDriver: true,
+          }),
+        ]).start();
+      });
+    }, 3200);
+
+    // Initial show
+    Animated.parallel([
+      Animated.timing(impulseOpacityAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(impulseYAnim, {
+        toValue: 0,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    return () => clearInterval(impulseInterval);
+  }, [page]);
+
+  // Guidance points rotation on Page 2 during 5-minute observation
+  useEffect(() => {
+    if (page !== 2 || !isTimerRunning) return;
+
+    // Rotate guidance highlight gently every 25 seconds
+    const guidanceInterval = setInterval(() => {
+      setActiveGuidanceIndex((prev) => (prev + 1) % 3);
+    }, 25000);
+
+    return () => clearInterval(guidanceInterval);
+  }, [page, isTimerRunning]);
+
+  // ----------------------------------------------------
+  // APP STATE RESILIENCE: BACKGROUND / RESUME HANDLING
+  // Ensures countdown does not drift or pause when user minimizes/locks screen
+  // ----------------------------------------------------
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (
+        appStateRef.current.match(/inactive|background/) &&
+        nextAppState === 'active' &&
+        page === 2 &&
+        isTimerRunning
+      ) {
+        if (endTimeRef.current > 0) {
+          const remaining = Math.max(0, Math.ceil((endTimeRef.current - Date.now()) / 1000));
+          setTimeLeft(remaining);
+          if (remaining <= 0) {
+            handleTimerComplete();
+          }
         }
       }
-    } catch (e) {
-      console.error('Backend completion error:', e);
-    } finally {
-      setIsLoading(false);
+      appStateRef.current = nextAppState;
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [page, isTimerRunning]);
+
+  // ----------------------------------------------------
+  // TIMER TICK LOOP (EXACT 5:00 COUNTDOWN)
+  // Starts ONLY after "Begin Now" is tapped
+  // ----------------------------------------------------
+  useEffect(() => {
+    if (page === 2 && isTimerRunning && timeLeft > 0) {
+      // Clear any prior timer instance to prevent duplicate intervals
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+      }
+
+      timerIntervalRef.current = setInterval(() => {
+        const remaining = Math.max(0, Math.ceil((endTimeRef.current - Date.now()) / 1000));
+        setTimeLeft(remaining);
+
+        if (remaining <= 0) {
+          if (timerIntervalRef.current) {
+            clearInterval(timerIntervalRef.current);
+            timerIntervalRef.current = null;
+          }
+          handleTimerComplete();
+        }
+      }, 1000);
     }
 
-    router.replace({
-      pathname: '/task-success',
-      params: {
-        points: pointsData.pointsAdded,
-        totalPoints: pointsData.totalPoints,
-        streak: pointsData.streak,
-      },
-    } as any);
+    return () => {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
+    };
+  }, [page, isTimerRunning]);
+
+  // ----------------------------------------------------
+  // NAVIGATION & PAGE TRANSITIONS
+  // ----------------------------------------------------
+  const transitionToPage = useCallback((nextPage: 1 | 2 | 3) => {
+    triggerHaptic('medium');
+
+    Animated.parallel([
+      Animated.timing(pageFadeAnim, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.timing(pageSlideAnim, {
+        toValue: -20,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setPage(nextPage);
+      pageSlideAnim.setValue(20);
+
+      Animated.parallel([
+        Animated.timing(pageFadeAnim, {
+          toValue: 1,
+          duration: 350,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pageSlideAnim, {
+          toValue: 0,
+          duration: 350,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]).start();
+    });
+  }, []);
+
+  // PAGE 1 -> PAGE 2: User taps "Start Observation"
+  const handleStartObservation = () => {
+    transitionToPage(2);
   };
 
-  const formatTimerDigits = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  // PAGE 2: User taps "Begin Now" to start the exact 5-minute countdown
+  const handleBeginNow = () => {
+    triggerHaptic('success');
+    setTimeLeft(TASK_DURATION_SECONDS);
+    endTimeRef.current = Date.now() + TASK_DURATION_SECONDS * 1000;
+    setIsTimerRunning(true);
   };
 
-  // Circular Timer calculations for Screen 3
-  const radius = 100;
-  const circumference = 2 * Math.PI * radius;
-  const progressRatio = timeLeft / TASK_DURATION;
-  const strokeDashoffset = circumference * (1 - progressRatio);
+  // PAGE 2 -> PAGE 3: Timer hits exactly 00:00 -> automatically navigate to Page 3
+  const handleTimerComplete = useCallback(() => {
+    setIsTimerRunning(false);
+    triggerHaptic('success');
+
+    // Automatically navigate to Page 3
+    transitionToPage(3);
+  }, [transitionToPage]);
+
+  // ----------------------------------------------------
+  // PAGE 3: AWARD 100 POINTS VIA EXISTING BACKEND SYSTEM
+  // Strictly awarded once per completed session
+  // ----------------------------------------------------
+  useEffect(() => {
+    if (page === 3 && !hasAwardedRef.current) {
+      hasAwardedRef.current = true;
+      awardPointsBackend();
+      startCelebrationAnimation();
+    }
+  }, [page]);
+
+  const awardPointsBackend = async () => {
+    setIsAwarding(true);
+    try {
+      const token = await SecureStore.getItemAsync('token');
+
+      if (!token) {
+        console.warn('⚠️ No auth token available for task reward');
+        setRewardStatus('error');
+        setIsAwarding(false);
+        return;
+      }
+
+      // 1. Post task completion to existing backend endpoint
+      const response = await apiFetch('/api/tasks/complete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          task_name: 'Observe urge to check phone',
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok || data.success) {
+        if (data.rewardClaimed === false || data.message === 'Reward already claimed') {
+          setRewardStatus('already_claimed');
+        } else {
+          setRewardStatus('success');
+          triggerHaptic('success');
+        }
+
+        const totalPts = data.totalPoints ?? data.total_points ?? null;
+        const streakNum = data.currentStreak ?? data.current_streak ?? data.streak ?? null;
+        if (totalPts !== null) setUserTotalPoints(Number(totalPts));
+        if (streakNum !== null) setCurrentStreak(Number(streakNum));
+      } else {
+        console.error('Task completion error response:', data);
+        setRewardStatus('error');
+      }
+
+      // 2. Refresh user summary to ensure backend synchronization
+      try {
+        const summaryRes = await apiFetch('/api/user/summary', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (summaryRes.ok) {
+          const summaryData = await summaryRes.json();
+          if (summaryData.points !== undefined || summaryData.totalPoints !== undefined) {
+            setUserTotalPoints(Number(summaryData.points ?? summaryData.totalPoints ?? 0));
+          }
+          if (summaryData.streak !== undefined || summaryData.currentStreak !== undefined) {
+            setCurrentStreak(Number(summaryData.streak ?? summaryData.currentStreak ?? 0));
+          }
+        }
+      } catch (sumErr) {
+        console.log('Summary sync optional refresh:', sumErr);
+      }
+    } catch (e) {
+      console.error('Failed to award points via backend:', e);
+      setRewardStatus('error');
+    } finally {
+      setIsAwarding(false);
+    }
+  };
+
+  const startCelebrationAnimation = () => {
+    // Trophy spring pop
+    Animated.spring(trophyScaleAnim, {
+      toValue: 1,
+      friction: 5,
+      tension: 60,
+      useNativeDriver: true,
+    }).start();
+
+    // Celebration aura expanding
+    Animated.timing(celebrationAuraAnim, {
+      toValue: 1,
+      duration: 1200,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+
+    // Reward card entrance
+    Animated.parallel([
+      Animated.timing(rewardCardOpacityAnim, {
+        toValue: 1,
+        duration: 700,
+        delay: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(rewardCardSlideAnim, {
+        toValue: 0,
+        duration: 700,
+        delay: 300,
+        easing: Easing.out(Easing.back(1.5)),
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Confetti falling particles
+    confettiFallAnims.forEach((anim, i) => {
+      Animated.sequence([
+        Animated.delay(CONFETTI_PARTICLES[i].delay),
+        Animated.timing(anim, {
+          toValue: 1,
+          duration: CONFETTI_PARTICLES[i].duration,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]).start();
+    });
+  };
+
+  // Developer testing speed-up (Active only in __DEV__ via multi-tap)
+  const devTapCount = useRef(0);
+  const devLastTapTime = useRef(0);
+  const handleDevFastForward = () => {
+    if (!__DEV__ || !isTimerRunning) return;
+    const now = Date.now();
+    if (now - devLastTapTime.current < 400) {
+      devTapCount.current += 1;
+      if (devTapCount.current >= 4) {
+        // Fast forward to 3 seconds remaining
+        endTimeRef.current = Date.now() + 3 * 1000;
+        setTimeLeft(3);
+        triggerHaptic('warning');
+        devTapCount.current = 0;
+      }
+    } else {
+      devTapCount.current = 1;
+    }
+    devLastTapTime.current = now;
+  };
+
+  // Format MM:SS with leading zeroes
+  const formatTimer = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
 
   return (
-    <View style={styles.container}>
+    <View style={styles.screenContainer}>
       <StatusBar style="light" />
 
-      {/* Dark Ambient Background */}
-      <LinearGradient
-        colors={['#0A0914', '#06050C', '#0B0918']}
-        locations={[0, 0.5, 1]}
-        style={StyleSheet.absoluteFillObject}
+      {/* ---------------------------------------------------- */}
+      {/* AMBIENT BACKGROUND SYSTEM */}
+      {/* ---------------------------------------------------- */}
+      <Animated.View
+        style={[
+          StyleSheet.absoluteFillObject,
+          {
+            transform: [{ scale: ambientBreathAnim }],
+          },
+        ]}
+      >
+        <LinearGradient
+          colors={['#040711', '#080e22', '#03050a']}
+          locations={[0, 0.55, 1]}
+          style={StyleSheet.absoluteFillObject}
+        />
+      </Animated.View>
+
+      {/* Radiant Glowing Nebula Backdrop */}
+      <Animated.View
+        style={[
+          styles.ambientOrbCyan,
+          {
+            opacity: ambientGlowAnim,
+          },
+        ]}
+      />
+      <Animated.View
+        style={[
+          styles.ambientOrbIndigo,
+          {
+            opacity: ambientGlowAnim,
+          },
+        ]}
       />
 
-      {/* ========================================================
-          SCREEN 1 — INTRO (GLASS DOME FLAME PHONE)
-         ======================================================== */}
-      {step === 1 && (
-        <Animated.View entering={FadeIn.duration(600)} exiting={FadeOut.duration(400)} style={StyleSheet.absoluteFillObject}>
-          {/* Ambient Warm Lamp Backlight */}
-          <View pointerEvents="none" style={styles.lampBacklight} />
+      <SafeAreaView style={styles.safeAreaLayer} edges={['top', 'bottom']}>
+        {/* Top Navigation Bar */}
+        <View style={styles.navHeader}>
+          {page !== 3 ? (
+            <TouchableOpacity
+              style={styles.circleNavButton}
+              onPress={() => {
+                if (page === 2 && isTimerRunning) {
+                  Alert.alert(
+                    'Cancel Observation?',
+                    'Are you sure you want to stop now? Your 5-minute session will reset.',
+                    [
+                      { text: 'Keep Observing', style: 'cancel' },
+                      {
+                        text: 'Exit',
+                        style: 'destructive',
+                        onPress: () => {
+                          setIsTimerRunning(false);
+                          if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+                          transitionToPage(1);
+                        },
+                      },
+                    ]
+                  );
+                } else if (page === 2) {
+                  transitionToPage(1);
+                } else {
+                  if (router.canGoBack()) router.back();
+                  else router.replace('/(tabs)');
+                }
+              }}
+              activeOpacity={0.7}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <Feather name="arrow-left" size={20} color="#e2e8f0" />
+            </TouchableOpacity>
+          ) : (
+            <View style={{ width: 40 }} />
+          )}
 
-          <SafeAreaView style={styles.screenWrapper} edges={['top', 'bottom']}>
-            {/* Top Navigation */}
-            <View style={styles.navRow} />
+          <View style={styles.headerPill}>
+            <View style={styles.headerPillDot} />
+            <Text style={styles.headerPillText}>
+              {page === 1 ? 'TASK INTRO' : page === 2 ? '5 MIN MINDFULNESS' : 'COMPLETE'}
+            </Text>
+          </View>
 
-            {/* Hero Visual: Glass Dome over Smartphone with Purple Flame */}
-            <View style={styles.heroDomeContainer}>
-              {/* Glass Dome Structure */}
-              <View style={styles.glassDomeArch}>
-                <LinearGradient
-                  colors={['rgba(168, 85, 247, 0.25)', 'rgba(255, 255, 255, 0.05)']}
-                  style={styles.glassDomeInner}
+          <View style={styles.pageIndicatorContainer}>
+            <Text style={styles.pageIndicatorText}>
+              {page} <Text style={{ color: '#64748b' }}>/ 3</Text>
+            </Text>
+          </View>
+        </View>
+
+        {/* ---------------------------------------------------- */}
+        {/* ANIMATED PAGE WRAPPER */}
+        {/* ---------------------------------------------------- */}
+        <Animated.View
+          style={[
+            styles.pageAnimatedContainer,
+            {
+              opacity: pageFadeAnim,
+              transform: [{ translateY: pageSlideAnim }],
+            },
+          ]}
+        >
+          {/* ==================================================== */}
+          {/* PAGE 1 — INTRO / START OBSERVATION                   */}
+          {/* ==================================================== */}
+          {page === 1 && (
+            <ScrollView
+              contentContainerStyle={styles.page1Scroll}
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+            >
+              {/* Full-Screen Resisting/Checking Phone Hologram Animation */}
+              <View style={styles.hologramStage}>
+                {/* Concentric Awareness Ripple 1 */}
+                <Animated.View
+                  style={[
+                    styles.rippleCircle,
+                    {
+                      transform: [
+                        {
+                          scale: rippleWaveAnim1.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0.8, 2.2],
+                          }),
+                        },
+                      ],
+                      opacity: rippleWaveAnim1.interpolate({
+                        inputRange: [0, 0.7, 1],
+                        outputRange: [0.6, 0.25, 0],
+                      }),
+                    },
+                  ]}
+                />
+
+                {/* Concentric Awareness Ripple 2 */}
+                <Animated.View
+                  style={[
+                    styles.rippleCircle,
+                    {
+                      borderColor: 'rgba(99, 102, 241, 0.45)',
+                      transform: [
+                        {
+                          scale: rippleWaveAnim2.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0.8, 2.2],
+                          }),
+                        },
+                      ],
+                      opacity: rippleWaveAnim2.interpolate({
+                        inputRange: [0, 0.7, 1],
+                        outputRange: [0.6, 0.25, 0],
+                      }),
+                    },
+                  ]}
+                />
+
+                {/* Floating Thought Impulse Bubble */}
+                <Animated.View
+                  style={[
+                    styles.floatingImpulseBadge,
+                    {
+                      opacity: impulseOpacityAnim,
+                      transform: [{ translateY: impulseYAnim }],
+                    },
+                  ]}
                 >
-                  {/* Floating Glowing Purple Flame */}
-                  <Animated.View style={[styles.flameWrapper, animatedFlameStyle]}>
-                    <MaterialCommunityIcons name="fire" size={68} color="#C084FC" style={styles.flameGlowShadow} />
-                  </Animated.View>
+                  <View style={styles.impulseDot} />
+                  <Text style={styles.impulseText}>{currentImpulseText}</Text>
+                  <Feather name="bell-off" size={13} color="#f87171" style={{ marginLeft: 5 }} />
+                </Animated.View>
 
-                  {/* Smartphone lying flat on base */}
-                  <View style={styles.flatPhoneMockup}>
-                    <View style={styles.phoneScreenLine} />
-                  </View>
-                </LinearGradient>
+                {/* Floating Holographic Smartphone Device */}
+                <Animated.View
+                  style={[
+                    styles.phoneHologramContainer,
+                    {
+                      transform: [{ translateY: phoneFloatAnim }],
+                    },
+                  ]}
+                >
+                  <LinearGradient
+                    colors={['rgba(30, 41, 59, 0.95)', 'rgba(15, 23, 42, 0.98)']}
+                    style={styles.phoneChassis}
+                  >
+                    {/* Phone speaker / camera notch */}
+                    <View style={styles.phoneNotch} />
+
+                    {/* Phone screen display */}
+                    <View style={styles.phoneDisplay}>
+                      {/* Radiating Mindfulness Wave Graphic */}
+                      <Svg width={120} height={120} viewBox="0 0 120 120">
+                        <Defs>
+                          <SvgLinearGradient id="waveGrad" x1="0" y1="0" x2="1" y2="1">
+                            <Stop offset="0%" stopColor="#06b6d4" stopOpacity="0.8" />
+                            <Stop offset="100%" stopColor="#6366f1" stopOpacity="0.8" />
+                          </SvgLinearGradient>
+                        </Defs>
+                        {/* Mindful Eye & Concentric Radar */}
+                        <Circle cx="60" cy="60" r="46" stroke="rgba(56, 189, 248, 0.2)" strokeWidth="1.5" />
+                        <Circle cx="60" cy="60" r="32" stroke="rgba(56, 189, 248, 0.35)" strokeWidth="1.5" />
+                        <Circle cx="60" cy="60" r="18" fill="url(#waveGrad)" opacity="0.35" />
+                        <Circle cx="60" cy="60" r="8" fill="#38bdf8" />
+                        <Path
+                          d="M40 60 Q 60 40 80 60 Q 60 80 40 60 Z"
+                          stroke="#ffffff"
+                          strokeWidth="2.2"
+                          fill="none"
+                        />
+                        <Circle cx="60" cy="60" r="4" fill="#ffffff" />
+                      </Svg>
+                      <Text style={styles.phoneScreenLabel}>OBSERVING URGE</Text>
+                      <Text style={styles.phoneScreenSub}>Stillness Shield Active</Text>
+                    </View>
+
+                    {/* Home indicator bar */}
+                    <View style={styles.phoneHomeBar} />
+                  </LinearGradient>
+                </Animated.View>
               </View>
-              {/* Wooden Pedestal Base */}
-              <View style={styles.woodenBasePedestal} />
-            </View>
 
-            {/* Title & Subtitle */}
-            <View style={styles.textCenterWrapper}>
-              <Text style={styles.step1Title}>
-                Observe <Text style={styles.titlePurpleHighlight}>Urge</Text>{"\n"}to Check Phone
-              </Text>
+              {/* Title & Metadata Badges */}
+              <View style={styles.introContentSection}>
+                <Text style={styles.taskTitle}>Observe Urge to Check Phone</Text>
 
-              <View style={styles.eyeSubtitleRow}>
-                <Feather name="eye" size={16} color="#F97316" style={{ marginRight: 6 }} />
-                <Text style={styles.step1Subtitle}>
-                  The urge will come.{"\n"}
-                  Don't fight it. Don't follow it.{"\n"}
-                  <Text style={styles.subtitleOrangeHighlight}>Just observe it.</Text>
+                {/* Badges Row */}
+                <View style={styles.badgesRow}>
+                  <View style={[styles.badgePill, styles.badgeDuration]}>
+                    <Feather name="clock" size={13} color="#38bdf8" />
+                    <Text style={[styles.badgeText, { color: '#38bdf8' }]}>5 Min</Text>
+                  </View>
+
+                  <View style={[styles.badgePill, styles.badgeDifficulty]}>
+                    <Feather name="shield" size={13} color="#34d399" />
+                    <Text style={[styles.badgeText, { color: '#34d399' }]}>Mindfulness</Text>
+                  </View>
+
+                  <View style={[styles.badgePill, styles.badgeReward]}>
+                    <Feather name="award" size={13} color="#fbbf24" />
+                    <Text style={[styles.badgeText, { color: '#fbbf24' }]}>+100 Points</Text>
+                  </View>
+                </View>
+
+                {/* Short explanation of the task in EXACTLY 2 LINES */}
+                <View style={styles.twoLineCard}>
+                  <Text style={styles.explanationLine1} numberOfLines={1}>
+                    Notice the automatic reflex to reach for your device in stillness.
+                  </Text>
+                  <Text style={styles.explanationLine2} numberOfLines={1}>
+                    Pause, observe the sensation, and reclaim your undivided focus.
+                  </Text>
+                </View>
+
+                {/* Subtle Interactive Mindfulness Preview Note */}
+                <View style={styles.mindfulNoteContainer}>
+                  <Feather name="info" size={14} color="#94a3b8" />
+                  <Text style={styles.mindfulNoteText}>
+                    A 5-minute dedicated window to observe cravings without reacting.
+                  </Text>
+                </View>
+              </View>
+
+              {/* Primary Action Button: "Start Observation" */}
+              <View style={styles.bottomCtaContainer}>
+                <TouchableOpacity
+                  style={styles.primaryActionButton}
+                  onPress={handleStartObservation}
+                  activeOpacity={0.88}
+                >
+                  <LinearGradient
+                    colors={['#06b6d4', '#2563eb']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.primaryGradient}
+                  >
+                    <Text style={styles.primaryButtonText}>Start Observation</Text>
+                    <Feather name="arrow-right" size={19} color="#ffffff" style={{ marginLeft: 8 }} />
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          )}
+
+          {/* ==================================================== */}
+          {/* PAGE 2 — 5 MINUTE OBSERVATION (THE ACTUAL TASK)      */}
+          {/* ==================================================== */}
+          {page === 2 && (
+            <ScrollView
+              contentContainerStyle={styles.page2Scroll}
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+            >
+              {/* Full-Screen Zen Urge-Observing Animation */}
+              <View style={styles.page2AnimationStage}>
+                {/* Expanding Mindful Awareness Breathing Circle */}
+                <Animated.View
+                  style={[
+                    styles.zenBreathRingOuter,
+                    {
+                      transform: [{ scale: zenBreathScaleAnim }],
+                    },
+                  ]}
+                />
+
+                <Animated.View
+                  style={[
+                    styles.zenBreathRingInner,
+                    {
+                      transform: [{ scale: zenBreathScaleAnim }],
+                    },
+                  ]}
+                />
+
+                {/* Central Mindful Phone Silhouette */}
+                <View style={styles.zenPhoneCenterContainer}>
+                  <LinearGradient
+                    colors={['#1e293b', '#0f172a']}
+                    style={styles.zenPhonePuck}
+                  >
+                    <MaterialCommunityIcons
+                      name="cellphone-sound"
+                      size={44}
+                      color={isTimerRunning ? '#38bdf8' : '#94a3b8'}
+                    />
+                    <Text style={styles.zenPuckStatus}>
+                      {isTimerRunning ? 'STILLNESS' : 'READY'}
+                    </Text>
+                  </LinearGradient>
+                </View>
+
+                {/* Gentle Breathing Prompt */}
+                <Animated.Text
+                  style={[
+                    styles.zenBreathPrompt,
+                    {
+                      opacity: zenBreathTextAnim,
+                    },
+                  ]}
+                >
+                  {isTimerRunning
+                    ? 'Breathe deeply. Notice the craving rise and dissolve.'
+                    : 'Get into a comfortable posture and prepare to observe.'}
+                </Animated.Text>
+              </View>
+
+              {/* 5-Minute Visible Countdown Timer */}
+              <View style={styles.timerSection}>
+                <Pressable onPress={handleDevFastForward}>
+                  <Animated.Text
+                    style={[
+                      styles.countdownTimerText,
+                      {
+                        opacity: timerGlowPulse,
+                        color: isTimerRunning ? '#38bdf8' : '#f8fafc',
+                      },
+                    ]}
+                  >
+                    {formatTimer(timeLeft)}
+                  </Animated.Text>
+                </Pressable>
+
+                <Text style={styles.timerSubCaption}>
+                  {isTimerRunning
+                    ? '5:00 Observation in Progress'
+                    : '5-Minute Mindful Window'}
                 </Text>
               </View>
-            </View>
 
-            {/* Bottom Button */}
-            <View style={styles.bottomBar}>
-              <TouchableOpacity style={styles.primaryGradientPill} onPress={handleStartObservation} activeOpacity={0.88}>
-                <LinearGradient
-                  colors={['#8B5CF6', '#F97316']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.gradientBtnInner}
-                >
-                  <Text style={styles.primaryBtnText}>START OBSERVATION</Text>
-                  <Feather name="arrow-right" size={20} color="#FFFFFF" style={{ marginLeft: 8 }} />
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          </SafeAreaView>
-        </Animated.View>
-      )}
-
-      {/* ========================================================
-          SCREEN 2 — CONVERSATION START ("LET'S OBSERVE TOGETHER")
-         ======================================================== */}
-      {step === 2 && (
-        <Animated.View entering={FadeIn.duration(600)} exiting={FadeOut.duration(400)} style={StyleSheet.absoluteFillObject}>
-          <SafeAreaView style={styles.screenWrapper} edges={['top', 'bottom']}>
-            {/* Navigation Header */}
-            <View style={styles.navRow} />
-
-            {/* Center Visual: Sunset Path & Meditation Silhouette */}
-            <View style={styles.step2CenterWrapper}>
-              <Text style={styles.screenHeaderTitle}>Let's Observe Together</Text>
-              <Text style={styles.screenHeaderSub}>This will take 5 minutes</Text>
-
-              {/* Landscape & Silhouette Graphic */}
-              <View style={styles.meditationLandscapeContainer}>
-                {/* Sunset Sun */}
-                <View style={styles.sunsetSunCore} />
-
-                {/* Glowing Purple Path of Dots */}
-                <View style={styles.dotPathContainer}>
-                  {[0.3, 0.5, 0.7, 0.9, 1.1].map((scale, idx) => (
-                    <View key={idx} style={[styles.dotPathPoint, { transform: [{ scale }] }]} />
-                  ))}
-                </View>
-
-                {/* Floating Orbiting Notification Symbols */}
-                <Animated.View style={[styles.landscapeNotifIcon, { top: 25, left: 25 }, animatedNotifStyle]}>
-                  <Feather name="message-square" size={14} color="#C084FC" />
-                </Animated.View>
-                <Animated.View style={[styles.landscapeNotifIcon, { top: 45, right: 30 }, animatedNotifStyle]}>
-                  <Feather name="bell" size={14} color="#F97316" />
-                </Animated.View>
-                <Animated.View style={[styles.landscapeNotifIcon, { top: 100, left: 30 }, animatedNotifStyle]}>
-                  <Feather name="heart" size={14} color="#EC4899" />
-                </Animated.View>
-                <Animated.View style={[styles.landscapeNotifIcon, { top: 95, right: 25 }, animatedNotifStyle]}>
-                  <Feather name="mail" size={14} color="#A855F7" />
-                </Animated.View>
-
-                {/* Silhouette Figure */}
-                <View style={styles.silhouettedFigure}>
-                  <View style={styles.figureHead} />
-                  <View style={styles.figureBody} />
-                </View>
-              </View>
-
-              {/* What to do? Card */}
-              <TouchableOpacity
-                style={styles.whatToDoGlassCard}
-                onPress={() => {
-                  triggerHaptic('light');
-                  setStep(3);
-                }}
-                activeOpacity={0.9}
-              >
-                <Text style={styles.whatToDoTitle}>What to do?</Text>
-                <View style={styles.actionPillsRow}>
-                  <View style={styles.actionPillItem}>
-                    <View style={styles.pillIconCircle}>
-                      <Feather name="eye" size={18} color="#C084FC" />
-                    </View>
-                    <Text style={styles.pillLabelText}>Notice{"\n"}the urge</Text>
-                  </View>
-
-                  <View style={styles.actionPillItem}>
-                    <View style={styles.pillIconCircle}>
-                      <Feather name="cloud" size={18} color="#C084FC" />
-                    </View>
-                    <Text style={styles.pillLabelText}>Observe your{"\n"}thoughts</Text>
-                  </View>
-
-                  <View style={styles.actionPillItem}>
-                    <View style={styles.pillIconCircle}>
-                      <Feather name="activity" size={18} color="#C084FC" />
-                    </View>
-                    <Text style={styles.pillLabelText}>Let it rise{"\n"}and fall</Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            </View>
-
-            {/* Bottom Button */}
-            <View style={styles.bottomBar}>
-              <TouchableOpacity style={styles.primaryGradientPill} onPress={() => setStep(3)} activeOpacity={0.88}>
-                <LinearGradient
-                  colors={['#8B5CF6', '#F97316']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.gradientBtnInner}
-                >
-                  <Text style={styles.primaryBtnText}>NEXT</Text>
-                  <Feather name="arrow-right" size={20} color="#FFFFFF" style={{ marginLeft: 8 }} />
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          </SafeAreaView>
-        </Animated.View>
-      )}
-
-      {/* ========================================================
-          SCREEN 3 — YOUR MISSION (5:00 TIMER & GUIDELINES)
-         ======================================================== */}
-      {step === 3 && (
-        <Animated.View entering={FadeIn.duration(600)} exiting={FadeOut.duration(400)} style={StyleSheet.absoluteFillObject}>
-          <SafeAreaView style={styles.screenWrapper} edges={['top', 'bottom']}>
-            {/* Top Navigation */}
-            <View style={styles.navRow} />
-
-            {/* Center Mission Content */}
-            <View style={styles.missionCenterWrapper}>
-              {/* Mission Header */}
-              <View style={styles.missionHeaderGroup}>
-                <Feather name="target" size={20} color="#F97316" style={{ marginBottom: 6 }} />
-                <Text style={styles.screenHeaderTitle}>Your Mission</Text>
-              </View>
-
-              {/* Circular SVG Timer Display */}
-              <View style={styles.missionTimerContainer}>
-                <Svg width={230} height={230} viewBox="0 0 230 230">
-                  <Circle
-                    cx={115}
-                    cy={115}
-                    r={radius}
-                    stroke="rgba(255, 255, 255, 0.12)"
-                    strokeWidth={8}
-                    fill="transparent"
-                  />
-                  <Circle
-                    cx={115}
-                    cy={115}
-                    r={radius}
-                    stroke="#C084FC"
-                    strokeWidth={8}
-                    strokeDasharray={`${circumference} ${circumference}`}
-                    strokeDashoffset={strokeDashoffset}
-                    strokeLinecap="round"
-                    fill="transparent"
-                    transform="rotate(-90 115 115)"
-                  />
-                </Svg>
-
-                <Pressable onPress={handleDevSkip} style={styles.timerDigitsWrapper}>
-                  <Text style={styles.missionTimerDigits}>{formatTimerDigits(timeLeft)}</Text>
-                  <Text style={styles.missionTimerSub}>MINUTES</Text>
-                </Pressable>
-              </View>
-
-              {/* Mission Subtitle */}
-              <Text style={styles.missionSubtitle}>
-                Whenever you feel the urge to check your phone, stop and{" "}
-                <Text style={styles.subtitleOrangeHighlight}>observe for 5 minutes.</Text>
-              </Text>
-
-              {/* "During this time" Rules Glass Card */}
-              <View style={styles.duringThisTimeCard}>
-                <Text style={styles.duringTimeTitle}>During this time</Text>
-                <View style={styles.ruleItemRow}>
-                  <Feather name="smartphone" size={16} color="#C084FC" style={styles.ruleIcon} />
-                  <Text style={styles.ruleItemText}>Don't pick up your phone</Text>
-                </View>
-                <View style={styles.ruleItemRow}>
-                  <Feather name="activity" size={16} color="#C084FC" style={styles.ruleIcon} />
-                  <Text style={styles.ruleItemText}>Watch the urge come and go</Text>
-                </View>
-                <View style={styles.ruleItemRow}>
-                  <Feather name="shield" size={16} color="#C084FC" style={styles.ruleIcon} />
-                  <Text style={styles.ruleItemText}>You are in control</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Bottom Button */}
-            <View style={styles.bottomBar}>
-              <TouchableOpacity
-                style={styles.primaryGradientPill}
-                onPress={isActive ? () => setIsPaused(!isPaused) : handleBeginMissionTimer}
-                activeOpacity={0.88}
-              >
-                <LinearGradient
-                  colors={['#8B5CF6', '#F97316']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.gradientBtnInner}
-                >
-                  <Text style={styles.primaryBtnText}>
-                    {isActive ? (isPaused ? "RESUME ▶" : "PAUSE ❚❚") : "BEGIN NOW ▶"}
-                  </Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          </SafeAreaView>
-        </Animated.View>
-      )}
-
-      {/* ========================================================
-          SCREEN 4 — SHARE YOUR EXPERIENCE (PURPLE JAR & RATINGS)
-         ======================================================== */}
-      {step === 4 && (
-        <Animated.View entering={FadeIn.duration(600)} exiting={FadeOut.duration(400)} style={StyleSheet.absoluteFillObject}>
-          <SafeAreaView style={styles.screenWrapper} edges={['top', 'bottom']}>
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-              <ScrollView contentContainerStyle={styles.scrollWrapperContent} showsVerticalScrollIndicator={false}>
-                {/* Navigation Header */}
-                <View style={styles.navRow} />
-
-                {/* Header Title */}
-                <View style={styles.centerHeaderGroup}>
-                  <Ionicons name="sparkles" size={20} color="#F97316" style={{ marginBottom: 4 }} />
-                  <Text style={styles.screenHeaderTitle}>Share Your Experience</Text>
-                  <Text style={styles.screenHeaderSub}>Welcome back! How was it?</Text>
-                </View>
-
-                {/* Hero Visual: Glowing Magical Purple Jar */}
-                <View style={styles.magicalJarContainer}>
-                  <View style={styles.glassJarBody}>
+              {/* BEFORE TIMER STARTS: Show "Begin Now" Button */}
+              {!isTimerRunning && (
+                <View style={styles.beginNowWrapper}>
+                  <TouchableOpacity
+                    style={styles.beginNowButton}
+                    onPress={handleBeginNow}
+                    activeOpacity={0.85}
+                  >
                     <LinearGradient
-                      colors={['rgba(192, 132, 252, 0.4)', 'rgba(139, 92, 246, 0.15)']}
-                      style={styles.glassJarInner}
+                      colors={['#10b981', '#059669']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.beginNowGradient}
                     >
-                      {/* Floating Orbs */}
-                      {Array.from({ length: 8 }).map((_, idx) => (
-                        <JarOrbItem key={idx} index={idx} />
-                      ))}
+                      <Feather name="play" size={20} color="#ffffff" style={{ marginRight: 8 }} />
+                      <Text style={styles.beginNowText}>Begin Now</Text>
                     </LinearGradient>
-                  </View>
-                  <View style={styles.jarWoodenPedestal} />
+                  </TouchableOpacity>
+                  <Text style={styles.beginHint}>
+                    Tap to start the exact 5:00 countdown
+                  </Text>
+                </View>
+              )}
+
+              {/* DURING THE 5 MINUTES: Show the 3 Simple Guidance Points */}
+              <View style={styles.guidanceCard}>
+                <View style={styles.guidanceHeaderRow}>
+                  <Feather name="compass" size={16} color="#38bdf8" />
+                  <Text style={styles.guidanceCardTitle}>3 Observation Rules</Text>
                 </View>
 
-                {/* Question */}
-                <Text style={styles.sectionQuestionText}>How was your experience observing the urge?</Text>
+                {/* Point 1 */}
+                <View
+                  style={[
+                    styles.guidanceItemRow,
+                    isTimerRunning && activeGuidanceIndex === 0 && styles.guidanceItemActive,
+                  ]}
+                >
+                  <View style={styles.guidanceNumberBadge}>
+                    <Text style={styles.guidanceNumberText}>1</Text>
+                  </View>
+                  <Text style={styles.guidanceText}>
+                    Notice the urge without immediately reacting.
+                  </Text>
+                </View>
 
-                {/* 4 Experience Rating Choices */}
-                <View style={styles.ratingsGridRow}>
-                  {EXPERIENCE_RATINGS.map((item) => {
-                    const isSelected = selectedRating === item.id;
-                    return (
-                      <TouchableOpacity
-                        key={item.id}
-                        style={[styles.ratingChoiceCard, isSelected && styles.ratingCardSelected]}
-                        onPress={() => {
-                          triggerHaptic('light');
-                          setSelectedRating(item.id);
-                        }}
-                        activeOpacity={0.85}
-                      >
-                        <Text style={styles.ratingEmojiText}>{item.emoji}</Text>
-                        <Text style={[styles.ratingLabelText, isSelected && styles.ratingLabelSelected]}>
-                          {item.label}
-                        </Text>
-                      </TouchableOpacity>
+                {/* Point 2 */}
+                <View
+                  style={[
+                    styles.guidanceItemRow,
+                    isTimerRunning && activeGuidanceIndex === 1 && styles.guidanceItemActive,
+                  ]}
+                >
+                  <View style={styles.guidanceNumberBadge}>
+                    <Text style={styles.guidanceNumberText}>2</Text>
+                  </View>
+                  <Text style={styles.guidanceText}>
+                    Observe what triggered the urge to check your phone.
+                  </Text>
+                </View>
+
+                {/* Point 3 */}
+                <View
+                  style={[
+                    styles.guidanceItemRow,
+                    isTimerRunning && activeGuidanceIndex === 2 && styles.guidanceItemActive,
+                  ]}
+                >
+                  <View style={styles.guidanceNumberBadge}>
+                    <Text style={styles.guidanceNumberText}>3</Text>
+                  </View>
+                  <Text style={styles.guidanceText}>
+                    Take a breath and let the urge pass.
+                  </Text>
+                </View>
+              </View>
+
+              {/* Cancel session link if needed */}
+              {isTimerRunning && (
+                <TouchableOpacity
+                  style={styles.abortTaskLink}
+                  onPress={() => {
+                    Alert.alert(
+                      'Stop Observation?',
+                      'If you abort now, your 5-minute session will not be saved.',
+                      [
+                        { text: 'Keep Going', style: 'cancel' },
+                        {
+                          text: 'Stop Session',
+                          style: 'destructive',
+                          onPress: () => {
+                            setIsTimerRunning(false);
+                            if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+                            setTimeLeft(TASK_DURATION_SECONDS);
+                            transitionToPage(1);
+                          },
+                        },
+                      ]
                     );
-                  })}
-                </View>
-
-                {/* Optional Input Box */}
-                <View style={styles.glassTextInputCard}>
-                  <TextInput
-                    style={styles.multilineInput}
-                    placeholder="Anything you'd like to add..."
-                    placeholderTextColor="rgba(255, 255, 255, 0.4)"
-                    multiline
-                    maxLength={500}
-                    value={experienceText}
-                    onChangeText={setExperienceText}
-                  />
-                  <Text style={styles.charCounterText}>{experienceText.length}/500</Text>
-                </View>
-              </ScrollView>
-
-              {/* Bottom Button */}
-              <View style={styles.bottomBar}>
-                <TouchableOpacity style={styles.primaryGradientPill} onPress={() => setStep(5)} activeOpacity={0.88}>
-                  <LinearGradient
-                    colors={['#8B5CF6', '#F97316']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.gradientBtnInner}
-                  >
-                    <Text style={styles.primaryBtnText}>NEXT</Text>
-                    <Feather name="arrow-right" size={20} color="#FFFFFF" style={{ marginLeft: 8 }} />
-                  </LinearGradient>
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.abortTaskText}>Abort Session</Text>
                 </TouchableOpacity>
+              )}
+            </ScrollView>
+          )}
+
+          {/* ==================================================== */}
+          {/* PAGE 3 — COMPLETION / REWARD                         */}
+          {/* ==================================================== */}
+          {page === 3 && (
+            <ScrollView
+              contentContainerStyle={styles.page3Scroll}
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+            >
+              {/* Confetti Particle Overlay */}
+              <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+                {CONFETTI_PARTICLES.map((particle, idx) => {
+                  const anim = confettiFallAnims[idx];
+                  const translateY = anim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-30, height * 0.75],
+                  });
+                  const opacity = anim.interpolate({
+                    inputRange: [0, 0.2, 0.8, 1],
+                    outputRange: [0, 1, 0.9, 0],
+                  });
+                  const rotate = anim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['0deg', `${(idx % 2 === 0 ? 1 : -1) * 720}deg`],
+                  });
+
+                  return (
+                    <Animated.View
+                      key={particle.id}
+                      style={{
+                        position: 'absolute',
+                        left: particle.x,
+                        top: 0,
+                        width: particle.size,
+                        height: particle.size * 1.3,
+                        backgroundColor: particle.color,
+                        borderRadius: 3,
+                        opacity,
+                        transform: [{ translateY }, { rotate }],
+                      }}
+                    />
+                  );
+                })}
               </View>
-            </KeyboardAvoidingView>
-          </SafeAreaView>
-        </Animated.View>
-      )}
 
-      {/* ========================================================
-          SCREEN 5 — WHAT SURPRISED YOU MOST? (PORTAL & REFLECTION)
-         ======================================================== */}
-      {step === 5 && (
-        <Animated.View entering={FadeIn.duration(600)} exiting={FadeOut.duration(400)} style={StyleSheet.absoluteFillObject}>
-          <SafeAreaView style={styles.screenWrapper} edges={['top', 'bottom']}>
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-              <ScrollView contentContainerStyle={styles.scrollWrapperContent} showsVerticalScrollIndicator={false}>
-                {/* Navigation Header */}
-                <View style={styles.navRow} />
+              {/* Satisfying Celebration Centerpiece */}
+              <View style={styles.celebrationStage}>
+                {/* Expanding Glowing Aura Ring */}
+                <Animated.View
+                  style={[
+                    styles.celebrationAura,
+                    {
+                      transform: [
+                        {
+                          scale: celebrationAuraAnim.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0.6, 1.4],
+                          }),
+                        },
+                      ],
+                      opacity: celebrationAuraAnim.interpolate({
+                        inputRange: [0, 0.5, 1],
+                        outputRange: [0.3, 0.8, 0.4],
+                      }),
+                    },
+                  ]}
+                />
 
-                {/* Header Title */}
-                <View style={styles.centerHeaderGroup}>
-                  <MaterialCommunityIcons name="brain" size={22} color="#F97316" style={{ marginBottom: 4 }} />
-                  <Text style={styles.screenHeaderTitle}>What Surprised You Most?</Text>
-                  <Text style={styles.screenHeaderSub}>Reflect a little deeper.</Text>
-                </View>
-
-                {/* Hero Visual: Glowing Purple Portal with Meditation Figure */}
-                <View style={styles.portalVisualContainer}>
-                  <View style={styles.outerPortalRing}>
-                    <LinearGradient
-                      colors={['rgba(192, 132, 252, 0.5)', 'rgba(139, 92, 246, 0.15)']}
-                      style={styles.innerPortalCore}
-                    >
-                      {/* Floating Phone in Portal */}
-                      <View style={styles.portalPhoneIcon}>
-                        <Feather name="smartphone" size={20} color="#FFFFFF" />
-                      </View>
-
-                      {/* Silhouette Figure */}
-                      <View style={styles.portalFigureSilhouette} />
-                    </LinearGradient>
-                  </View>
-                </View>
-
-                {/* Question */}
-                <Text style={styles.sectionQuestionText}>What surprised you the most during these 5 minutes?</Text>
-
-                {/* Multiline Reflection Text Input */}
-                <View style={styles.glassTextInputCard}>
-                  <TextInput
-                    style={styles.multilineInput}
-                    placeholder="Write your thoughts..."
-                    placeholderTextColor="rgba(255, 255, 255, 0.4)"
-                    multiline
-                    numberOfLines={4}
-                    maxLength={500}
-                    value={surpriseText}
-                    onChangeText={setSurpriseText}
-                  />
-                  <Text style={styles.charCounterText}>{surpriseText.length}/500</Text>
-                </View>
-              </ScrollView>
-
-              {/* Bottom Button */}
-              <View style={styles.bottomBar}>
-                <TouchableOpacity style={styles.primaryGradientPill} onPress={() => setStep(6)} activeOpacity={0.88}>
+                {/* Pop-in Medallion / Trophy Icon */}
+                <Animated.View
+                  style={[
+                    styles.medallionWrapper,
+                    {
+                      transform: [{ scale: trophyScaleAnim }],
+                    },
+                  ]}
+                >
                   <LinearGradient
-                    colors={['#8B5CF6', '#F97316']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.gradientBtnInner}
+                    colors={['#10b981', '#047857']}
+                    style={styles.medallionCircle}
                   >
-                    <Text style={styles.primaryBtnText}>CONTINUE</Text>
-                    <Feather name="arrow-right" size={20} color="#FFFFFF" style={{ marginLeft: 8 }} />
+                    <Feather name="check" size={54} color="#ffffff" />
                   </LinearGradient>
-                </TouchableOpacity>
+                </Animated.View>
               </View>
-            </KeyboardAvoidingView>
-          </SafeAreaView>
-        </Animated.View>
-      )}
 
-      {/* ========================================================
-          SCREEN 6 — BEAUTIFUL REFLECTION (LOTUS & COMPLETE TASK)
-         ======================================================== */}
-      {step === 6 && (
-        <Animated.View entering={FadeIn.duration(800)} style={StyleSheet.absoluteFillObject}>
-          <SafeAreaView style={styles.screenWrapper} edges={['top', 'bottom']}>
-            {/* Header */}
-            <View style={styles.navRow} />
+              {/* Completion Heading */}
+              <View style={styles.completionTextGroup}>
+                <Text style={styles.completionHeading}>Observation Complete</Text>
+                <Text style={styles.completionSubHeading}>
+                  You stayed still, noticed your reflexes, and chose intention over automatic habit.
+                </Text>
+              </View>
 
-            {/* Header Title */}
-            <View style={styles.centerHeaderGroup}>
-              <Feather name="heart" size={20} color="#EC4899" style={{ marginBottom: 4 }} />
-              <Text style={styles.screenHeaderTitle}>Beautiful Reflection</Text>
-            </View>
-
-            {/* Large Glowing Reflection Glass Card */}
-            <View style={styles.reflectionCardOuter}>
-              <LinearGradient
-                colors={['rgba(192, 132, 252, 0.22)', 'rgba(15, 23, 42, 0.6)']}
-                style={styles.reflectionCardInner}
-              >
-                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.reflectionCardScroll}>
-                  <Text style={styles.reflectionParagraph}>
-                    Every time you pause to observe, you create a space between the urge and your action.
-                  </Text>
-
-                  <Text style={styles.heartDivider}>🩷</Text>
-
-                  <Text style={styles.reflectionParagraph}>
-                    That space is your power. You are not your impulse. You are your awareness.
-                  </Text>
-
-                  <Text style={styles.heartDivider}>🩷</Text>
-
-                  <Text style={styles.reflectionParagraph}>
-                    Keep going. You're building a better relationship with yourself.
-                  </Text>
-
-                  {/* Ambient Lotus Flower Visual */}
-                  <View style={styles.lotusFlowerContainer}>
-                    <Text style={{ fontSize: 42 }}>🪷</Text>
-                  </View>
-                </ScrollView>
-              </LinearGradient>
-            </View>
-
-            {/* Bottom Complete Button */}
-            <View style={styles.bottomBar}>
-              <TouchableOpacity
-                style={styles.primaryGradientPill}
-                onPress={completeTaskBackend}
-                disabled={isLoading}
-                activeOpacity={0.88}
+              {/* Prominent +100 Points Reward Card */}
+              <Animated.View
+                style={[
+                  styles.prominentRewardCard,
+                  {
+                    opacity: rewardCardOpacityAnim,
+                    transform: [{ translateY: rewardCardSlideAnim }],
+                  },
+                ]}
               >
                 <LinearGradient
-                  colors={['#8B5CF6', '#F97316']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.gradientBtnInner}
+                  colors={['rgba(16, 185, 129, 0.16)', 'rgba(5, 150, 105, 0.08)']}
+                  style={styles.rewardCardGradient}
                 >
-                  {isLoading ? (
-                    <ActivityIndicator color="#FFFFFF" size="small" />
-                  ) : (
-                    <>
-                      <Text style={styles.primaryBtnText}>COMPLETE TASK</Text>
-                      <MaterialCommunityIcons name="rocket-launch" size={20} color="#FFFFFF" style={{ marginLeft: 8 }} />
-                    </>
+                  <View style={styles.rewardSparkleRow}>
+                    <Feather name="star" size={18} color="#fbbf24" />
+                    <Text style={styles.rewardLabel}>OFFICIAL REWARD</Text>
+                    <Feather name="star" size={18} color="#fbbf24" />
+                  </View>
+
+                  <Text style={styles.giantPointsText}>+100 Points</Text>
+
+                  {/* Live Backend Sync Status Indicator */}
+                  <View style={styles.backendStatusBadge}>
+                    <Ionicons
+                      name={
+                        isAwarding
+                          ? 'sync-outline'
+                          : rewardStatus === 'error'
+                          ? 'alert-circle'
+                          : 'shield-checkmark'
+                      }
+                      size={15}
+                      color={
+                        rewardStatus === 'error'
+                          ? '#f87171'
+                          : rewardStatus === 'already_claimed'
+                          ? '#fbbf24'
+                          : '#34d399'
+                      }
+                    />
+                    <Text style={styles.backendStatusText}>
+                      {isAwarding
+                        ? 'Updating backend balance...'
+                        : rewardStatus === 'already_claimed'
+                        ? 'Session reward already claimed (+100 banked)'
+                        : rewardStatus === 'error'
+                        ? 'Completed (Check network)'
+                        : 'Added to your backend points'}
+                    </Text>
+                  </View>
+
+                  {userTotalPoints !== null && (
+                    <View style={styles.userSummaryRow}>
+                      <Text style={styles.totalBalanceText}>
+                        Total Balance: <Text style={{ color: '#ffffff', fontWeight: '800' }}>{userTotalPoints}</Text> pts
+                      </Text>
+                      {currentStreak !== null && currentStreak > 0 && (
+                        <Text style={styles.streakText}>
+                          🔥 {currentStreak} day streak
+                        </Text>
+                      )}
+                    </View>
                   )}
                 </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          </SafeAreaView>
+              </Animated.View>
+
+              {/* Reflection Card */}
+              <View style={styles.reflectionCard}>
+                <Feather name="award" size={18} color="#06b6d4" style={{ marginBottom: 6 }} />
+                <Text style={styles.reflectionTitle}>Focus Muscle Strengthened</Text>
+                <Text style={styles.reflectionBody}>
+                  Every time you resist the urge to unlock without intent, you train your brain to reclaim deep focus.
+                </Text>
+              </View>
+
+              {/* Primary Action Button: "Done" -> Return to App */}
+              <View style={styles.bottomCtaContainer}>
+                <TouchableOpacity
+                  style={styles.doneActionButton}
+                  onPress={() => {
+                    triggerHaptic('medium');
+                    if (router.canGoBack()) {
+                      router.back();
+                    } else {
+                      router.replace('/(tabs)');
+                    }
+                  }}
+                  activeOpacity={0.88}
+                >
+                  <LinearGradient
+                    colors={['#10b981', '#059669']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.primaryGradient}
+                  >
+                    <Text style={styles.primaryButtonText}>Return to Home</Text>
+                    <Feather name="check" size={18} color="#ffffff" style={{ marginLeft: 8 }} />
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          )}
         </Animated.View>
-      )}
+      </SafeAreaView>
     </View>
   );
 }
 
+// ----------------------------------------------------
+// STYLESHEET (PREMIUM ANTISOCIALS OBSIDIAN DESIGN SYSTEM)
+// ----------------------------------------------------
 const styles = StyleSheet.create({
-  container: {
+  screenContainer: {
     flex: 1,
-    backgroundColor: '#0A0914',
+    backgroundColor: '#03050a',
   },
-  lampBacklight: {
+  safeAreaLayer: {
+    flex: 1,
+  },
+
+  // Ambient Glowing Orbs
+  ambientOrbCyan: {
     position: 'absolute',
-    top: 60,
-    left: -40,
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: 'rgba(249, 115, 22, 0.12)',
+    top: height * 0.12,
+    left: -width * 0.25,
+    width: width * 0.9,
+    height: width * 0.9,
+    borderRadius: (width * 0.9) / 2,
+    backgroundColor: 'rgba(6, 182, 212, 0.12)',
   },
-  screenWrapper: {
-    flex: 1,
-    justifyContent: 'space-between',
-    paddingHorizontal: 22,
-    zIndex: 2,
+  ambientOrbIndigo: {
+    position: 'absolute',
+    bottom: height * 0.18,
+    right: -width * 0.25,
+    width: width * 0.9,
+    height: width * 0.9,
+    borderRadius: (width * 0.9) / 2,
+    backgroundColor: 'rgba(99, 102, 241, 0.14)',
   },
-  scrollWrapperContent: {
-    paddingBottom: 20,
-  },
-  navRow: {
+
+  // Navigation Header
+  navHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 8,
-    height: 48,
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 10,
+    zIndex: 10,
   },
-  iconCircleBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.10)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-  },
-  centerHeaderGroup: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  screenHeaderTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    textAlign: 'center',
-  },
-  screenHeaderSub: {
-    fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.6)',
-    marginTop: 2,
-    textAlign: 'center',
-  },
-
-  // Screen 1: Dome & Flame
-  heroDomeContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 10,
-    marginBottom: 20,
-  },
-  glassDomeArch: {
-    width: 170,
-    height: 220,
-    borderTopLeftRadius: 85,
-    borderTopRightRadius: 85,
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 16,
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: 'rgba(192, 132, 252, 0.4)',
-    shadowColor: '#C084FC',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.35,
-    shadowRadius: 20,
-  },
-  glassDomeInner: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  flameWrapper: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-  },
-  flameGlowShadow: {
-    textShadowColor: 'rgba(192, 132, 252, 0.9)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 20,
-  },
-  flatPhoneMockup: {
-    width: 110,
-    height: 60,
-    borderRadius: 12,
-    backgroundColor: 'rgba(15, 23, 42, 0.9)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  phoneScreenLine: {
+  circleNavButton: {
     width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#C084FC',
-  },
-  woodenBasePedestal: {
-    width: 190,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#2A1B14',
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderWidth: 1,
-    borderColor: '#4A3225',
-    marginTop: -4,
-  },
-  textCenterWrapper: {
-    alignItems: 'center',
-    paddingHorizontal: 16,
-  },
-  step1Title: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    textAlign: 'center',
-    marginBottom: 14,
-    lineHeight: 34,
-  },
-  titlePurpleHighlight: {
-    color: '#C084FC',
-  },
-  eyeSubtitleRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    borderColor: 'rgba(255, 255, 255, 0.12)',
     justifyContent: 'center',
-  },
-  step1Subtitle: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.75)',
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  subtitleOrangeHighlight: {
-    color: '#F97316',
-    fontWeight: '700',
-  },
-
-  // Screen 2: Observe Together
-  step2CenterWrapper: {
     alignItems: 'center',
-    marginVertical: 'auto',
   },
-  meditationLandscapeContainer: {
-    width: '100%',
-    height: 190,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+  headerPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
-    marginVertical: 18,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
   },
-  sunsetSunCore: {
+  headerPillDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#06b6d4',
+    marginRight: 6,
+  },
+  headerPillText: {
+    color: '#94a3b8',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+  },
+  pageIndicatorContainer: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  pageIndicatorText: {
+    color: '#e2e8f0',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+
+  pageAnimatedContainer: {
+    flex: 1,
+  },
+
+  // ==========================================
+  // PAGE 1 STYLES
+  // ==========================================
+  page1Scroll: {
+    flexGrow: 1,
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingBottom: 24,
+    alignItems: 'center',
+  },
+  hologramStage: {
+    width: width * 0.85,
+    height: height * 0.38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 10,
+  },
+  rippleCircle: {
+    position: 'absolute',
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    borderWidth: 1.5,
+    borderColor: 'rgba(56, 189, 248, 0.5)',
+    backgroundColor: 'transparent',
+  },
+  floatingImpulseBadge: {
     position: 'absolute',
     top: 15,
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#F97316',
-    shadowColor: '#F97316',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 15,
-  },
-  dotPathContainer: {
-    position: 'absolute',
-    top: 60,
-    alignItems: 'center',
-    gap: 8,
-  },
-  dotPathPoint: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#C084FC',
-  },
-  landscapeNotifIcon: {
-    position: 'absolute',
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(15, 23, 42, 0.85)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
-  },
-  silhouettedFigure: {
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  figureHead: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: '#0F172A',
-  },
-  figureBody: {
-    width: 32,
-    height: 24,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    backgroundColor: '#0F172A',
-    marginTop: 2,
-  },
-  whatToDoGlassCard: {
-    width: '100%',
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    borderRadius: 24,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    alignItems: 'center',
-  },
-  whatToDoTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    marginBottom: 14,
-  },
-  actionPillsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '100%',
-  },
-  actionPillItem: {
     alignItems: 'center',
-    width: '30%',
-  },
-  pillIconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(192, 132, 252, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(192, 132, 252, 0.3)',
-    marginBottom: 8,
-  },
-  pillLabelText: {
-    fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.8)',
-    textAlign: 'center',
-    lineHeight: 14,
-    fontWeight: '500',
-  },
-
-  // Screen 3: Your Mission
-  missionCenterWrapper: {
-    alignItems: 'center',
-    marginVertical: 'auto',
-  },
-  missionHeaderGroup: {
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  missionTimerContainer: {
-    position: 'relative',
-    width: 230,
-    height: 230,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  timerDigitsWrapper: {
-    position: 'absolute',
-    alignItems: 'center',
-  },
-  missionTimerDigits: {
-    fontSize: 48,
-    fontWeight: '200',
-    color: '#FFFFFF',
-    letterSpacing: 2,
-    fontVariant: ['tabular-nums'],
-  },
-  missionTimerSub: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#F97316',
-    letterSpacing: 1.5,
-    marginTop: 2,
-  },
-  missionSubtitle: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.8)',
-    textAlign: 'center',
-    lineHeight: 20,
-    paddingHorizontal: 20,
-    marginBottom: 20,
-  },
-  duringThisTimeCard: {
-    width: '100%',
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
     borderRadius: 20,
-    padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
+    borderColor: 'rgba(239, 68, 68, 0.35)',
+    zIndex: 5,
   },
-  duringTimeTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: 'rgba(255, 255, 255, 0.6)',
-    marginBottom: 10,
+  impulseDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#f87171',
+    marginRight: 6,
   },
-  ruleItemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  ruleIcon: {
-    marginRight: 10,
-  },
-  ruleItemText: {
-    fontSize: 13,
-    color: '#FFFFFF',
-    fontWeight: '500',
-  },
-
-  // Screen 4: Share Experience Jar
-  magicalJarContainer: {
-    alignItems: 'center',
-    marginVertical: 14,
-  },
-  glassJarBody: {
-    width: 140,
-    height: 160,
-    borderRadius: 24,
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: 'rgba(192, 132, 252, 0.4)',
-  },
-  glassJarInner: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  jarOrbParticle: {
-    position: 'absolute',
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#E9D5FF',
-    shadowColor: '#C084FC',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 6,
-  },
-  jarWoodenPedestal: {
-    width: 160,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#2A1B14',
-    marginTop: -2,
-  },
-  sectionQuestionText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    textAlign: 'center',
-    marginBottom: 14,
-  },
-  ratingsGridRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  ratingChoiceCard: {
-    width: '23%',
-    paddingVertical: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    borderRadius: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-  },
-  ratingCardSelected: {
-    backgroundColor: 'rgba(192, 132, 252, 0.25)',
-    borderColor: '#C084FC',
-  },
-  ratingEmojiText: {
-    fontSize: 24,
-    marginBottom: 4,
-  },
-  ratingLabelText: {
-    fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.7)',
+  impulseText: {
+    color: '#fecaca',
+    fontSize: 12,
     fontWeight: '600',
   },
-  ratingLabelSelected: {
-    color: '#FFFFFF',
-    fontWeight: '700',
+  phoneHologramContainer: {
+    width: 150,
+    height: 240,
+    borderRadius: 28,
+    shadowColor: '#06b6d4',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.35,
+    shadowRadius: 25,
+    elevation: 10,
   },
-  glassTextInputCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-    padding: 14,
+  phoneChassis: {
+    flex: 1,
+    borderRadius: 28,
+    borderWidth: 2,
+    borderColor: 'rgba(56, 189, 248, 0.4)',
+    padding: 8,
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  multilineInput: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    minHeight: 70,
-    textAlignVertical: 'top',
+  phoneNotch: {
+    width: 44,
+    height: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    borderRadius: 3,
+    marginTop: 2,
   },
-  charCounterText: {
-    color: 'rgba(255, 255, 255, 0.4)',
+  phoneDisplay: {
+    flex: 1,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+  },
+  phoneScreenLabel: {
+    color: '#e2e8f0',
     fontSize: 10,
-    textAlign: 'right',
-    marginTop: 4,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    marginTop: 6,
+  },
+  phoneScreenSub: {
+    color: '#06b6d4',
+    fontSize: 9,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  phoneHomeBar: {
+    width: 48,
+    height: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.35)',
+    borderRadius: 2,
+    marginBottom: 4,
   },
 
-  // Screen 5: Portal
-  portalVisualContainer: {
+  introContentSection: {
+    width: '100%',
     alignItems: 'center',
-    marginVertical: 14,
   },
-  outerPortalRing: {
+  taskTitle: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: '#ffffff',
+    textAlign: 'center',
+    letterSpacing: 0.3,
+    marginBottom: 12,
+  },
+  badgesRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 18,
+  },
+  badgePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 5,
+  },
+  badgeDuration: {
+    backgroundColor: 'rgba(56, 189, 248, 0.12)',
+    borderColor: 'rgba(56, 189, 248, 0.35)',
+  },
+  badgeDifficulty: {
+    backgroundColor: 'rgba(52, 211, 153, 0.12)',
+    borderColor: 'rgba(52, 211, 153, 0.35)',
+  },
+  badgeReward: {
+    backgroundColor: 'rgba(251, 191, 36, 0.12)',
+    borderColor: 'rgba(251, 191, 36, 0.35)',
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  // EXACT 2-LINE EXPLANATION CARD
+  twoLineCard: {
+    width: '100%',
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    marginBottom: 12,
+  },
+  explanationLine1: {
+    color: '#f1f5f9',
+    fontSize: 13.5,
+    fontWeight: '600',
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  explanationLine2: {
+    color: '#94a3b8',
+    fontSize: 13.5,
+    fontWeight: '500',
+    lineHeight: 20,
+    textAlign: 'center',
+    marginTop: 2,
+  },
+
+  mindfulNoteContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingHorizontal: 10,
+    marginTop: 4,
+  },
+  mindfulNoteText: {
+    color: '#64748b',
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+
+  bottomCtaContainer: {
+    width: '100%',
+    paddingTop: 16,
+  },
+  primaryActionButton: {
+    width: '100%',
+    height: 56,
+    borderRadius: 28,
+    overflow: 'hidden',
+    shadowColor: '#06b6d4',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  primaryGradient: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+  },
+
+  // ==========================================
+  // PAGE 2 STYLES
+  // ==========================================
+  page2Scroll: {
+    flexGrow: 1,
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingBottom: 24,
+    alignItems: 'center',
+  },
+  page2AnimationStage: {
+    width: width * 0.85,
+    height: height * 0.32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 6,
+  },
+  zenBreathRingOuter: {
+    position: 'absolute',
+    width: 210,
+    height: 210,
+    borderRadius: 105,
+    borderWidth: 1.5,
+    borderColor: 'rgba(56, 189, 248, 0.25)',
+    backgroundColor: 'rgba(56, 189, 248, 0.03)',
+  },
+  zenBreathRingInner: {
+    position: 'absolute',
     width: 160,
     height: 160,
     borderRadius: 80,
-    padding: 3,
-    backgroundColor: 'rgba(192, 132, 252, 0.3)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(99, 102, 241, 0.4)',
+    backgroundColor: 'rgba(99, 102, 241, 0.05)',
   },
-  innerPortalCore: {
-    flex: 1,
-    borderRadius: 80,
+  zenPhoneCenterContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    alignItems: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
-  },
-  portalPhoneIcon: {
-    marginBottom: 8,
-  },
-  portalFigureSilhouette: {
-    width: 24,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: '#0F172A',
-  },
-
-  // Screen 6: Reflection & Lotus Card
-  reflectionCardOuter: {
-    flex: 1,
-    borderRadius: 28,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(192, 132, 252, 0.3)',
-    marginVertical: 16,
-  },
-  reflectionCardInner: {
-    flex: 1,
-    padding: 22,
-  },
-  reflectionCardScroll: {
-    alignItems: 'center',
-    paddingBottom: 10,
-  },
-  reflectionParagraph: {
-    fontSize: 15,
-    color: '#FFFFFF',
-    textAlign: 'center',
-    lineHeight: 24,
-    fontWeight: '500',
-  },
-  heartDivider: {
-    fontSize: 16,
-    marginVertical: 16,
-  },
-  lotusFlowerContainer: {
-    marginTop: 20,
-    alignItems: 'center',
-  },
-
-  // Global Buttons & Utilities
-  bottomBar: {
-    width: '100%',
-    paddingBottom: Platform.OS === 'ios' ? 10 : 20,
-  },
-  primaryGradientPill: {
-    width: '100%',
-    height: 58,
-    borderRadius: 29,
-    overflow: 'hidden',
-    shadowColor: '#8B5CF6',
-    shadowOffset: { width: 0, height: 8 },
+    shadowColor: '#38bdf8',
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
+    shadowRadius: 16,
+  },
+  zenPhonePuck: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  zenPuckStatus: {
+    color: '#94a3b8',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    marginTop: 4,
+  },
+  zenBreathPrompt: {
+    position: 'absolute',
+    bottom: -8,
+    color: '#cbd5e1',
+    fontSize: 13,
+    fontWeight: '500',
+    textAlign: 'center',
+    paddingHorizontal: 20,
+  },
+
+  timerSection: {
+    alignItems: 'center',
+    marginVertical: 10,
+  },
+  countdownTimerText: {
+    fontSize: 68,
+    fontWeight: '200',
+    letterSpacing: 3,
+    fontVariant: ['tabular-nums'],
+    textShadowColor: 'rgba(6, 182, 212, 0.35)',
+    textShadowOffset: { width: 0, height: 4 },
+    textShadowRadius: 18,
+  },
+  timerSubCaption: {
+    color: '#94a3b8',
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.8,
+    marginTop: 2,
+  },
+
+  beginNowWrapper: {
+    width: '100%',
+    alignItems: 'center',
+    marginVertical: 6,
+  },
+  beginNowButton: {
+    width: '100%',
+    height: 54,
+    borderRadius: 27,
+    overflow: 'hidden',
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
     shadowRadius: 16,
     elevation: 6,
   },
-  gradientBtnInner: {
+  beginNowGradient: {
     flex: 1,
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  primaryBtnText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+  beginNowText: {
+    color: '#ffffff',
+    fontSize: 17,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  beginHint: {
+    color: '#64748b',
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 8,
+  },
+
+  guidanceCard: {
+    width: '100%',
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+    borderRadius: 22,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    marginVertical: 8,
+  },
+  guidanceHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  guidanceCardTitle: {
+    color: '#38bdf8',
+    fontSize: 13,
     fontWeight: '800',
     letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  guidanceItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    gap: 12,
+  },
+  guidanceItemActive: {
+    backgroundColor: 'rgba(56, 189, 248, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.25)',
+  },
+  guidanceNumberBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  guidanceNumberText: {
+    color: '#f8fafc',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  guidanceText: {
+    flex: 1,
+    color: '#e2e8f0',
+    fontSize: 13,
+    fontWeight: '500',
+    lineHeight: 18,
+  },
+
+  abortTaskLink: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    marginTop: 4,
+  },
+  abortTaskText: {
+    color: '#ef4444',
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+
+  // ==========================================
+  // PAGE 3 STYLES
+  // ==========================================
+  page3Scroll: {
+    flexGrow: 1,
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingBottom: 24,
+    alignItems: 'center',
+  },
+  celebrationStage: {
+    width: width * 0.85,
+    height: height * 0.26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+  },
+  celebrationAura: {
+    position: 'absolute',
+    width: 170,
+    height: 170,
+    borderRadius: 85,
+    backgroundColor: 'rgba(16, 185, 129, 0.25)',
+  },
+  medallionWrapper: {
+    width: 106,
+    height: 106,
+    borderRadius: 53,
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 25,
+    elevation: 12,
+  },
+  medallionCircle: {
+    flex: 1,
+    borderRadius: 53,
+    borderWidth: 3,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  completionTextGroup: {
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginVertical: 8,
+  },
+  completionHeading: {
+    color: '#ffffff',
+    fontSize: 26,
+    fontWeight: '900',
+    textAlign: 'center',
+    letterSpacing: 0.3,
+    marginBottom: 8,
+  },
+  completionSubHeading: {
+    color: '#94a3b8',
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+
+  prominentRewardCard: {
+    width: '100%',
+    borderRadius: 24,
+    overflow: 'hidden',
+    borderWidth: 1.5,
+    borderColor: 'rgba(16, 185, 129, 0.45)',
+    marginVertical: 12,
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 6,
+  },
+  rewardCardGradient: {
+    paddingVertical: 22,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  rewardSparkleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  rewardLabel: {
+    color: '#fbbf24',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+  },
+  giantPointsText: {
+    color: '#ffffff',
+    fontSize: 42,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+    marginVertical: 4,
+    textShadowColor: 'rgba(16, 185, 129, 0.4)',
+    textShadowOffset: { width: 0, height: 4 },
+    textShadowRadius: 15,
+  },
+  backendStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    gap: 6,
+    marginTop: 6,
+  },
+  backendStatusText: {
+    color: '#cbd5e1',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  userSummaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  totalBalanceText: {
+    color: '#94a3b8',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  streakText: {
+    color: '#fbbf24',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+
+  reflectionCard: {
+    width: '100%',
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    borderRadius: 18,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  reflectionTitle: {
+    color: '#f8fafc',
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  reflectionBody: {
+    color: '#94a3b8',
+    fontSize: 12.5,
+    fontWeight: '400',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+
+  doneActionButton: {
+    width: '100%',
+    height: 56,
+    borderRadius: 28,
+    overflow: 'hidden',
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 18,
+    elevation: 8,
   },
 });

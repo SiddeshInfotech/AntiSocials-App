@@ -1,223 +1,90 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import {
-  StyleSheet,
-  View,
-  Text,
-  TouchableOpacity,
-  Pressable,
-  useWindowDimensions,
-  Platform,
-  Alert,
-  ActivityIndicator,
-  AppState,
-  Linking,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { VideoView, useVideoPlayer } from 'expo-video';
-import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withRepeat,
-  withSequence,
-  withSpring,
-  Easing,
-  FadeIn,
-  FadeOut,
-  FadeInUp,
-  FadeInDown,
-  ZoomIn,
-} from 'react-native-reanimated';
-import Svg, { Circle } from 'react-native-svg';
-import { Feather, MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
-import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Easing, Dimensions, Pressable, Alert, Platform, AppState, Linking, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
-import * as Haptics from 'expo-haptics';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as SecureStore from 'expo-secure-store';
-import { API_BASE_URL, apiFetch } from '../constants/Api';
+import { apiFetch, API_BASE_URL } from '../constants/Api';
+import { Feather } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
 import DndModule from '../modules/dnd-module';
 
-const VIDEO_INTRO = require('../assets/videos/turnn_off_notification_video_a.mp4');
-const VIDEO_SESSION = require('../assets/videos/Smartphone_vibrating_on_surface_202608041636.mp4');
-const ALARM_SOUND = require('../assets/videos/mixkit-relaxation-05-749.mp3');
-
+const { width, height } = Dimensions.get('window');
 const TASK_DURATION = 1800; // 30 minutes (1800 seconds)
-
-const MOTIVATIONAL_QUOTES = [
-  "Stay focused.",
-  "Less noise. More clarity.",
-  "Enjoy this quiet moment.",
-  "Your attention belongs to you.",
-];
-
-const ParticleItem = ({
-  width,
-  height,
-  color,
-}: {
-  width: number;
-  height: number;
-  color: string;
-}) => {
-  const posX = useSharedValue(Math.random() * width);
-  const posY = useSharedValue(height + 20);
-  const pScale = useSharedValue(Math.random() * 0.8 + 0.4);
-  const pOpacity = useSharedValue(Math.random() * 0.5 + 0.3);
-
-  useEffect(() => {
-    const duration = 9000 + Math.random() * 6000;
-    const delay = Math.random() * 3000;
-
-    posY.value = withRepeat(
-      withSequence(
-        withTiming(height + 20, { duration: delay }),
-        withTiming(-40, { duration, easing: Easing.linear })
-      ),
-      -1,
-      false
-    );
-
-    posX.value = withRepeat(
-      withSequence(
-        withTiming(posX.value + (Math.random() * 40 - 20), {
-          duration: 3000 + Math.random() * 2000,
-          easing: Easing.inOut(Easing.ease),
-        }),
-        withTiming(posX.value - (Math.random() * 40 - 20), {
-          duration: 3000 + Math.random() * 2000,
-          easing: Easing.inOut(Easing.ease),
-        })
-      ),
-      -1,
-      true
-    );
-  }, []);
-
-  const style = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: posX.value },
-      { translateY: posY.value },
-      { scale: pScale.value },
-    ],
-    opacity: pOpacity.value,
-  }));
-
-  return (
-    <Animated.View
-      style={[
-        styles.ambientParticle,
-        style,
-        { backgroundColor: color },
-      ]}
-    />
-  );
-};
-
-// Floating Ambient Particles Component
-const AmbientParticles = ({ color = '#10B981', count = 12 }: { color?: string; count?: number }) => {
-  const { width, height } = useWindowDimensions();
-
-  return (
-    <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
-      {Array.from({ length: count }).map((_, i) => (
-        <ParticleItem key={i} width={width} height={height} color={color} />
-      ))}
-    </View>
-  );
-};
 
 export default function NotificationsTaskScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { width, height } = useWindowDimensions();
-
-  // Screen Flow State: 'intro' | 'session' | 'reward'
-  const [screen, setScreen] = useState<'intro' | 'session' | 'reward'>('intro');
-
+  
   const [isActive, setIsActive] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [timeLeft, setTimeLeft] = useState(TASK_DURATION);
+  const [isCompleted, setIsCompleted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [dndActive, setDndActive] = useState(false);
-  const [quoteIndex, setQuoteIndex] = useState(0);
 
   const appState = useRef(AppState.currentState);
   const isWaitingForPermission = useRef(false);
   const endTimeRef = useRef<number>(0);
-  const alarmSoundRef = useRef<any>(null);
-  const lastPress = useRef(0);
 
-  // Video Players Initialization
-  const introPlayer = useVideoPlayer(VIDEO_INTRO, (player) => {
-    player.loop = true;
-    player.muted = true;
-    player.play();
-  });
+  // Animations
+  const uiFadeAnim = useRef(new Animated.Value(1)).current;
+  const timerFadeAnim = useRef(new Animated.Value(0)).current;
+  const timerGlowAnim = useRef(new Animated.Value(0.6)).current;
+  const breathAnim = useRef(new Animated.Value(1)).current;
+  const bgShiftAnim = useRef(new Animated.Value(0)).current;
+  
+  // Mascot Floating & Gentle Breathing
+  const mascotFloatAnim = useRef(new Animated.Value(0)).current;
+  const mascotScaleAnim = useRef(new Animated.Value(0.95)).current;
 
-  const sessionPlayer = useVideoPlayer(VIDEO_SESSION, (player) => {
-    player.loop = true;
-    player.muted = true;
-    player.play();
-  });
+  // Initial animations
+  useEffect(() => {
+    // Background Breathing
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(breathAnim, { toValue: 1.04, duration: 5000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(breathAnim, { toValue: 1, duration: 5000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      ])
+    ).start();
 
-  // Haptic feedback helper
-  const triggerHaptic = useCallback((type: 'light' | 'medium' | 'success' | 'warning' = 'light') => {
-    if (Platform.OS === 'web') return;
-    try {
-      if (type === 'light') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      else if (type === 'medium') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      else if (type === 'success') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      else if (type === 'warning') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    } catch (e) {
-      // Ignore haptic errors on unsupported platforms
-    }
+    // Background shift
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(bgShiftAnim, { toValue: 1, duration: 12000, easing: Easing.inOut(Easing.linear), useNativeDriver: true }),
+        Animated.timing(bgShiftAnim, { toValue: 0, duration: 12000, easing: Easing.inOut(Easing.linear), useNativeDriver: true }),
+      ])
+    ).start();
+
+    // Mascot animations (Gentle, calm stillness posture)
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(mascotFloatAnim, { toValue: -5, duration: 4000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(mascotFloatAnim, { toValue: 0, duration: 4000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
+    ).start();
+
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(mascotScaleAnim, { toValue: 1.02, duration: 4000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(mascotScaleAnim, { toValue: 0.96, duration: 4000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
+    ).start();
+
+    // Timer Glow Effect
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(timerGlowAnim, { toValue: 1, duration: 2500, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(timerGlowAnim, { toValue: 0.6, duration: 2500, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      ])
+    ).start();
   }, []);
 
-  // Phone Shaking Effect Animation for Session Screen
-  const shakeX = useSharedValue(0);
-  const shakeY = useSharedValue(0);
-
-  useEffect(() => {
-    if (screen === 'session' && isActive && !isPaused) {
-      shakeX.value = withRepeat(
-        withSequence(
-          withTiming(-2.5, { duration: 40, easing: Easing.linear }),
-          withTiming(2.5, { duration: 40, easing: Easing.linear }),
-          withTiming(-1.5, { duration: 40, easing: Easing.linear }),
-          withTiming(1.5, { duration: 40, easing: Easing.linear }),
-          withTiming(0, { duration: 250, easing: Easing.linear })
-        ),
-        -1,
-        true
-      );
-      shakeY.value = withRepeat(
-        withSequence(
-          withTiming(-1.5, { duration: 50, easing: Easing.linear }),
-          withTiming(1.5, { duration: 50, easing: Easing.linear }),
-          withTiming(0, { duration: 250, easing: Easing.linear })
-        ),
-        -1,
-        true
-      );
-    } else {
-      shakeX.value = withTiming(0, { duration: 200 });
-      shakeY.value = withTiming(0, { duration: 200 });
-    }
-  }, [screen, isActive, isPaused]);
-
-  const animatedShakeStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: shakeX.value },
-      { translateY: shakeY.value },
-    ],
-  }));
-
-  // AppState & DND listener
+  // AppState change listener to handle backgrounding/resuming and setting permission return
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
+        // App returned to foreground
         if (isWaitingForPermission.current) {
           isWaitingForPermission.current = false;
           if (Platform.OS === 'android' && DndModule.isNative) {
@@ -226,12 +93,13 @@ export default function NotificationsTaskScreen() {
             } else {
               Alert.alert(
                 "Permission Denied",
-                "AntiSocial could not enable Do Not Disturb mode automatically because permission was not granted."
+                "AntiSocial could not enable Do Not Disturb because permission was not granted."
               );
             }
           }
         }
 
+        // Adjust remaining time based on timestamp
         if (isActive && !isPaused) {
           const remaining = Math.max(0, Math.round((endTimeRef.current - Date.now()) / 1000));
           setTimeLeft(remaining);
@@ -240,6 +108,7 @@ export default function NotificationsTaskScreen() {
           }
         }
       }
+
       appState.current = nextAppState;
     });
 
@@ -248,72 +117,48 @@ export default function NotificationsTaskScreen() {
     };
   }, [isActive, isPaused]);
 
-  // Clean up DND on unmount
+  // Safe release of DND mode on screen unmount
   useEffect(() => {
     return () => {
       if (Platform.OS === 'android' && DndModule.isNative) {
         try {
           DndModule.setDndMode(false);
-        } catch (e) {}
-      }
-      if (alarmSoundRef.current) {
-        alarmSoundRef.current.unloadAsync().catch(() => {});
+        } catch (e) {
+          // ignore
+        }
       }
     };
   }, []);
 
-  // Quotes Rotation in Session Screen
-  useEffect(() => {
-    if (screen === 'session' && isActive && !isPaused) {
-      const interval = setInterval(() => {
-        setQuoteIndex((prev) => (prev + 1) % MOTIVATIONAL_QUOTES.length);
-      }, 9000);
-      return () => clearInterval(interval);
-    }
-  }, [screen, isActive, isPaused]);
-
-  const playCompletionSound = useCallback(async () => {
-    try {
-      if (Platform.OS !== 'web') {
-        await setAudioModeAsync({
-          playsInSilentMode: true,
-        });
-      }
-      const player = createAudioPlayer(ALARM_SOUND);
-      player.volume = 0.85;
-      player.play();
-      alarmSoundRef.current = player;
-    } catch (err) {
-      console.warn('[NotificationsTask] Alarm sound error:', err);
-    }
-  }, []);
-
-  // Timer Tick Loop & Transition to Reward
+  // Timer Run Loop
   useEffect(() => {
     let timer: ReturnType<typeof setInterval>;
     if (isActive && !isPaused && timeLeft > 0) {
       endTimeRef.current = Date.now() + timeLeft * 1000;
+      
+      // Update DND state immediately when starting/resuming
       if (Platform.OS === 'android' && DndModule.isNative) {
         setDndActive(DndModule.isDndEnabled());
       }
 
       timer = setInterval(() => {
+        // Update DND state check every second
         if (Platform.OS === 'android' && DndModule.isNative) {
           setDndActive(DndModule.isDndEnabled());
         }
 
         setTimeLeft((prev) => {
           if (prev <= 1) {
+            setIsCompleted(true);
             setIsActive(false);
             if (Platform.OS === 'android' && DndModule.isNative) {
               try {
                 DndModule.setDndMode(false);
                 setDndActive(false);
-              } catch (e) {}
+              } catch (e) {
+                console.error("Failed to disable DND mode:", e);
+              }
             }
-            triggerHaptic('success');
-            playCompletionSound();
-            setScreen('reward');
             return 0;
           }
           return prev - 1;
@@ -323,25 +168,35 @@ export default function NotificationsTaskScreen() {
     return () => {
       if (timer) clearInterval(timer);
     };
-  }, [isActive, isPaused, timeLeft]);
+  }, [isActive, isPaused]);
 
   const startAndroidTask = () => {
     try {
       DndModule.setDndMode(true);
       setDndActive(true);
-    } catch (e) {}
-    startSessionFlow();
+    } catch (e) {
+      console.error("Failed to enable DND mode:", e);
+    }
+    startTimerFlow();
   };
 
-  const startSessionFlow = () => {
-    triggerHaptic('medium');
-    setScreen('session');
-    setIsActive(true);
-    setIsPaused(false);
+  const startTimerFlow = () => {
+    Animated.timing(uiFadeAnim, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      setIsActive(true);
+      timerFadeAnim.setValue(0);
+      Animated.timing(timerFadeAnim, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }).start();
+    });
   };
 
-  const handleBeginFocusPress = () => {
-    triggerHaptic('medium');
+  const startTask = () => {
     const isAutomationSupported = Platform.OS === 'android' && DndModule.isNative;
 
     if (isAutomationSupported) {
@@ -349,68 +204,88 @@ export default function NotificationsTaskScreen() {
       if (!hasPermission) {
         Alert.alert(
           "DND Permission Required",
-          "AntiSocial can enable Do Not Disturb mode automatically during your focus session.",
+          "To complete this task, AntiSocial needs permission to enable Do Not Disturb mode automatically.",
           [
-            { text: "Skip & Start", onPress: () => startSessionFlow() },
-            {
-              text: "Grant Permission",
+            { text: "Cancel", style: "cancel" },
+            { 
+              text: "Grant Permission", 
               onPress: () => {
                 isWaitingForPermission.current = true;
                 DndModule.requestDndPermission();
-              },
-            },
+              } 
+            }
           ]
         );
       } else {
         startAndroidTask();
       }
     } else {
-      startSessionFlow();
+      // Manual flow for iOS and Android without native DndModule (Expo Go)
+      Alert.alert(
+        "Enable Do Not Disturb",
+        "Please enable Focus / Do Not Disturb manually.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { 
+            text: "Open Settings", 
+            onPress: () => {
+              if (Platform.OS === 'ios') {
+                Linking.openURL('app-settings:');
+              } else {
+                Linking.openSettings();
+              }
+            } 
+          },
+          {
+            text: "Start Timer",
+            onPress: () => {
+              startTimerFlow();
+            }
+          }
+        ]
+      );
     }
   };
 
-  // Backend Task Completion Logic (REUSING EXISTING TASK API)
   const completeTaskBackend = async () => {
     if (isLoading) return;
     setIsLoading(true);
-    triggerHaptic('medium');
-
-    let pointsData = { pointsAdded: '10', totalPoints: '0', streak: '0' };
+    let pointsData = { pointsAdded: '100', totalPoints: '0', streak: '0' };
     try {
       const token = await SecureStore.getItemAsync('token');
       if (token) {
         const response = await apiFetch('/api/tasks/complete', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ task_name: 'Turn off notifications (30 min)' }),
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ task_name: 'Turn off notifications (30 min)' })
         });
         const data = await response.json();
         if (response.ok || data.success) {
-          pointsData = {
-            pointsAdded: data.pointsAdded?.toString() || '10',
-            totalPoints: data.totalPoints?.toString() || '0',
-            streak: data.streak?.toString() || '0',
+          pointsData = { 
+            pointsAdded: data.pointsAdded?.toString() || "100", 
+            totalPoints: data.totalPoints?.toString() || "0",
+            streak: data.streak?.toString() || "0"
           };
         } else {
-          Alert.alert("Notice", data.error || "Task progress saved");
+          Alert.alert("Error", data.error || "Failed to submit task completion");
         }
+      } else {
+        Alert.alert("Authorization Error", "No authorization token found. Please log in again.");
       }
-    } catch (e) {
-      console.error('Backend completion error:', e);
+    } catch(e) { 
+      console.error(e);
+      Alert.alert("Connection Error", "Network request failed. Please check your network connection.");
     } finally {
       setIsLoading(false);
     }
 
-    router.replace({
-      pathname: '/task-success',
-      params: {
-        points: pointsData.pointsAdded,
-        totalPoints: pointsData.totalPoints,
-        streak: pointsData.streak,
-      },
+    router.replace({ 
+      pathname: '/task-success', 
+      params: { 
+        points: pointsData.pointsAdded, 
+        totalPoints: pointsData.totalPoints, 
+        streak: pointsData.streak 
+      } 
     } as any);
   };
 
@@ -420,334 +295,225 @@ export default function NotificationsTaskScreen() {
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
-  // Developer Fast-Forward Double Tap Helper
+  // Developer testing helper (double click timer to skip to end)
+  const lastPress = useRef(0);
   const handleDevSkip = () => {
     if (__DEV__) {
       const time = Date.now();
       const delta = time - lastPress.current;
       lastPress.current = time;
-      if (delta < 350) {
-        triggerHaptic('warning');
-        setTimeLeft(3);
+      if (delta < 300) {
+        setTimeLeft(3); // Fast forward to 3 seconds remaining
       }
     }
   };
 
-  // Circular Timer Math Calculations
-  const radius = 105;
-  const circumference = 2 * Math.PI * radius;
-  const progressRatio = timeLeft / TASK_DURATION;
-  const strokeDashoffset = circumference * (1 - progressRatio);
-
   return (
     <View style={styles.container}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
 
-      {/* ========================================================
-          SCREEN 1 — CINEMATIC INTRODUCTION
-         ======================================================== */}
-      {screen === 'intro' && (
-        <Animated.View entering={FadeIn.duration(600)} exiting={FadeOut.duration(500)} style={StyleSheet.absoluteFillObject}>
-          {/* Video Background with Boosted Brightness Overlay */}
-          <VideoView
-            player={introPlayer}
-            style={StyleSheet.absoluteFillObject}
-            nativeControls={false}
-            contentFit="cover"
-          />
+      {/* Alive Breathing Warm/Calming Gradient Background */}
+      <Animated.View style={[StyleSheet.absoluteFillObject, { transform: [{ scale: breathAnim }] }]}>
+        <LinearGradient
+          colors={['#f2fdf5', '#edfbf2', '#f6fdf9']}
+          locations={[0, 0.5, 1]}
+          style={StyleSheet.absoluteFillObject}
+        />
+      </Animated.View>
 
-          {/* Light Cinematic Overlay to boost brightness and clarify video phone screen */}
-          <LinearGradient
-            colors={['rgba(255, 255, 255, 0.22)', 'rgba(15, 23, 42, 0.45)', 'rgba(7, 10, 22, 0.85)']}
-            locations={[0, 0.5, 1]}
-            style={StyleSheet.absoluteFillObject}
-          />
+      <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: bgShiftAnim }]}>
+        <LinearGradient
+          colors={['#ebfaf0', '#e6f7eb', '#f2fcf6']}
+          locations={[0, 0.5, 1]}
+          style={StyleSheet.absoluteFillObject}
+        />
+      </Animated.View>
 
-          <SafeAreaView style={styles.screenWrapper} edges={['top', 'bottom']}>
-            {/* Header Controls */}
-            <View style={styles.headerRow}>
-              <TouchableOpacity
-                style={styles.circleIconBtn}
-                onPress={() => router.back()}
-                activeOpacity={0.8}
-              >
-                <Feather name="arrow-left" size={20} color="#FFFFFF" />
-              </TouchableOpacity>
+      {/* Edge vignette effect */}
+      <View style={styles.vignetteOverlay} pointerEvents="none" />
 
-              <View style={styles.topInfoPill}>
-                <Feather name="shield" size={14} color="#10B981" />
-                <Text style={styles.topInfoPillText}>30 Min • Distraction-Free</Text>
-              </View>
-            </View>
+      {/* Main Content Safe Area */}
+      <SafeAreaView style={styles.foregroundLayer} edges={['top', 'bottom']}>
+        
+        {/* Top Back Navigation Bar for Details Phase */}
+        {!isActive && !isCompleted && (
+          <View style={styles.topBar}>
+            <TouchableOpacity 
+              style={styles.circleBackBtn} 
+              onPress={() => router.canGoBack() ? router.back() : router.push('/(tabs)')}
+              activeOpacity={0.7}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <Feather name="arrow-left" size={24} color="#111111" />
+            </TouchableOpacity>
+          </View>
+        )}
 
-            {/* Center Content Card */}
-            <View style={styles.introCenterContent}>
-              {/* Realistic Phone Card with Silenced Notifications */}
-              <Animated.View entering={ZoomIn.duration(800)} style={styles.phoneDisplayCard}>
-                <LinearGradient
-                  colors={['rgba(255,255,255,0.25)', 'rgba(255,255,255,0.08)']}
-                  style={styles.phoneDisplayInner}
-                >
-                  <View style={styles.phoneNotch} />
-                  <View style={styles.phoneScreenHeader}>
-                    <Text style={styles.phoneTimeText}>9:41</Text>
-                    <View style={styles.phoneIconsRow}>
-                      <Ionicons name="wifi" size={14} color="rgba(255,255,255,0.9)" />
-                      <Ionicons name="battery-full" size={16} color="#10B981" />
-                    </View>
+        {/* --- Onboarding UI (Details Phase) --- */}
+        {!isActive && !isCompleted && (
+          <Animated.View style={[styles.uiWrapper, { opacity: uiFadeAnim }]}>
+            <ScrollView
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+              overScrollMode="never"
+            >
+              <View style={styles.mainUpperSection}>
+                <Animated.View style={[styles.detailsMascotContainer, { transform: [{ translateY: mascotFloatAnim }, { scale: mascotScaleAnim }] }]}>
+                  <Text style={styles.heroEmoji}>🔕</Text>
+                </Animated.View>
+
+                <Text style={styles.title}>Turn off notifications</Text>
+                
+                {/* Badges */}
+                <View style={styles.badgesRow}>
+                  <View style={[styles.badge, styles.badgeDuration]}>
+                    <Feather name="clock" size={13} color="#3b82f6" />
+                    <Text style={[styles.badgeText, styles.textDuration]}>30 min</Text>
                   </View>
-
-                  <View style={styles.silencedCenterBadge}>
-                    <View style={styles.bellPulseRing}>
-                      <MaterialCommunityIcons name="bell-off" size={38} color="#10B981" />
-                    </View>
-                    <Text style={styles.silencedBadgeTitle}>Notifications Muted</Text>
-                    <Text style={styles.silencedBadgeSub}>0 Alerts • Zero Distractions</Text>
+                  <View style={[styles.badge, styles.badgeDifficulty]}>
+                    <Feather name="bar-chart-2" size={13} color="#16a34a" />
+                    <Text style={[styles.badgeText, styles.textDifficulty]}>Easy</Text>
                   </View>
-                </LinearGradient>
-              </Animated.View>
-
-              {/* Title & Subtitle */}
-              <Animated.View entering={FadeInUp.delay(200).duration(600)} style={styles.textGroup}>
-                <Text style={styles.introTitle}>Turn Off Notifications</Text>
-                <Text style={styles.introSubtitle}>
-                  Protect your attention.{"\n"}
-                  Create a peaceful space without unnecessary interruptions.
-                </Text>
-              </Animated.View>
-            </View>
-
-            {/* Bottom Actions */}
-            <Animated.View entering={FadeInUp.delay(400).duration(600)} style={styles.bottomBar}>
-              <TouchableOpacity
-                style={styles.primaryBtn}
-                onPress={handleBeginFocusPress}
-                activeOpacity={0.88}
-              >
-                <LinearGradient
-                  colors={['#10B981', '#059669']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.primaryBtnGradient}
-                >
-                  <MaterialCommunityIcons name="shield-check" size={22} color="#FFFFFF" style={{ marginRight: 8 }} />
-                  <Text style={styles.primaryBtnText}>Begin Focus</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </Animated.View>
-          </SafeAreaView>
-        </Animated.View>
-      )}
-
-      {/* ========================================================
-          SCREEN 2 — NOTIFICATION FREE SESSION
-         ======================================================== */}
-      {screen === 'session' && (
-        <Animated.View entering={FadeIn.duration(600)} exiting={FadeOut.duration(500)} style={StyleSheet.absoluteFillObject}>
-          {/* Background Video with Bright Overlay */}
-          <VideoView
-            player={sessionPlayer}
-            style={StyleSheet.absoluteFillObject}
-            nativeControls={false}
-            contentFit="cover"
-          />
-
-          <LinearGradient
-            colors={['rgba(255, 255, 255, 0.25)', 'rgba(15, 23, 42, 0.50)', 'rgba(7, 10, 22, 0.85)']}
-            locations={[0, 0.5, 1]}
-            style={StyleSheet.absoluteFillObject}
-          />
-
-          <AmbientParticles color="#10B981" count={14} />
-
-          <SafeAreaView style={styles.screenWrapper} edges={['top', 'bottom']}>
-            {/* Header */}
-            <View style={styles.headerRow}>
-              <View style={styles.dndActiveBadge}>
-                <Feather name="shield" size={14} color="#10B981" />
-                <Text style={styles.dndActiveBadgeText}>Notifications: OFF ✅</Text>
-              </View>
-
-              <TouchableOpacity
-                style={styles.abortTextBtn}
-                onPress={() => {
-                  triggerHaptic('warning');
-                  Alert.alert(
-                    "Pause Session?",
-                    "Are you sure you want to exit? Your focus progress will be cancelled.",
-                    [
-                      { text: "Keep Focusing", style: "cancel" },
-                      {
-                        text: "Exit",
-                        style: "destructive",
-                        onPress: () => {
-                          setIsActive(false);
-                          setScreen('intro');
-                        },
-                      },
-                    ]
-                  );
-                }}
-              >
-                <Text style={styles.abortTextBtnText}>Abort</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Center Focus Session Experience with Phone Shake Effect */}
-            <Animated.View style={[styles.sessionCenterContent, animatedShakeStyle]}>
-              {/* Glass Timer Card */}
-              <View style={styles.glassTimerCard}>
-                {/* SVG Countdown Ring */}
-                <View style={styles.timerRingContainer}>
-                  <Svg width={250} height={250} viewBox="0 0 250 250">
-                    <Circle
-                      cx={125}
-                      cy={125}
-                      r={radius}
-                      stroke="rgba(255, 255, 255, 0.15)"
-                      strokeWidth={10}
-                      fill="transparent"
-                    />
-                    <Circle
-                      cx={125}
-                      cy={125}
-                      r={radius}
-                      stroke="#10B981"
-                      strokeWidth={10}
-                      strokeDasharray={`${circumference} ${circumference}`}
-                      strokeDashoffset={strokeDashoffset}
-                      strokeLinecap="round"
-                      fill="transparent"
-                      transform="rotate(-90 125 125)"
-                    />
-                  </Svg>
-
-                  <Pressable onPress={handleDevSkip} style={styles.timerTextContainer}>
-                    <Text style={styles.timerDigitsText}>{formatTime(timeLeft)}</Text>
-                    <Text style={styles.timerSubText}>
-                      {isPaused ? "SESSION PAUSED" : "FOCUS MODE ACTIVE"}
-                    </Text>
-                  </Pressable>
+                  <View style={[styles.badge, styles.badgePoints]}>
+                    <Feather name="award" size={13} color="#16a34a" />
+                    <Text style={[styles.badgeText, styles.textPoints]}>+100 Pts</Text>
+                  </View>
                 </View>
 
-                {/* Rotating Motivational Message */}
-                <Animated.View key={quoteIndex} entering={FadeIn.duration(800)} style={styles.quoteBox}>
-                  <Text style={styles.quoteText}>"{MOTIVATIONAL_QUOTES[quoteIndex]}"</Text>
-                </Animated.View>
+                {/* Description Lines in Glass Panel */}
+                <View style={styles.glassPanel}>
+                  <View style={styles.descriptionList}>
+                    <Text style={styles.descLine}>• Turn off your phone notifications for the next 30 minutes.</Text>
+                    <Text style={styles.descLine}>• Take a break from constant interruptions and enjoy a quieter environment.</Text>
+                    <Text style={styles.descLine}>• Use this time to relax, work, read, or simply be present without distractions.</Text>
+                    <Text style={styles.descLine}>• Small moments of silence help improve focus and reduce stress.</Text>
+                  </View>
+                </View>
               </View>
 
-              {/* Status Message */}
-              <Text style={styles.sessionFooterMsg}>Your attention belongs to you.</Text>
-            </Animated.View>
+              <View style={styles.bottomArea}>
+                <TouchableOpacity style={styles.startButton} onPress={startTask} activeOpacity={0.85}>
+                  <LinearGradient
+                    colors={['#10b981', '#059669']}
+                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                    style={styles.gradientBtn}
+                  >
+                    <Text style={styles.startButtonText}>Start Task</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </Animated.View>
+        )}
 
-            {/* Bottom Controls */}
-            <View style={styles.bottomBar}>
-              <TouchableOpacity
-                style={[styles.controlPillBtn, isPaused ? styles.resumePill : styles.pausePill]}
-                onPress={() => {
-                  triggerHaptic('light');
-                  setIsPaused(!isPaused);
-                }}
-                activeOpacity={0.85}
-              >
-                <Feather name={isPaused ? "play" : "pause"} size={20} color={isPaused ? "#FFFFFF" : "#10B981"} />
-                <Text style={[styles.controlPillText, isPaused && { color: '#FFFFFF' }]}>
-                  {isPaused ? "Resume Session" : "Pause Focus"}
+        {/* --- Timer View (Active Phase) --- */}
+        {(isActive || isCompleted) && (
+          <Animated.View style={[styles.timerCenter, { opacity: timerFadeAnim }]}>
+            {!isCompleted && (
+              <View style={styles.timerContentWrapper}>
+                <Animated.View style={[styles.mascotPulseCircle, { transform: [{ translateY: mascotFloatAnim }, { scale: mascotScaleAnim }] }]}>
+                  <Text style={styles.giantEmoji}>🔕</Text>
+                </Animated.View>
+
+                <Pressable onPress={handleDevSkip}>
+                  <Animated.Text style={[styles.timerText, { opacity: timerGlowAnim }]}>
+                    {formatTime(timeLeft)}
+                  </Animated.Text>
+                </Pressable>
+
+                <Text style={styles.focusSubtitle}>
+                  {isPaused ? "Timer Paused" : "Enjoying the quiet..."}
                 </Text>
-              </TouchableOpacity>
-            </View>
-          </SafeAreaView>
-        </Animated.View>
-      )}
 
-      {/* ========================================================
-          SCREEN 3 — COMPLETION REWARD
-         ======================================================== */}
-      {screen === 'reward' && (
-        <Animated.View entering={FadeIn.duration(800)} style={StyleSheet.absoluteFillObject}>
-          {/* Golden Celebration Background */}
-          <LinearGradient
-            colors={['#064e3b', '#022c22', '#090d16']}
-            locations={[0, 0.4, 1]}
-            style={StyleSheet.absoluteFillObject}
-          />
-
-          <AmbientParticles color="#F59E0B" count={18} />
-
-          <SafeAreaView style={styles.screenWrapper} edges={['top', 'bottom']}>
-            <View style={styles.rewardCenterContent}>
-              {/* Glowing Phone Transformation Icon */}
-              <Animated.View entering={ZoomIn.duration(900)} style={styles.glowingRewardCircle}>
-                <LinearGradient
-                  colors={['#F59E0B', '#10B981']}
-                  style={styles.glowingRewardInner}
-                >
-                  <MaterialCommunityIcons name="bell-ring-outline" size={54} color="#FFFFFF" />
-                </LinearGradient>
-              </Animated.View>
-
-              {/* Celebration Headers */}
-              <Animated.View entering={FadeInUp.delay(200).duration(600)} style={styles.rewardTextGroup}>
-                <Text style={styles.rewardTitle}>Distraction Free!</Text>
-                <Text style={styles.rewardSubtitle}>
-                  You created space for focus by removing unnecessary interruptions.
-                </Text>
-              </Animated.View>
-
-              {/* Reward Card */}
-              <Animated.View entering={FadeInUp.delay(400).duration(600)} style={styles.rewardCardContainer}>
-                <LinearGradient
-                  colors={['rgba(255,255,255,0.18)', 'rgba(255,255,255,0.06)']}
-                  style={styles.rewardCardInner}
-                >
-                  <View style={styles.pointsBadgeRow}>
-                    <Text style={styles.pointsSparkle}>✨</Text>
-                    <Text style={styles.pointsValue}>+10 Points</Text>
+                {Platform.OS === 'android' && DndModule.isNative ? (
+                  <View style={styles.dndStatusContainer}>
+                    <Feather 
+                      name={dndActive ? "shield" : "shield-off"} 
+                      size={16} 
+                      color={dndActive ? "#10b981" : "#ef4444"} 
+                    />
+                    <Text style={[styles.dndStatusText, { color: dndActive ? "#065f46" : "#b91c1c" }]}>
+                      {dndActive ? "Do Not Disturb: Active" : "Do Not Disturb: Inactive"}
+                    </Text>
                   </View>
-
-                  <View style={styles.rewardDivider} />
-
-                  <View style={styles.achievementRow}>
-                    <View style={styles.achievementIconBg}>
-                      <Text style={{ fontSize: 24 }}>🔕</Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.achievementTitle}>Notification Guardian</Text>
-                      <Text style={styles.achievementSub}>Task Completed • Focus Mastered</Text>
-                    </View>
+                ) : (
+                  <View style={styles.dndStatusContainer}>
+                    <Feather 
+                      name="info" 
+                      size={16} 
+                      color="#2563eb" 
+                    />
+                    <Text style={[styles.dndStatusText, { color: '#1e40af' }]}>
+                      Please ensure Focus/DND is enabled manually
+                    </Text>
                   </View>
-                </LinearGradient>
-              </Animated.View>
-            </View>
+                )}
 
-            {/* Bottom Continue Button */}
-            <Animated.View entering={FadeInUp.delay(600).duration(600)} style={styles.bottomBar}>
-              <TouchableOpacity
-                style={styles.primaryBtn}
-                onPress={completeTaskBackend}
-                disabled={isLoading}
-                activeOpacity={0.88}
-              >
-                <LinearGradient
-                  colors={['#10B981', '#059669']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.primaryBtnGradient}
+                <View style={styles.timerControlsRow}>
+                  <TouchableOpacity 
+                    style={[styles.controlButton, isPaused ? styles.resumeButton : styles.pauseButton]}
+                    onPress={() => setIsPaused(!isPaused)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.controlButtonText, isPaused && { color: '#ffffff' }]}>
+                      {isPaused ? "Resume" : "Pause"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity 
+                  style={styles.abortButton}
+                  onPress={() => {
+                    Alert.alert(
+                      "Abort Task?",
+                      "Are you sure you want to stop? Your progress will be lost.",
+                      [
+                        { text: "Cancel", style: "cancel" },
+                        { 
+                          text: "Abort", 
+                          style: "destructive", 
+                          onPress: () => {
+                            if (Platform.OS === 'android') {
+                              try {
+                                DndModule.setDndMode(false);
+                              } catch (e) {
+                                console.error(e);
+                              }
+                            }
+                            router.back();
+                          } 
+                        }
+                      ]
+                    );
+                  }}
+                  activeOpacity={0.7}
                 >
-                  {isLoading ? (
-                    <ActivityIndicator color="#FFFFFF" size="small" />
-                  ) : (
-                    <>
-                      <Text style={styles.primaryBtnText}>Continue</Text>
-                      <Feather name="arrow-right" size={20} color="#FFFFFF" style={{ marginLeft: 6 }} />
-                    </>
-                  )}
-                </LinearGradient>
-              </TouchableOpacity>
-            </Animated.View>
-          </SafeAreaView>
-        </Animated.View>
-      )}
+                  <Text style={styles.abortButtonText}>Abort Task</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {isCompleted && (
+              <View style={styles.successContainer}>
+                <Text style={styles.successEmoji}>🔕</Text>
+                <Text style={styles.successText}>You reduced noise.</Text>
+                <Text style={styles.successMessage}>Take a break from constant interruptions and enjoy a quieter environment.</Text>
+                <TouchableOpacity 
+                  style={styles.finishButton} 
+                  onPress={completeTaskBackend}
+                  disabled={isLoading}
+                >
+                  <Text style={styles.finishButtonText}>
+                    {isLoading ? "Awarding Points..." : "Claim +100 Points"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </Animated.View>
+        )}
+
+      </SafeAreaView>
     </View>
   );
 }
@@ -755,381 +521,321 @@ export default function NotificationsTaskScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#090D16',
+    backgroundColor: '#f2fdf5',
   },
-  screenWrapper: {
+  vignetteOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    borderWidth: 30,
+    borderColor: 'rgba(0,0,0,0.015)',
+    borderRadius: 70,
+  },
+  foregroundLayer: {
     flex: 1,
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
     zIndex: 2,
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 10,
-    height: 48,
+  topBar: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 4,
   },
-  circleIconBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
-  },
-  topInfoPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+  circleBackBtn: {
+    width: 40,
+    height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    backgroundColor: 'rgba(255, 255, 255, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
     borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.3)',
+    borderColor: 'rgba(255, 255, 255, 0.9)',
   },
-  topInfoPillText: {
-    color: '#D1FAE5',
-    fontSize: 13,
-    fontWeight: '600',
+  abortButton: {
+    padding: 10,
+    marginTop: 14,
   },
-  introCenterContent: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: 'auto',
-  },
-  phoneDisplayCard: {
-    width: 220,
-    height: 250,
-    borderRadius: 30,
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 8,
-    marginBottom: 28,
-  },
-  phoneDisplayInner: {
-    flex: 1,
-    padding: 14,
-    alignItems: 'center',
-  },
-  phoneNotch: {
-    width: 60,
-    height: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    borderRadius: 6,
-    marginBottom: 10,
-  },
-  phoneScreenHeader: {
-    width: '100%',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  phoneTimeText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  phoneIconsRow: {
-    flexDirection: 'row',
-    gap: 6,
-    alignItems: 'center',
-  },
-  silencedCenterBadge: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 10,
-  },
-  bellPulseRing: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    backgroundColor: 'rgba(16, 185, 129, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.4)',
-    marginBottom: 12,
-  },
-  silencedBadgeTitle: {
-    color: '#FFFFFF',
+  abortButtonText: {
+    color: '#ef4444',
     fontSize: 15,
-    fontWeight: '700',
-  },
-  silencedBadgeSub: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: 11,
-    marginTop: 2,
-  },
-  textGroup: {
-    alignItems: 'center',
-    paddingHorizontal: 16,
-  },
-  introTitle: {
-    fontSize: 30,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    textAlign: 'center',
-    marginBottom: 12,
+    fontWeight: '600',
     letterSpacing: 0.5,
   },
-  introSubtitle: {
-    fontSize: 15,
-    color: 'rgba(255, 255, 255, 0.85)',
-    textAlign: 'center',
-    lineHeight: 22,
-    fontWeight: '400',
-  },
-  bottomBar: {
-    width: '100%',
-    paddingBottom: Platform.OS === 'ios' ? 10 : 20,
-  },
-  primaryBtn: {
-    width: '100%',
-    height: 58,
-    borderRadius: 29,
-    overflow: 'hidden',
-    shadowColor: '#10B981',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
-    elevation: 6,
-  },
-  primaryBtnGradient: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  primaryBtnText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  dndActiveBadge: {
+  dndStatusContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(16, 185, 129, 0.2)',
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.4)',
-  },
-  dndActiveBadgeText: {
-    color: '#34D399',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  abortTextBtn: {
+    backgroundColor: 'rgba(255, 255, 255, 0.75)',
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.05)',
+    marginBottom: 20,
   },
-  abortTextBtnText: {
-    color: '#F87171',
-    fontSize: 15,
+  dndStatusText: {
+    fontSize: 13,
     fontWeight: '600',
   },
-  sessionCenterContent: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: 'auto',
-  },
-  glassTimerCard: {
-    width: '100%',
-    maxWidth: 340,
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    borderRadius: 32,
-    paddingVertical: 30,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.3,
-    shadowRadius: 24,
-  },
-  timerRingContainer: {
-    position: 'relative',
-    width: 250,
-    height: 250,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  timerTextContainer: {
-    position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  timerDigitsText: {
-    fontSize: 54,
-    fontWeight: '200',
-    color: '#FFFFFF',
-    letterSpacing: 2,
-    fontVariant: ['tabular-nums'],
-    textShadowColor: 'rgba(16, 185, 129, 0.6)',
-    textShadowOffset: { width: 0, height: 4 },
-    textShadowRadius: 16,
-  },
-  timerSubText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#34D399',
-    letterSpacing: 1.5,
-    marginTop: 4,
-  },
-  quoteBox: {
-    marginTop: 24,
-    paddingHorizontal: 16,
-  },
-  quoteText: {
-    fontSize: 15,
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontStyle: 'italic',
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-  sessionFooterMsg: {
-    color: 'rgba(255, 255, 255, 0.75)',
-    fontSize: 14,
-    fontWeight: '500',
-    marginTop: 20,
-  },
-  controlPillBtn: {
-    width: '100%',
-    height: 56,
-    borderRadius: 28,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 10,
-  },
-  pausePill: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-  },
-  resumePill: {
-    backgroundColor: '#10B981',
-  },
-  controlPillText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#10B981',
-  },
-  rewardCenterContent: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: 'auto',
-  },
-  glowingRewardCircle: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    padding: 4,
-    backgroundColor: 'rgba(245, 158, 11, 0.3)',
-    shadowColor: '#F59E0B',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.5,
-    shadowRadius: 25,
-    elevation: 10,
-    marginBottom: 24,
-  },
-  glowingRewardInner: {
+  uiWrapper: {
     flex: 1,
-    borderRadius: 55,
+    width: '100%',
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 20,
+    alignItems: 'center',
+  },
+  mainUpperSection: {
+    alignItems: 'center',
+    width: '100%',
+  },
+  detailsMascotContainer: {
+    marginBottom: 16,
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    borderRadius: 50,
+    width: 100,
+    height: 100,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  rewardTextGroup: {
-    alignItems: 'center',
-    marginBottom: 28,
-    paddingHorizontal: 20,
-  },
-  rewardTitle: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  rewardSubtitle: {
-    fontSize: 15,
-    color: 'rgba(255, 255, 255, 0.85)',
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  rewardCardContainer: {
-    width: '100%',
-    maxWidth: 340,
-    borderRadius: 28,
-    overflow: 'hidden',
+    shadowColor: '#10b981',
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 6 },
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
+    borderColor: 'rgba(255,255,255,0.95)',
   },
-  rewardCardInner: {
-    padding: 22,
-    alignItems: 'center',
+  heroEmoji: {
+    fontSize: 50,
   },
-  pointsBadgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  glassPanel: {
+    width: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.86)',
+    borderRadius: 22,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.07,
+    shadowRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
   },
-  pointsSparkle: {
+  title: {
     fontSize: 24,
+    fontWeight: '700',
+    color: '#1f2937',
+    marginBottom: 10,
+    textAlign: 'center',
   },
-  pointsValue: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#FBBF24',
+  badgesRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 20,
   },
-  rewardDivider: {
-    width: '100%',
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    marginVertical: 18,
-  },
-  achievementRow: {
+  badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    width: '100%',
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 4,
   },
-  achievementIconBg: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  badgeDuration: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#bfdbfe',
+  },
+  badgeDifficulty: {
+    backgroundColor: '#f0fdf4',
+    borderColor: '#bbf7d0',
+  },
+  badgePoints: {
+    backgroundColor: '#f0fdf4',
+    borderColor: '#bbf7d0',
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  textDuration: {
+    color: '#2563eb',
+  },
+  textDifficulty: {
+    color: '#16a34a',
+  },
+  textPoints: {
+    color: '#16a34a',
+  },
+  descriptionList: {
+    width: '100%',
+    gap: 9,
+  },
+  descLine: {
+    fontSize: 13.5,
+    color: '#4b5563',
+    lineHeight: 19.5,
+    fontWeight: '400',
+  },
+  bottomArea: {
+    width: '100%',
+    paddingTop: 16,
+  },
+  startButton: {
+    width: '100%',
+    height: 54,
+    borderRadius: 27,
+    overflow: 'hidden',
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  gradientBtn: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  achievementTitle: {
+  startButtonText: {
+    color: '#ffffff',
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
   },
-  achievementSub: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.7)',
-    marginTop: 2,
+  
+  // Timer States
+  timerCenter: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  ambientParticle: {
-    position: 'absolute',
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 6,
+  timerContentWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    paddingHorizontal: 20,
+  },
+  mascotPulseCircle: {
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    backgroundColor: 'rgba(255,255,255,0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    shadowColor: '#10b981',
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 8 },
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.9)',
+  },
+  giantEmoji: {
+    fontSize: 66,
+  },
+  timerText: {
+    fontSize: 72,
+    fontWeight: '200',
+    color: '#114a2f',
+    letterSpacing: 2,
+    marginBottom: 6,
+    fontVariant: ['tabular-nums'],
+    textShadowColor: 'rgba(16, 185, 129, 0.15)',
+    textShadowOffset: { width: 0, height: 4 },
+    textShadowRadius: 15,
+  },
+  focusSubtitle: {
+    fontSize: 16,
+    color: '#1b5a3e',
+    fontWeight: '500',
+    marginBottom: 20,
+  },
+  timerControlsRow: {
+    flexDirection: 'row',
+    gap: 16,
+    width: '80%',
+    justifyContent: 'center',
+  },
+  controlButton: {
+    paddingHorizontal: 36,
+    paddingVertical: 13,
+    borderRadius: 28,
+    width: 170,
+    alignItems: 'center',
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+  },
+  pauseButton: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.2)',
+  },
+  resumeButton: {
+    backgroundColor: '#10b981',
+  },
+  controlButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#10b981',
+  },
+  
+  // Success state
+  successContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 30,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: 28,
+    width: width * 0.86,
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.95)',
+  },
+  successEmoji: {
+    fontSize: 60,
+    marginBottom: 16,
+  },
+  successText: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#1f2937',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  successMessage: {
+    fontSize: 14,
+    color: '#4b5563',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 28,
+    paddingHorizontal: 10,
+  },
+  finishButton: {
+    backgroundColor: '#10b981',
+    paddingVertical: 16,
+    borderRadius: 28,
+    width: '100%',
+    alignItems: 'center',
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 15,
+    elevation: 4,
+  },
+  finishButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });

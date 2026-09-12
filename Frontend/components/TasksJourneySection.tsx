@@ -16,6 +16,7 @@ import {
   getHighestUnlockedBucketIndex,
   MAX_DAY,
   TASKS_PER_BUCKET,
+  TEMPORARY_UNLOCK_ALL_FOR_TESTING,
 } from "../constants/JourneyTasks";
 
 export default function TasksJourneySection({ completedTasks = [] }: { completedTasks?: string[] }) {
@@ -98,7 +99,9 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
   );
 
   const isDayUnlocked = React.useCallback(
-    (day: number) => Math.floor((day - 1) / tasksPerBucket) <= highestUnlockedBucketIndex,
+    (day: number) =>
+      TEMPORARY_UNLOCK_ALL_FOR_TESTING ||
+      Math.floor((day - 1) / tasksPerBucket) <= highestUnlockedBucketIndex,
     [highestUnlockedBucketIndex, tasksPerBucket]
   );
 
@@ -109,7 +112,9 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
 
   const visibleTaskStartDay = activeTaskBucketIndex * tasksPerBucket + 1;
   const visibleTaskEndDay = Math.min(visibleTaskStartDay + 6, MAX_DAY);
-  const isActiveDayLocked = activeTaskBucketIndex > highestUnlockedBucketIndex;
+  const isActiveDayLocked = TEMPORARY_UNLOCK_ALL_FOR_TESTING
+    ? false
+    : activeTaskBucketIndex > highestUnlockedBucketIndex;
   const prevBucketStartDay = Math.max(1, (activeTaskBucketIndex - 1) * tasksPerBucket + 1);
   const prevBucketEndDay = Math.min(prevBucketStartDay + 6, MAX_DAY);
 
@@ -388,7 +393,7 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
             <TouchableOpacity
               key={idx}
               activeOpacity={0.7}
-              disabled={isCompleted}
+              disabled={TEMPORARY_UNLOCK_ALL_FOR_TESTING ? false : isCompleted}
               style={styles.cardTouch}
               onPress={() => {
                 if (task.route) {
@@ -579,7 +584,8 @@ const styles = StyleSheet.create({
   },
   prototypeTabsRow: {
     flexDirection: "row",
-    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 15,
     gap: 8,
   },
   ptTab: {
@@ -648,16 +654,17 @@ const styles = StyleSheet.create({
 
   stageTabsRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 2,
     gap: 8,
   },
   stageTabActive: {
     alignItems: "center",
     backgroundColor: "#f0fdf4",
     paddingVertical: 12,
-    paddingHorizontal: 4,
+    paddingHorizontal: 8,
     borderRadius: 12,
-    flex: 1,
+    minWidth: 92,
   },
   stageTabActiveTitle: {
     fontSize: 11,
@@ -675,8 +682,9 @@ const styles = StyleSheet.create({
   stageTabInactive: {
     alignItems: "center",
     paddingVertical: 12,
-    paddingHorizontal: 4,
-    flex: 1,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    minWidth: 92,
   },
   stageTabInactiveTitle: {
     fontSize: 11,
@@ -778,10 +786,8 @@ const styles = StyleSheet.create({
   taskCard: {
     flexDirection: "row",
     backgroundColor: "#ffffff",
-    marginHorizontal: 15,
     borderRadius: 16,
     padding: 16,
-    marginBottom: 15,
     borderWidth: 1,
     borderColor: "#e5e7eb",
     alignItems: "center",
@@ -790,6 +796,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 5,
     elevation: 2,
+    width: "100%",
   },
   taskEmoji: {
     fontSize: 34,
@@ -848,6 +855,8 @@ const styles = StyleSheet.create({
   },
   cardTouch: {
     width: "100%",
+    paddingHorizontal: 15,
+    marginBottom: 15,
   },
   hardTaskCard: {
     borderWidth: 1.5,

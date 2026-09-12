@@ -719,11 +719,12 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 40,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'stretch',
   },
   heroChairContainer: {
     marginBottom: 16,
     alignItems: 'center',
+    alignSelf: 'center',
   },
   heroChairFrame: {
     width: 120,
@@ -749,6 +750,7 @@ const styles = StyleSheet.create({
 
   glassCard: {
     width: '100%',
+    alignSelf: 'stretch',
     backgroundColor: 'rgba(41, 37, 36, 0.88)',
     borderRadius: 28,
     padding: 22,
@@ -799,8 +801,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: 'rgba(245, 158, 11, 0.12)',
-    borderColor: 'rgba(245, 158, 11, 0.35)',
+    backgroundColor: 'rgba(251, 191, 36, 0.12)',
+    borderColor: 'rgba(251, 191, 36, 0.35)',
     borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 5,
@@ -821,7 +823,7 @@ const styles = StyleSheet.create({
   },
   descriptionText: {
     color: '#e7e5e4',
-    fontSize: 12.5,
+    fontSize: 13,
     lineHeight: 18,
     textAlign: 'center',
     marginBottom: 14,
@@ -829,9 +831,9 @@ const styles = StyleSheet.create({
   quoteBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    backgroundColor: 'rgba(251, 191, 36, 0.1)',
     borderLeftWidth: 3,
-    borderLeftColor: '#f59e0b',
+    borderLeftColor: '#fbbf24',
     padding: 10,
     borderRadius: 10,
     marginBottom: 14,
@@ -870,6 +872,7 @@ const styles = StyleSheet.create({
 
   startButton: {
     width: '100%',
+    alignSelf: 'stretch',
     height: 50,
     borderRadius: 25,
     overflow: 'hidden',

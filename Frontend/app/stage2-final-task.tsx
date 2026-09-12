@@ -781,11 +781,12 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 40,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'stretch',
   },
   heroDoorContainer: {
     marginBottom: 20,
     alignItems: 'center',
+    alignSelf: 'center',
   },
   heroDoorFrame: {
     width: 110,
@@ -811,6 +812,7 @@ const styles = StyleSheet.create({
 
   glassCard: {
     width: '100%',
+    alignSelf: 'stretch',
     backgroundColor: 'rgba(41, 37, 36, 0.92)',
     borderRadius: 28,
     padding: 24,
@@ -914,6 +916,7 @@ const styles = StyleSheet.create({
 
   startButton: {
     width: '100%',
+    alignSelf: 'stretch',
     height: 52,
     borderRadius: 26,
     overflow: 'hidden',

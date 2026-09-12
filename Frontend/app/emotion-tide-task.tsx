@@ -744,11 +744,12 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 40,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'stretch',
   },
   heroOceanContainer: {
     marginBottom: 20,
     alignItems: 'center',
+    alignSelf: 'center',
   },
   heroOceanFrame: {
     width: 120,
@@ -774,6 +775,7 @@ const styles = StyleSheet.create({
 
   glassCard: {
     width: '100%',
+    alignSelf: 'stretch',
     backgroundColor: 'rgba(15, 23, 42, 0.88)',
     borderRadius: 28,
     padding: 24,
@@ -877,6 +879,7 @@ const styles = StyleSheet.create({
 
   startButton: {
     width: '100%',
+    alignSelf: 'stretch',
     height: 52,
     borderRadius: 26,
     overflow: 'hidden',

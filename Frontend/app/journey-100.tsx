@@ -16,6 +16,7 @@ import { Feather, Ionicons } from "@expo/vector-icons";
 import * as SecureStore from "expo-secure-store";
 import { apiFetch } from "../constants/Api";
 import { LinearGradient } from "expo-linear-gradient";
+import { TEMPORARY_UNLOCK_ALL_FOR_TESTING } from "../constants/JourneyTasks";
 
 export default function Journey100Screen() {
   const router = useRouter();
@@ -217,7 +218,8 @@ export default function Journey100Screen() {
         {/* DAY BY DAY LIST */}
         <View style={styles.daysContainer}>
           {filteredDays.map((dayItem: any) => {
-            const { day, stageTitle, isUnlocked, isCompleted, isCurrent } = dayItem;
+            const { day, stageTitle, isCompleted, isCurrent } = dayItem;
+            const isUnlocked = TEMPORARY_UNLOCK_ALL_FOR_TESTING ? true : dayItem.isUnlocked;
 
             let cardBg = "#ffffff";
             let borderColor = "#e5e7eb";

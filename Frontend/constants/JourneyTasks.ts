@@ -896,6 +896,13 @@ export function isBucketComplete(bucketIndex: number, completedTasks: string[] |
   return bucketTasks.every((t) => isTaskTitleCompleted(t.title, completedTasks));
 }
 
+// ============================================================================
+// TEMPORARY TESTING OVERRIDE
+// Set to true to temporarily unlock ALL Days and Tasks for testing.
+// To restore original locking behavior, simply set this constant to false.
+// ============================================================================
+export const TEMPORARY_UNLOCK_ALL_FOR_TESTING = true;
+
 // Highest day-bucket reachable given completion of every prior bucket's 7 tasks.
 // Bucket 0 (Day 1) is always unlocked. This is the one generic mechanism that
 // drives "current day" everywhere in the app — the Task page, the Dog widget,
@@ -909,5 +916,7 @@ export function getHighestUnlockedBucketIndex(completedTasks: string[] | undefin
 }
 
 export function isDayUnlocked(day: number, completedTasks: string[] | undefined | null): boolean {
+  if (TEMPORARY_UNLOCK_ALL_FOR_TESTING) return true;
   return Math.floor((day - 1) / TASKS_PER_BUCKET) <= getHighestUnlockedBucketIndex(completedTasks);
 }
+

@@ -749,6 +749,11 @@ export default function HomeScreen() {
   const isDeductingRef = useRef<boolean>(false);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
 
+  // Feed scrolling points deduction alert notification state
+  const [feedAlertVisible, setFeedAlertVisible] = useState<boolean>(false);
+  const [feedAlertMinutes, setFeedAlertMinutes] = useState<number>(5);
+  const [feedAlertTotalDeducted, setFeedAlertTotalDeducted] = useState<number>(20);
+
   // Multi-Story Viewer State & Controls
   const [activeStoryList, setActiveStoryList] = useState<any[]>([]);
   const [activeStoryIndex, setActiveStoryIndex] = useState<number>(0);
@@ -1129,6 +1134,18 @@ export default function HomeScreen() {
               points: newPts,
             },
           }));
+        }
+
+        // Show popup notification ONLY when an actual milestone deduction happens
+        if (data.success && !data.alreadyDeducted) {
+          const elapsedMinutes = Math.round((milestoneIdx * FEED_DEDUCTION_INTERVAL_SECONDS) / 60);
+          const totalDeducted = milestoneIdx * 20;
+          setFeedAlertMinutes(elapsedMinutes);
+          setFeedAlertTotalDeducted(totalDeducted);
+          setFeedAlertVisible(true);
+          try {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+          } catch (_) {}
         }
       } else if (!res.ok) {
         console.warn(`⚠️ [Feed Deduction] Server responded with status ${res.status} for milestone ${milestoneIdx}`);
@@ -2158,6 +2175,36 @@ export default function HomeScreen() {
         onCommentsCountChange={handlePostCommentsCountChange}
       />
 
+      {/* Feed Scrolling Deduction Alert Modal */}
+      <Modal
+        visible={feedAlertVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setFeedAlertVisible(false)}
+      >
+        <View style={styles.feedAlertOverlay}>
+          <View style={styles.feedAlertCard}>
+            <View style={styles.feedAlertIconContainer}>
+              <Feather name="clock" size={28} color="#D97706" />
+            </View>
+            <Text style={styles.feedAlertTitle}>⚠️ Feed Time Alert</Text>
+            <Text style={styles.feedAlertMessage}>
+              You’ve been scrolling for {feedAlertMinutes} minutes.{"\n"}
+              20 points deducted. Total deducted: {feedAlertTotalDeducted} points.
+            </Text>
+            <TouchableOpacity
+              style={styles.feedAlertButton}
+              activeOpacity={0.8}
+              onPress={() => setFeedAlertVisible(false)}
+              testID="feed-alert-ok-btn"
+              accessibilityLabel="OK"
+            >
+              <Text style={styles.feedAlertButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -2993,6 +3040,65 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: "#FFFFFF",
+  },
+  // Feed Scrolling Points Deduction Alert Modal Styles
+  feedAlertOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  feedAlertCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 24,
+    paddingHorizontal: 24,
+    paddingTop: 28,
+    paddingBottom: 24,
+    alignItems: "center",
+    width: "100%",
+    maxWidth: 340,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  feedAlertIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#FEF3C7",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  feedAlertTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#111827",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  feedAlertMessage: {
+    fontSize: 15,
+    color: "#4B5563",
+    textAlign: "center",
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  feedAlertButton: {
+    backgroundColor: "#111827",
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 30,
+    width: "100%",
+    alignItems: "center",
+  },
+  feedAlertButtonText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "700",
   },
 });
 
