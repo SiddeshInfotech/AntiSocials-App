@@ -90,7 +90,12 @@ export default function StoriesFeed() {
         const formattedStories: StoryType[] = validStories.map((s: any) => {
           const resolvedMedia = resolveStoryMediaUrl(s.media_url) || "";
           const resolvedAvatar = resolveAvatarUrl(s.profile_image);
-          const isVideo = s.media_type === "video" || (typeof s.media_url === "string" && s.media_url.toLowerCase().endsWith(".mp4"));
+          const isVideo =
+            (s.media_type && s.media_type.toLowerCase().includes("video")) ||
+            (typeof s.media_url === "string" &&
+              (/\.(mp4|mov|m4v|webm|mkv|3gp)($|\?)/i.test(s.media_url) ||
+               s.media_url.toLowerCase().includes(".mp4") ||
+               s.media_url.toLowerCase().includes(".mov")));
           const mediaTypeVal = isVideo ? "video" : "image";
 
           return {
@@ -246,7 +251,13 @@ export default function StoriesFeed() {
         const s = data.story;
         const resolvedMedia = resolveStoryMediaUrl(s.media_url) || "";
         const resolvedAvatar = resolveAvatarUrl(s.profile_image);
-        const isVideo = s.media_type === "video" || mediaType === "video" || (typeof s.media_url === "string" && s.media_url.toLowerCase().endsWith(".mp4"));
+        const isVideo =
+          (s.media_type && s.media_type.toLowerCase().includes("video")) ||
+          (mediaType && mediaType.toLowerCase().includes("video")) ||
+          (typeof s.media_url === "string" &&
+            (/\.(mp4|mov|m4v|webm|mkv|3gp)($|\?)/i.test(s.media_url) ||
+             s.media_url.toLowerCase().includes(".mp4") ||
+             s.media_url.toLowerCase().includes(".mov")));
         const mediaTypeVal = isVideo ? "video" : "image";
 
         const newStory: StoryType = {

@@ -407,7 +407,7 @@ export default function CreatePostScreen() {
         media_type:
           uploadedMediaType ||
           (uploadedMediaUrl
-            ? uploadedMediaUrl.endsWith(".mp4")
+            ? /\.(mp4|mov|m4v|webm|mkv|3gp)($|\?)/i.test(uploadedMediaUrl)
               ? "video"
               : "image"
             : null),

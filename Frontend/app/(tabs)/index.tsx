@@ -996,10 +996,13 @@ export default function HomeScreen() {
             streak_count: parsedStk !== undefined ? parsedStk : (prev?.user?.streak_count ?? 0)
           }
         }));
+        // Consume search params so they do not persist across re-focus, logout, or login
+        router.setParams({ updatedPoints: undefined, updatedStreak: undefined });
       }
       fetchHomeData();
       fetchUserSummary();
       fetchFeedPosts();
+      initFeedTracking();
     }
   }, [isFocused, updatedPoints, updatedStreak]);
 
@@ -1170,46 +1173,47 @@ export default function HomeScreen() {
   };
 
   // Sync deduction status & restore accumulated feed browsing seconds on load
-  useEffect(() => {
-    const initFeedTracking = async () => {
+  const initFeedTracking = React.useCallback(async () => {
+    try {
+      const token = await SecureStore.getItemAsync("token");
+      if (!token) return;
+
+      const res = await apiFetch("/api/user/feed-deduct", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      let data: any = null;
       try {
-        const token = await SecureStore.getItemAsync("token");
-        if (!token) return;
-
-        const res = await apiFetch("/api/user/feed-deduct", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        let data: any = null;
-        try {
-          const text = await res.text();
-          data = text ? JSON.parse(text) : null;
-        } catch {
-          data = null;
-        }
-
-        if (res.ok && data && data.maxMilestone !== undefined) {
-          const serverMax = Number(data.maxMilestone);
-          highestDeductedMilestoneRef.current = Math.max(highestDeductedMilestoneRef.current, serverMax);
-          for (let i = 1; i <= serverMax; i++) {
-            attemptedMilestonesRef.current.add(i);
-          }
-
-          const savedSecStr = await SecureStore.getItemAsync("feed_active_seconds");
-          let savedSec = savedSecStr ? parseInt(savedSecStr, 10) : 0;
-          if (isNaN(savedSec) || savedSec < serverMax * FEED_DEDUCTION_INTERVAL_SECONDS) {
-            savedSec = serverMax * FEED_DEDUCTION_INTERVAL_SECONDS;
-          }
-          activeFeedSecondsRef.current = savedSec;
-          console.log(`⏱️ [Feed Tracking Initialized] Server Max Milestone: ${serverMax}, Active Seconds: ${savedSec}`);
-        }
-      } catch (e) {
-        console.error("Error initializing feed tracking:", e);
+        const text = await res.text();
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        data = null;
       }
-    };
 
-    initFeedTracking();
+      if (res.ok && data && data.maxMilestone !== undefined) {
+        const serverMax = Number(data.maxMilestone);
+        highestDeductedMilestoneRef.current = serverMax;
+        attemptedMilestonesRef.current.clear();
+        for (let i = 1; i <= serverMax; i++) {
+          attemptedMilestonesRef.current.add(i);
+        }
+
+        const savedSecStr = await SecureStore.getItemAsync("feed_active_seconds");
+        let savedSec = savedSecStr ? parseInt(savedSecStr, 10) : 0;
+        if (isNaN(savedSec) || savedSec < serverMax * FEED_DEDUCTION_INTERVAL_SECONDS) {
+          savedSec = serverMax * FEED_DEDUCTION_INTERVAL_SECONDS;
+        }
+        activeFeedSecondsRef.current = savedSec;
+        console.log(`⏱️ [Feed Tracking Initialized] Server Max Milestone: ${serverMax}, Active Seconds: ${savedSec}`);
+      }
+    } catch (e) {
+      console.error("Error initializing feed tracking:", e);
+    }
   }, []);
+
+  useEffect(() => {
+    initFeedTracking();
+  }, [initFeedTracking]);
 
   // Listen for AppState changes to pause tracking when app is in background
   useEffect(() => {

@@ -161,6 +161,8 @@ export default function ProfileScreen() {
             try {
               await SecureStore.deleteItemAsync('token');
               await SecureStore.deleteItemAsync('userId');
+              await SecureStore.deleteItemAsync('feed_active_seconds').catch(() => {});
+              await SecureStore.deleteItemAsync('feed_deducted_milestone').catch(() => {});
               console.log("Storage cleared, forcing redirect to unique welcome screen...");
 
               // Use a slight timeout to ensure SecureStore finishes

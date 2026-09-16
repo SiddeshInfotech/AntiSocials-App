@@ -136,7 +136,7 @@ exports.createPost = async (req, res) => {
       subcategory.trim(),
       hasCaption ? caption.trim() : '',
       hasMedia ? media_url.trim() : null,
-      media_type || (hasMedia && media_url.toLowerCase().endsWith('.mp4') ? 'video' : 'image'),
+      media_type || (hasMedia && /\.(mp4|mov|m4v|webm|mkv|3gp)($|\?)/i.test(media_url) ? 'video' : 'image'),
       chosenFormat
     ];
 

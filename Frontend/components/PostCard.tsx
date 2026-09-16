@@ -20,7 +20,19 @@ import { useVideoPlayer, VideoView } from "expo-video";
 function PostVideoPlayer({ uri, isSquare }: { uri: string; isSquare?: boolean }) {
   const player = useVideoPlayer(uri, (p) => {
     p.loop = true;
+    p.muted = false;
+    p.volume = 1.0;
+    p.play();
   });
+
+  useEffect(() => {
+    if (player) {
+      player.loop = true;
+      player.muted = false;
+      player.volume = 1.0;
+      player.play();
+    }
+  }, [player, uri]);
 
   return (
     <VideoView
@@ -244,9 +256,11 @@ export default function PostCard({
         const resolvedMedia = resolveStoryMediaUrl(post.media_url);
         if (!resolvedMedia) return null;
         const isVideo =
-          post.media_type === "video" ||
+          (post.media_type && post.media_type.toLowerCase().includes("video")) ||
           (typeof post.media_url === "string" &&
-            (post.media_url.toLowerCase().endsWith(".mp4") || post.media_url.toLowerCase().endsWith(".mov")));
+            (/\.(mp4|mov|m4v|webm|mkv|3gp)($|\?)/i.test(post.media_url) ||
+             post.media_url.toLowerCase().includes(".mp4") ||
+             post.media_url.toLowerCase().includes(".mov")));
 
         const isSquare = post.media_format === "square";
 

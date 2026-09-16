@@ -105,7 +105,7 @@ function startStoryExpiryJob(intervalMs = 2 * 60 * 1000) {
     }, intervalMs);
 
     // Ensure timer does not prevent process exit in test scripts
-    if (expiryTimer.unref) {
+    if (process.env.NODE_ENV === 'test' && expiryTimer.unref) {
         expiryTimer.unref();
     }
 }

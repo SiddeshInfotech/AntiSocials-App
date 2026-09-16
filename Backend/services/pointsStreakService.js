@@ -494,11 +494,11 @@ async function getUserPointsAndStreak(userId) {
                 SELECT task_name FROM task_completions WHERE user_id = $1 AND task_name IS NOT NULL
                 UNION
                 -- 2. points_history joined with tasks table (resolves title from task_id as primary identifier)
-                SELECT COALESCE(t.title, ph.task_name) as task_name FROM points_history ph LEFT JOIN tasks t ON ph.task_id = t.id WHERE ph.user_id = $1
+                SELECT COALESCE(t.title, ph.task_name) as task_name FROM points_history ph LEFT JOIN tasks t ON ph.task_id = t.id WHERE ph.user_id = $1 AND ph.source != 'feed_scrolling_penalty'
                 UNION
-                SELECT ph.task_name FROM points_history ph WHERE ph.user_id = $1 AND ph.task_name IS NOT NULL
+                SELECT ph.task_name FROM points_history ph WHERE ph.user_id = $1 AND ph.task_name IS NOT NULL AND ph.source != 'feed_scrolling_penalty'
                 UNION
-                SELECT t.title as task_name FROM points_history ph JOIN tasks t ON ph.task_id = t.id WHERE ph.user_id = $1
+                SELECT t.title as task_name FROM points_history ph JOIN tasks t ON ph.task_id = t.id WHERE ph.user_id = $1 AND ph.source != 'feed_scrolling_penalty'
                 UNION
                 -- 3. user_tasks joined with tasks table
                 SELECT t.title as task_name FROM user_tasks ut JOIN tasks t ON ut.task_id = t.id WHERE ut.user_id = $1 AND (ut.status = 'completed' OR ut.completed_at IS NOT NULL OR ut.progress >= 100)
@@ -566,8 +566,8 @@ async function getUserPointsAndStreak(userId) {
  */
 async function reconcilePointsAndStreaks() {
     try {
-        // 1. Remove any fake initial_points or invalid points_history records
-        await db.query("DELETE FROM points_history WHERE source = 'initial_points' OR points <= 0").catch(() => {});
+        // 1. Remove any fake initial_points or invalid points_history records (preserve legitimate feed_scrolling_penalty records)
+        await db.query("DELETE FROM points_history WHERE source = 'initial_points' OR (points <= 0 AND source != 'feed_scrolling_penalty')").catch(() => {});
 
         // 2. Ensure tasks difficulty and points_reward are standardized
         await db.query(`

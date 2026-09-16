@@ -8305,14 +8305,14 @@ app.post('/api/user/feed-deduct', authenticateToken, async (req, res) => {
             // Record milestone with 0 deduction so milestone is marked as processed without duplicate attempts
             await db.query(
                 `INSERT INTO points_history (user_id, points, source, task_name, created_at)
-                 VALUES ($1, 0, 'feed_scrolling_penalty', $3, NOW())`,
+                 VALUES ($1, 0, 'feed_scrolling_penalty', $2, NOW())`,
                 [userId, taskName]
             );
         }
 
-        // 3. Update users table points
-        const newTotal = Math.max(0, currentPoints - pointsToDeduct);
-        await db.query('UPDATE users SET points = $1 WHERE id = $2', [newTotal, userId]);
+        // 3. Synchronize users table points strictly with points_history sum
+        const updatedSummary = await pointsStreakService.getUserPointsAndStreak(userId);
+        const newTotal = updatedSummary.totalPoints;
 
         console.log(`⏱️ [Feed Scrolling Deduction] User ${userId}, Milestone ${idx} (${idx * 5} min), Deducted: ${pointsToDeduct}, New Total: ${newTotal}`);
 
@@ -8364,8 +8364,21 @@ app.use('/api/emotion', emotionAnalysisRoutes);
 const storyExpiryService = require('./services/storyExpiryService');
 
 // Start Server
-app.listen(PORT, HOST, () => {
+const server = app.listen(PORT, HOST, (err) => {
+    if (err) {
+        console.error(`❌ Server listen error on port ${PORT}:`, err);
+        return;
+    }
     console.log(`Backend server running on http://${HOST}:${PORT}`);
     initDB(); // create the table right after starting the server
     storyExpiryService.startStoryExpiryJob(2 * 60 * 1000); // Check and deactivate expired stories every 2 minutes
 });
+
+server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+        console.error(`❌ Port ${PORT} is already in use by another process. Please close it first.`);
+    } else {
+        console.error('❌ Server error:', err);
+    }
+});
+

@@ -47,20 +47,30 @@ interface StoryCardProps {
   onShare?: (story: StoryType, newShareCount: number) => void;
 }
 
-function StoryCardVideo({ uri, isPlaying, style }: { uri: string; isPlaying: boolean; style: any }) {
+function StoryCardVideo({ uri, isPlaying, style }: { uri: string; isPlaying?: boolean; style: any }) {
   const player = useVideoPlayer(uri, (player) => {
     player.loop = true;
-    if (isPlaying) player.play();
-    else player.pause();
-  });
-
-  useEffect(() => {
-    if (isPlaying) {
+    player.muted = false;
+    player.volume = 1.0;
+    if (isPlaying !== false) {
       player.play();
     } else {
       player.pause();
     }
-  }, [isPlaying, player]);
+  });
+
+  useEffect(() => {
+    if (player) {
+      player.loop = true;
+      player.muted = false;
+      player.volume = 1.0;
+      if (isPlaying !== false) {
+        player.play();
+      } else {
+        player.pause();
+      }
+    }
+  }, [isPlaying, player, uri]);
 
   return (
     <VideoView
@@ -81,9 +91,9 @@ export default function StoryCard({
   const scaleValue = useRef(new Animated.Value(1)).current;
   const likeScale = useRef(new Animated.Value(1)).current;
   const [avatarError, setAvatarError] = useState(false);
-  const [mediaLoading, setMediaLoading] = useState(true);
+  const [mediaLoading, setMediaLoading] = useState(false);
   const [mediaError, setMediaError] = useState(false);
-  const [isPlayingVideo, setIsPlayingVideo] = useState(false);
+  const [isPlayingVideo, setIsPlayingVideo] = useState(true);
 
   // Local optimistic state for likes, comments, and shares
   const initialLiked = !!(story.isLiked ?? story.is_liked_by_user);
@@ -99,9 +109,9 @@ export default function StoryCard({
 
   // Reset media states on story change
   useEffect(() => {
-    setMediaLoading(true);
+    setMediaLoading(false);
     setMediaError(false);
-    setIsPlayingVideo(false);
+    setIsPlayingVideo(true);
   }, [story.id, story.image]);
 
   // Sync state when story props update (e.g. after refresh or comment modal update)
@@ -283,9 +293,12 @@ export default function StoryCard({
   const resolvedAvatar = resolveAvatarUrl(story.user.avatarUrl);
   const resolvedMedia = resolveStoryMediaUrl(story.image);
   const isVideoMedia =
-    story.media_type === "video" ||
-    story.mediaType === "video" ||
-    (typeof story.image === "string" && story.image.toLowerCase().endsWith(".mp4"));
+    (story.media_type && story.media_type.toLowerCase().includes("video")) ||
+    (story.mediaType && story.mediaType.toLowerCase().includes("video")) ||
+    (typeof story.image === "string" &&
+      (/\.(mp4|mov|m4v|webm|mkv|3gp)($|\?)/i.test(story.image) ||
+       story.image.toLowerCase().includes(".mp4") ||
+       story.image.toLowerCase().includes(".mov")));
 
   return (
     <Animated.View
@@ -339,7 +352,7 @@ export default function StoryCard({
                   isPlaying={isPlayingVideo}
                   style={styles.storyImage}
                 />
-                {!isPlayingVideo && !mediaLoading && (
+                {!isPlayingVideo && (
                   <View style={styles.playOverlayBtn} pointerEvents="none">
                     <Ionicons name="play" size={28} color="#FFFFFF" style={{ marginLeft: 3 }} />
                   </View>
@@ -368,8 +381,8 @@ export default function StoryCard({
             </View>
           )}
 
-          {/* Loading Overlay */}
-          {mediaLoading && !mediaError && (
+          {/* Loading Overlay for images */}
+          {!isVideoMedia && mediaLoading && !mediaError && (
             <View style={styles.mediaLoadingOverlay} pointerEvents="none">
               <ActivityIndicator size="small" color="#9333EA" />
             </View>
