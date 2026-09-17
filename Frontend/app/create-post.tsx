@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Platform,
   KeyboardAvoidingView,
+  BackHandler,
 } from "react-native";
 import {
   SafeAreaView,
@@ -248,6 +249,40 @@ export default function CreatePostScreen() {
     setSelectedSubcategory(null);
   };
 
+  const handleBack = () => {
+    if (selectedSubcategory) {
+      setSelectedSubcategory(null);
+      return true;
+    }
+    if (selectedMainCategory) {
+      setSelectedMainCategory(null);
+      return true;
+    }
+    router.back();
+    return true;
+  };
+
+  useEffect(() => {
+    const onBackPress = () => {
+      if (selectedSubcategory) {
+        setSelectedSubcategory(null);
+        return true;
+      }
+      if (selectedMainCategory) {
+        setSelectedMainCategory(null);
+        return true;
+      }
+      return false;
+    };
+
+    const subscription = BackHandler.addEventListener(
+      "hardwareBackPress",
+      onBackPress
+    );
+
+    return () => subscription.remove();
+  }, [selectedSubcategory, selectedMainCategory]);
+
   const handlePickMedia = async () => {
     if (Platform.OS === "web") {
       const choice = window.confirm(
@@ -464,7 +499,7 @@ export default function CreatePostScreen() {
         >
           <TouchableOpacity
             style={styles.backBtn}
-            onPress={() => router.back()}
+            onPress={handleBack}
             activeOpacity={0.7}
           >
             <Feather name="arrow-left" size={22} color="#09090b" />

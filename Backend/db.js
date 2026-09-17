@@ -1,5 +1,14 @@
 const { Pool, types } = require('pg');
-require('dotenv').config();
+const path = require('path');
+const dns = require('dns');
+
+// Prioritize IPv4 addresses over IPv6 to prevent Windows/VPN EACCES socket connection failures
+if (dns.setDefaultResultOrder) {
+  dns.setDefaultResultOrder('ipv4first');
+}
+
+// Ensure .env is always loaded from Backend folder regardless of execution directory
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 // Ensure TIMESTAMP (1114) and TIMESTAMPTZ (1184) are parsed as UTC ISO 8601 strings
 // This prevents node-pg from erroneously interpreting database UTC timestamps as local server time
@@ -14,20 +23,31 @@ types.setTypeParser(1184, (stringValue) => {
   return new Date(stringValue).toISOString();
 });
 
+const isSslRequired = process.env.PG_SSLMODE === 'require' || (process.env.PG_HOST && process.env.PG_HOST !== 'localhost');
+
 const pool = new Pool({
   user: process.env.PG_USER,
   host: process.env.PG_HOST,
   database: process.env.PG_DATABASE,
   password: process.env.PG_PASSWORD,
-  port: process.env.PG_PORT,
-  ssl: process.env.PG_HOST !== 'localhost' ? { rejectUnauthorized: false } : false
+  port: parseInt(process.env.PG_PORT || '5432', 10),
+  ssl: isSslRequired ? {
+    rejectUnauthorized: false,
+    servername: process.env.PG_HOST,
+  } : false,
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10000,
+  connectionTimeoutMillis: 10000,
+  idleTimeoutMillis: 30000,
+  max: 20,
 });
 
 pool.on('error', (err, client) => {
-  console.error('Unexpected error on idle client', err);
-  process.exit(-1);
+  console.warn('⚠️ [Database Pool] Unexpected error on idle client (reconnecting):', err.message || err);
 });
 
 module.exports = {
   query: (text, params) => pool.query(text, params),
+  pool,
 };
+
