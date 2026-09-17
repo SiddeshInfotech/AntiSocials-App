@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -26,6 +26,7 @@ import { formatTimeAgo, isStoryExpired } from "../../constants/DateUtils";
 export default function StoriesFeed() {
   const isFocused = useIsFocused();
   const [stories, setStories] = useState<StoryType[]>([]);
+  const [activeStoryId, setActiveStoryId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -119,6 +120,9 @@ export default function StoriesFeed() {
           };
         });
         setStories(formattedStories);
+        if (formattedStories.length > 0) {
+          setActiveStoryId((prev) => (prev && formattedStories.some((s) => s.id === prev) ? prev : formattedStories[0].id));
+        }
       }
     } catch (e) {
       console.error("Fetch stories error:", e);
@@ -283,6 +287,7 @@ export default function StoriesFeed() {
         // Immediately mark hasOwnStory and prepend newly uploaded story to feed
         setHasOwnStory(true);
         setStories((prev) => [newStory, ...prev.filter((item) => item.id !== newStory.id)]);
+        setActiveStoryId(newStory.id);
         Alert.alert("Success", "Story uploaded successfully!");
         // Refresh feed in background to ensure sync
         fetchStories();
@@ -338,6 +343,30 @@ export default function StoriesFeed() {
     );
   };
 
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 50,
+    waitForInteraction: false,
+  }).current;
+
+  const onViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: Array<{ item: StoryType; key: string; isViewable: boolean }> }) => {
+      if (!viewableItems || viewableItems.length === 0) return;
+
+      setActiveStoryId((currentActiveId) => {
+        const isCurrentStillViewable = viewableItems.some(
+          (v) => v.item && v.item.id === currentActiveId && v.isViewable
+        );
+
+        if (isCurrentStillViewable) {
+          return currentActiveId;
+        }
+
+        const primaryItem = viewableItems.find((v) => v.isViewable && v.item?.id) || viewableItems[0];
+        return primaryItem?.item?.id || currentActiveId;
+      });
+    }
+  ).current;
+
   const renderHeader = () => (
     <View style={styles.headerContainer}>
       <View>
@@ -381,10 +410,15 @@ export default function StoriesFeed() {
 
       <FlatList
         data={stories}
+        extraData={`${isFocused}_${activeStoryId}`}
+        viewabilityConfig={viewabilityConfig}
+        onViewableItemsChanged={onViewableItemsChanged}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <StoryCard
             story={item}
+            isFocused={isFocused}
+            isActive={activeStoryId === item.id}
             onLikeToggle={handleLikeToggle}
             onOpenComments={handleOpenComments}
             onShare={handleShare}

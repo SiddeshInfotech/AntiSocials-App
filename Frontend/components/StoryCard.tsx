@@ -10,11 +10,14 @@ import {
   Share,
   Alert,
   ActivityIndicator,
+  AppState,
+  AppStateStatus,
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as SecureStore from "expo-secure-store";
 import { useVideoPlayer, VideoView } from "expo-video";
+import { useIsFocused } from "expo-router";
 import { resolveImageUrl, resolveAvatarUrl, resolveStoryMediaUrl, DEFAULT_AVATAR } from "../constants/ImageUtils";
 import { apiFetch, API_BASE_URL } from "../constants/Api";
 
@@ -42,6 +45,8 @@ export type StoryType = {
 
 interface StoryCardProps {
   story: StoryType;
+  isFocused?: boolean;
+  isActive?: boolean;
   onLikeToggle?: (storyId: string, isLiked: boolean, newCount: number) => void;
   onOpenComments?: (story: StoryType) => void;
   onShare?: (story: StoryType, newShareCount: number) => void;
@@ -50,26 +55,37 @@ interface StoryCardProps {
 function StoryCardVideo({ uri, isPlaying, style }: { uri: string; isPlaying?: boolean; style: any }) {
   const player = useVideoPlayer(uri, (player) => {
     player.loop = true;
-    player.muted = false;
-    player.volume = 1.0;
     if (isPlaying !== false) {
+      player.muted = false;
+      player.volume = 1.0;
       player.play();
     } else {
       player.pause();
+      player.muted = true;
     }
   });
 
   useEffect(() => {
     if (player) {
-      player.loop = true;
-      player.muted = false;
-      player.volume = 1.0;
       if (isPlaying !== false) {
+        player.loop = true;
+        player.muted = false;
+        player.volume = 1.0;
         player.play();
       } else {
         player.pause();
+        player.muted = true;
       }
     }
+
+    return () => {
+      if (player) {
+        try {
+          player.pause();
+          player.muted = true;
+        } catch (e) {}
+      }
+    };
   }, [isPlaying, player, uri]);
 
   return (
@@ -84,16 +100,40 @@ function StoryCardVideo({ uri, isPlaying, style }: { uri: string; isPlaying?: bo
 
 export default function StoryCard({
   story,
+  isFocused: isFocusedProp,
+  isActive = true,
   onLikeToggle,
   onOpenComments,
   onShare,
 }: StoryCardProps) {
+  const screenFocusedHook = useIsFocused();
+  const isScreenFocused = isFocusedProp !== undefined ? isFocusedProp : screenFocusedHook;
+  const [isAppActive, setIsAppActive] = useState(AppState.currentState === "active");
+
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (status: AppStateStatus) => {
+      setIsAppActive(status === "active");
+    });
+    return () => {
+      sub.remove();
+    };
+  }, []);
+
   const scaleValue = useRef(new Animated.Value(1)).current;
   const likeScale = useRef(new Animated.Value(1)).current;
   const [avatarError, setAvatarError] = useState(false);
   const [mediaLoading, setMediaLoading] = useState(false);
   const [mediaError, setMediaError] = useState(false);
   const [isPlayingVideo, setIsPlayingVideo] = useState(true);
+
+  // Resume autoplay when story becomes active and screen is focused
+  useEffect(() => {
+    if (isActive && isScreenFocused && isAppActive) {
+      setIsPlayingVideo(true);
+    }
+  }, [isActive, isScreenFocused, isAppActive]);
+
+  const shouldPlayVideo = isScreenFocused && isAppActive && isActive && isPlayingVideo;
 
   // Local optimistic state for likes, comments, and shares
   const initialLiked = !!(story.isLiked ?? story.is_liked_by_user);
@@ -349,10 +389,10 @@ export default function StoryCard({
               <View style={{ width: "100%", height: "100%", position: "relative" }}>
                 <StoryCardVideo
                   uri={resolvedMedia}
-                  isPlaying={isPlayingVideo}
+                  isPlaying={shouldPlayVideo}
                   style={styles.storyImage}
                 />
-                {!isPlayingVideo && (
+                {!isPlayingVideo && isActive && (
                   <View style={styles.playOverlayBtn} pointerEvents="none">
                     <Ionicons name="play" size={28} color="#FFFFFF" style={{ marginLeft: 3 }} />
                   </View>
