@@ -5,7 +5,7 @@ import TasksJourneySection from "../../components/TasksJourneySection";
 import CircularHabitDashboard from "../../components/CircularHabitDashboard";
 import StoryCard, { StoryType } from "../../components/StoryCard";
 import StoryCommentModal from "../../components/StoryCommentModal";
-import PostCard, { PostType } from "../../components/PostCard";
+import PostCard, { PostType, pauseAllFeedPlayersExcept } from "../../components/PostCard";
 import PostCommentModal from "../../components/PostCommentModal";
 import { appendFileToFormData } from "../create-post";
 import * as Haptics from "expo-haptics";
@@ -37,6 +37,7 @@ import {
   AppStateStatus,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  FlatList,
 } from "react-native";
 import { apiFetch, API_BASE_URL } from "../../constants/Api";
 import { resolveImageUrl, resolveAvatarUrl, resolveStoryMediaUrl, DEFAULT_AVATAR } from "../../constants/ImageUtils";
@@ -48,28 +49,125 @@ import {
 import Svg, { Circle, G, Line } from "react-native-svg";
 import { useVideoPlayer, VideoView } from 'expo-video';
 
-function StoryViewerVideo({ uri, isPaused, style }: { uri: string; isPaused: boolean; style: any }) {
-  const player = useVideoPlayer(uri, (player) => {
-    player.loop = true;
-    if (!isPaused) player.play();
-    else player.pause();
+function StoryViewerVideo({ 
+  uri, 
+  isPaused, 
+  style, 
+  contentFit = "cover",
+  onDurationReady, 
+  onPlaybackEnd,
+  onReady,
+}: { 
+  uri: string; 
+  isPaused: boolean; 
+  style: any;
+  contentFit?: "cover" | "contain" | "fill";
+  onDurationReady?: (durationSec: number) => void;
+  onPlaybackEnd?: () => void;
+  onReady?: () => void;
+}) {
+  const player = useVideoPlayer(uri, (p) => {
+    p.loop = false;
+    if (!isPaused) {
+      p.muted = false;
+      p.volume = 1.0;
+      p.play();
+    } else {
+      p.pause();
+    }
   });
 
   useEffect(() => {
-    if (!isPaused) player.play();
-    else player.pause();
+    if (player) {
+      if (!isPaused) {
+        player.muted = false;
+        player.volume = 1.0;
+        player.play();
+      } else {
+        player.pause();
+      }
+    }
   }, [isPaused, player]);
 
+  useEffect(() => {
+    if (!player) return;
+
+    if (typeof player.duration === 'number' && player.duration > 0 && onDurationReady) {
+      onDurationReady(player.duration);
+    }
+
+    if (player.status === 'readyToPlay' && onReady) {
+      onReady();
+    }
+
+    const subStatus = player.addListener('statusChange', ({ status }) => {
+      if (status === 'readyToPlay') {
+        if (typeof player.duration === 'number' && player.duration > 0 && onDurationReady) {
+          onDurationReady(player.duration);
+        }
+        if (onReady) {
+          onReady();
+        }
+      }
+    });
+
+    const subEnd = player.addListener('playToEnd', () => {
+      if (onPlaybackEnd) {
+        onPlaybackEnd();
+      }
+    });
+
+    return () => {
+      subStatus?.remove?.();
+      subEnd?.remove?.();
+    };
+  }, [player, uri]);
+
   return (
-    <VideoView player={player} style={style} contentFit="contain" nativeControls={false} />
+    <VideoView player={player} style={style} contentFit={contentFit} nativeControls={false} />
   );
 }
 
-function PreviewStoryVideo({ uri, style }: { uri: string; style: any }) {
-  const player = useVideoPlayer(uri, (player) => {
-    player.loop = true;
-    player.play();
+function PreviewStoryVideo({ 
+  uri, 
+  style,
+  onDurationLoaded,
+  onExceedsDuration,
+}: { 
+  uri: string; 
+  style: any;
+  onDurationLoaded?: (durationSec: number) => void;
+  onExceedsDuration?: () => void;
+}) {
+  const player = useVideoPlayer(uri, (p) => {
+    p.loop = true;
+    p.play();
   });
+
+  useEffect(() => {
+    if (!player) return;
+
+    const checkDuration = () => {
+      if (typeof player.duration === 'number' && player.duration > 0) {
+        if (player.duration > 60.5) {
+          if (onExceedsDuration) onExceedsDuration();
+        } else if (onDurationLoaded) {
+          onDurationLoaded(player.duration);
+        }
+      }
+    };
+
+    checkDuration();
+    const sub = player.addListener('statusChange', ({ status }) => {
+      if (status === 'readyToPlay') {
+        checkDuration();
+      }
+    });
+
+    return () => {
+      sub?.remove?.();
+    };
+  }, [player, uri]);
 
   return (
     <VideoView player={player} style={style} contentFit="cover" nativeControls={false} />
@@ -728,6 +826,7 @@ export default function HomeScreen() {
   const [isUploading, setIsUploading] = useState(false);
   const [previewStoryMedia, setPreviewStoryMedia] = useState<string | null>(null);
   const [previewMediaType, setPreviewMediaType] = useState<'image' | 'video'>('image');
+  const [previewMediaDuration, setPreviewMediaDuration] = useState<number | null>(null);
 
   // Active Feed State
   const [feedPosts, setFeedPosts] = useState<PostType[]>([]);
@@ -749,6 +848,12 @@ export default function HomeScreen() {
   const isDeductingRef = useRef<boolean>(false);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
 
+  // Feed Video Viewability & Playback State (FlatList viewability tracking)
+  const [activeFeedPostId, setActiveFeedPostId] = useState<string | null>(null);
+  const activeFeedPostIdRef = useRef<string | null>(null);
+  const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState);
+  const [isInFeedSection, setIsInFeedSection] = useState<boolean>(false);
+
   // Feed scrolling points deduction alert notification state
   const [feedAlertVisible, setFeedAlertVisible] = useState<boolean>(false);
   const [feedAlertMinutes, setFeedAlertMinutes] = useState<number>(5);
@@ -763,6 +868,8 @@ export default function HomeScreen() {
   const storyProgressAnim = useRef(new Animated.Value(0)).current;
   const storyAnimRef = useRef<Animated.CompositeAnimation | null>(null);
   const pausedProgressVal = useRef<number>(0);
+  const currentDurationMsRef = useRef<number>(5000);
+  const hasTransitionedRef = useRef<boolean>(false);
 
   // Derived current active story in viewer
   const viewingStory = (activeStoryList.length > 0 && activeStoryIndex >= 0 && activeStoryIndex < activeStoryList.length)
@@ -774,7 +881,10 @@ export default function HomeScreen() {
     if (!homeData?.active_stories || !Array.isArray(homeData.active_stories)) return [];
     const map: Record<string, any[]> = {};
     homeData.active_stories
-      .filter((story: any) => story && story.media_url && typeof story.media_url === "string" && story.media_url.trim() !== "")
+      .filter((story: any) => {
+        const raw = story?.media_url || story?.image;
+        return story && raw && typeof raw === "string" && raw.trim() !== "";
+      })
       .forEach((story: any) => {
         const uid = String(story.user_id);
         if (!map[uid]) map[uid] = [];
@@ -786,7 +896,10 @@ export default function HomeScreen() {
   }, [homeData?.active_stories]);
 
   const openOwnStories = (startIndex = 0) => {
-    const stories = (homeData?.own_stories || []).filter((s: any) => s && s.media_url && typeof s.media_url === "string" && s.media_url.trim() !== "");
+    const stories = (homeData?.own_stories || []).filter((s: any) => {
+      const raw = s?.media_url || s?.image;
+      return s && raw && typeof raw === "string" && raw.trim() !== "";
+    });
     if (stories.length > 0) {
       setActiveStoryList(stories);
       setActiveStoryIndex(Math.min(startIndex, stories.length - 1));
@@ -794,14 +907,43 @@ export default function HomeScreen() {
   };
 
   const openUserStories = (userStories: any[], startIndex = 0) => {
-    const stories = (userStories || []).filter((s: any) => s && s.media_url && typeof s.media_url === "string" && s.media_url.trim() !== "");
+    const stories = (userStories || []).filter((s: any) => {
+      const raw = s?.media_url || s?.image;
+      return s && raw && typeof raw === "string" && raw.trim() !== "";
+    });
     if (stories.length > 0) {
       setActiveStoryList(stories);
       setActiveStoryIndex(Math.min(startIndex, stories.length - 1));
     }
   };
 
+  const getStoryDurationMs = (story: any): number => {
+    if (!story) return 5000;
+    const rawMedia = story.media_url || story.image;
+    const isVideo =
+      (story.media_type && story.media_type.toLowerCase().includes("video")) ||
+      (story.mediaType && story.mediaType.toLowerCase().includes("video")) ||
+      (typeof rawMedia === "string" &&
+        (/\.(mp4|mov|m4v|webm|mkv|3gp)($|\?)/i.test(rawMedia) ||
+         rawMedia.toLowerCase().includes(".mp4") ||
+         rawMedia.toLowerCase().includes(".mov")));
+
+    if (!isVideo) {
+      return 5000; // Image stories are 5s
+    }
+    // For video: if story has duration, use it (in seconds -> ms), capped at 60s
+    if (typeof story.duration === 'number' && story.duration > 0) {
+      return Math.min(Math.max(Math.round(story.duration * 1000), 1000), 60000);
+    }
+    if (story.duration && !isNaN(parseFloat(story.duration)) && parseFloat(story.duration) > 0) {
+      return Math.min(Math.max(Math.round(parseFloat(story.duration) * 1000), 1000), 60000);
+    }
+    // Fallback while video metadata is loading
+    return 15000;
+  };
+
   const closeStoryViewer = () => {
+    hasTransitionedRef.current = false;
     if (storyAnimRef.current) {
       storyAnimRef.current.stop();
     }
@@ -812,28 +954,51 @@ export default function HomeScreen() {
     setActiveStoryIndex(0);
   };
 
-  const startStoryProgress = (fromValue = 0) => {
+  const startStoryProgress = (fromValue = 0, overrideDurationMs?: number) => {
     if (storyAnimRef.current) {
       storyAnimRef.current.stop();
     }
     storyProgressAnim.setValue(fromValue);
-    const duration = (viewingStory?.media_type === 'video' ? 10000 : 5000) * (1 - fromValue);
+    
+    const totalDuration = overrideDurationMs ?? currentDurationMsRef.current ?? getStoryDurationMs(viewingStory);
+    currentDurationMsRef.current = totalDuration;
+    const remainingDuration = totalDuration * (1 - fromValue);
 
     const anim = Animated.timing(storyProgressAnim, {
       toValue: 1,
-      duration: Math.max(duration, 100),
+      duration: Math.max(remainingDuration, 100),
       useNativeDriver: false,
     });
     storyAnimRef.current = anim;
 
     anim.start(({ finished }) => {
       if (finished) {
-        goToNextStory();
+        if (!hasTransitionedRef.current) {
+          hasTransitionedRef.current = true;
+          goToNextStory();
+        }
       }
     });
   };
 
+  const handleVideoDurationLoaded = (durSec: number) => {
+    if (!durSec || durSec <= 0) return;
+    const clampedMs = Math.min(Math.max(Math.round(durSec * 1000), 1000), 60000);
+    if (Math.abs(currentDurationMsRef.current - clampedMs) > 500) {
+      currentDurationMsRef.current = clampedMs;
+      startStoryProgress(pausedProgressVal.current, clampedMs);
+    }
+  };
+
+  const handleVideoPlaybackEnd = () => {
+    if (!hasTransitionedRef.current) {
+      hasTransitionedRef.current = true;
+      goToNextStory();
+    }
+  };
+
   const goToNextStory = () => {
+    hasTransitionedRef.current = false;
     if (activeStoryIndex < activeStoryList.length - 1) {
       pausedProgressVal.current = 0;
       storyProgressAnim.setValue(0);
@@ -844,6 +1009,7 @@ export default function HomeScreen() {
   };
 
   const goToPreviousStory = () => {
+    hasTransitionedRef.current = false;
     if (activeStoryIndex > 0) {
       pausedProgressVal.current = 0;
       storyProgressAnim.setValue(0);
@@ -851,7 +1017,9 @@ export default function HomeScreen() {
     } else {
       pausedProgressVal.current = 0;
       storyProgressAnim.setValue(0);
-      startStoryProgress(0);
+      const initialDur = getStoryDurationMs(viewingStory);
+      currentDurationMsRef.current = initialDur;
+      startStoryProgress(0, initialDur);
     }
   };
 
@@ -864,7 +1032,7 @@ export default function HomeScreen() {
 
   const handleResumeStory = () => {
     setIsStoryPaused(false);
-    startStoryProgress(pausedProgressVal.current);
+    startStoryProgress(pausedProgressVal.current, currentDurationMsRef.current);
   };
 
   useEffect(() => {
@@ -881,7 +1049,11 @@ export default function HomeScreen() {
       setViewerMediaLoading(true);
       setViewerMediaError(false);
       pausedProgressVal.current = 0;
-      startStoryProgress(0);
+      hasTransitionedRef.current = false;
+      const currentStory = activeStoryList[activeStoryIndex];
+      const initialDur = getStoryDurationMs(currentStory);
+      currentDurationMsRef.current = initialDur;
+      startStoryProgress(0, initialDur);
     }
   }, [activeStoryIndex, activeStoryList.length]);
   
@@ -1160,15 +1332,69 @@ export default function HomeScreen() {
     }
   };
 
+  const isFeedActive =
+    isFocused &&
+    appState === "active" &&
+    isInFeedSection &&
+    viewingStory === null &&
+    !postCommentModalVisible &&
+    !feedAlertVisible;
+
+  // Stop all feed video playback & audio whenever feed loses focus or becomes inactive
+  useEffect(() => {
+    if (!isFeedActive) {
+      pauseAllFeedPlayersExcept();
+    }
+  }, [isFeedActive]);
+
+  // FlatList Viewability Tracking: native threshold-based detection of active post
+  const viewabilityConfig = useRef({
+    itemVisiblePercentThreshold: 50,
+    waitForInteraction: false,
+  }).current;
+
+  const onViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: Array<{ item: PostType; key: string; isViewable: boolean }> }) => {
+      const visibleFeedItems = (viewableItems || []).filter(
+        (v) => v.isViewable && v.item && v.item.id !== undefined
+      );
+
+      if (visibleFeedItems.length === 0) {
+        if (activeFeedPostIdRef.current !== null) {
+          activeFeedPostIdRef.current = null;
+          setActiveFeedPostId(null);
+          pauseAllFeedPlayersExcept();
+        }
+        return;
+      }
+
+      // If the currently active post is still at least 50% viewable, keep it playing
+      const currentActiveId = activeFeedPostIdRef.current;
+      const isCurrentStillViewable = visibleFeedItems.some(
+        (v) => String(v.item.id) === String(currentActiveId)
+      );
+
+      const nextActiveId = isCurrentStillViewable && currentActiveId
+        ? currentActiveId
+        : String(visibleFeedItems[0].item.id);
+
+      if (nextActiveId !== activeFeedPostIdRef.current) {
+        activeFeedPostIdRef.current = nextActiveId;
+        setActiveFeedPostId(nextActiveId);
+      }
+    }
+  ).current;
+
   const handleMainScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const scrollY = e.nativeEvent.contentOffset.y;
     const feedTop = feedSectionYRef.current;
 
-    if (feedTop > 0 && scrollY >= feedTop - 120) {
-      isInFeedSectionRef.current = true;
+    const inFeed = feedTop > 0 && scrollY >= feedTop - 120;
+    isInFeedSectionRef.current = inFeed;
+    setIsInFeedSection(inFeed);
+
+    if (inFeed) {
       lastFeedInteractionRef.current = Date.now();
-    } else {
-      isInFeedSectionRef.current = false;
     }
   };
 
@@ -1215,10 +1441,14 @@ export default function HomeScreen() {
     initFeedTracking();
   }, [initFeedTracking]);
 
-  // Listen for AppState changes to pause tracking when app is in background
+  // Listen for AppState changes to pause tracking & video playback when app is in background
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextAppState) => {
       appStateRef.current = nextAppState;
+      setAppState(nextAppState);
+      if (nextAppState !== "active") {
+        pauseAllFeedPlayersExcept();
+      }
     });
     return () => {
       subscription.remove();
@@ -1439,6 +1669,7 @@ export default function HomeScreen() {
       const storyPayload = {
         media_url: uploadData.imageUrl,
         media_type: previewMediaType,
+        duration: previewMediaDuration !== null ? Math.min(Number(previewMediaDuration.toFixed(2)), 60) : null,
         text_elements: storyElements,
         text_content: storyElements.length > 0 ? storyElements.map(el => el.content).join(' ') : null,
         text_position: storyElements.length > 0 ? { x: storyElements[0].x, y: storyElements[0].y } : {},
@@ -1474,6 +1705,7 @@ export default function HomeScreen() {
 
         // Close editor preview and reset
         setPreviewStoryMedia(null);
+        setPreviewMediaDuration(null);
         resetStoryEdits();
 
         // Background sync to ensure all data is fresh
@@ -1542,12 +1774,27 @@ export default function HomeScreen() {
     }
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ['images', 'videos'] as any,
+      videoMaxDuration: 60,
       allowsEditing: false,
       quality: 0.5,
     });
     if (!result.canceled && result.assets && result.assets.length > 0) {
       const asset = result.assets[0];
-      setPreviewMediaType(asset.type === 'video' ? 'video' : 'image');
+      const isVideo = asset.type === 'video' || (typeof asset.uri === 'string' && /\.(mp4|mov|m4v|webm)$/i.test(asset.uri));
+      if (isVideo && typeof asset.duration === 'number' && asset.duration > 0) {
+        const durSec = asset.duration > 1000 ? asset.duration / 1000 : asset.duration;
+        if (durSec > 60.5) {
+          Alert.alert(
+            "Video Too Long",
+            "Stories can be at most 60 seconds long. Please select or record a video up to 60 seconds."
+          );
+          return;
+        }
+        setPreviewMediaDuration(Math.min(durSec, 60));
+      } else {
+        setPreviewMediaDuration(null);
+      }
+      setPreviewMediaType(isVideo ? 'video' : 'image');
       setPreviewStoryMedia(asset.uri);
     }
   };
@@ -1565,7 +1812,21 @@ export default function HomeScreen() {
     });
     if (!result.canceled && result.assets && result.assets.length > 0) {
       const asset = result.assets[0];
-      setPreviewMediaType(asset.type === 'video' ? 'video' : 'image');
+      const isVideo = asset.type === 'video' || (typeof asset.uri === 'string' && /\.(mp4|mov|m4v|webm)$/i.test(asset.uri));
+      if (isVideo && typeof asset.duration === 'number' && asset.duration > 0) {
+        const durSec = asset.duration > 1000 ? asset.duration / 1000 : asset.duration;
+        if (durSec > 60.5) {
+          Alert.alert(
+            "Video Too Long",
+            "Stories can be at most 60 seconds long. Please select or record a video up to 60 seconds."
+          );
+          return;
+        }
+        setPreviewMediaDuration(Math.min(durSec, 60));
+      } else {
+        setPreviewMediaDuration(null);
+      }
+      setPreviewMediaType(isVideo ? 'video' : 'image');
       setPreviewStoryMedia(asset.uri);
     }
   };
@@ -1583,199 +1844,230 @@ export default function HomeScreen() {
     );
   };
 
-  return (
-    <SafeAreaView style={styles.container}>
-      {isFocused && <StatusBar style="dark" />}
-
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 40 }}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        scrollEventThrottle={32}
-        onScroll={handleMainScroll}
-      >
-        {/* Top Header */}
-        <View style={[styles.header, { paddingTop: Math.max(insets.top, 25) }]}>
-          <View style={styles.stats}>
-            <Text style={styles.statItem}>🔥 {homeData?.user?.streak_count ?? homeData?.streak_count ?? 0}</Text>
-            <Text style={styles.statItem}>⚡ {homeData?.total_points ?? homeData?.user?.points ?? 0}</Text>
-          </View>
-          <Text style={styles.appName}>AntiSocial</Text>
+  const renderFeedHeader = () => (
+    <>
+      {/* Top Header */}
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 25) }]}>
+        <View style={styles.stats}>
+          <Text style={styles.statItem}>🔥 {homeData?.user?.streak_count ?? homeData?.streak_count ?? 0}</Text>
+          <Text style={styles.statItem}>⚡ {homeData?.total_points ?? homeData?.user?.points ?? 0}</Text>
         </View>
+        <Text style={styles.appName}>AntiSocial</Text>
+      </View>
 
-        {/* Stories Section */}
-        <View style={styles.storiesWrapper}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.storiesScroll}
-          >
-            {/* 1. CURRENT USER STORY (Add Story or View Own Story) */}
-            {homeData?.own_stories && (homeData.own_stories.filter((s: any) => s && s.media_url && typeof s.media_url === "string" && s.media_url.trim() !== "").length > 0) ? (
+      {/* Stories Section */}
+      <View style={styles.storiesWrapper}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.storiesScroll}
+        >
+          {/* 1. CURRENT USER STORY (Add Story or View Own Story) */}
+          {homeData?.own_stories && (homeData.own_stories.filter((s: any) => {
+            const raw = s?.media_url || s?.image;
+            return s && raw && typeof raw === "string" && raw.trim() !== "";
+          }).length > 0) ? (
+            <TouchableOpacity
+              style={styles.storyItemContainer}
+              activeOpacity={0.8}
+              onPress={() => openOwnStories(0)}
+            >
+              <LinearGradient
+                colors={["#c026d3", "#f43f5e", "#f59e0b"]}
+                style={styles.storyRing}
+              >
+                <Image source={{ uri: resolveAvatarUrl(homeData?.user?.image_url) }} style={styles.storyProfileImage} />
+              </LinearGradient>
+              <Text style={styles.storyName} numberOfLines={1}>Your Story</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.storyItemContainer}
+              activeOpacity={0.8}
+              onPress={handleAddStory}
+            >
+              <View style={styles.addStoryProfileWrap}>
+                <Image source={{ uri: resolveAvatarUrl(homeData?.user?.image_url) }} style={styles.addStoryProfileImage} />
+                <View style={styles.plusIconWrap}>
+                  <View style={styles.plusIconBg}>
+                    <Feather name="plus" size={12} color="#fff" />
+                  </View>
+                </View>
+              </View>
+              <Text style={styles.storyName} numberOfLines={1}>Your Story</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* 2. OTHER USERS' STORIES (Grouped by user) */}
+          {groupedActiveStories.map((userStories: any[]) => {
+            const firstStory = userStories[0];
+            if (!firstStory) return null;
+            return (
               <TouchableOpacity
+                key={`user-story-${firstStory.user_id}`}
                 style={styles.storyItemContainer}
                 activeOpacity={0.8}
-                onPress={() => openOwnStories(0)}
+                onPress={() => openUserStories(userStories, 0)}
               >
                 <LinearGradient
                   colors={["#c026d3", "#f43f5e", "#f59e0b"]}
                   style={styles.storyRing}
                 >
-                  <Image source={{ uri: resolveAvatarUrl(homeData?.user?.image_url) }} style={styles.storyProfileImage} />
+                  <Image source={{ uri: resolveAvatarUrl(firstStory.profile_image) }} style={styles.storyProfileImage} />
                 </LinearGradient>
-                <Text style={styles.storyName} numberOfLines={1}>Your Story</Text>
+                <Text style={styles.storyName} numberOfLines={1}>{firstStory.display_name || firstStory.username || "User"}</Text>
               </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={styles.storyItemContainer}
-                activeOpacity={0.8}
-                onPress={handleAddStory}
-              >
-                <View style={styles.addStoryProfileWrap}>
-                  <Image source={{ uri: resolveAvatarUrl(homeData?.user?.image_url) }} style={styles.addStoryProfileImage} />
-                  <View style={styles.plusIconWrap}>
-                    <View style={styles.plusIconBg}>
-                      <Feather name="plus" size={12} color="#fff" />
-                    </View>
-                  </View>
-                </View>
-                <Text style={styles.storyName} numberOfLines={1}>Your Story</Text>
-              </TouchableOpacity>
-            )}
+            );
+          })}
+        </ScrollView>
+      </View>
 
-            {/* 2. OTHER USERS' STORIES (Grouped by user) */}
-            {groupedActiveStories.map((userStories: any[]) => {
-              const firstStory = userStories[0];
-              if (!firstStory) return null;
-              return (
-                <TouchableOpacity
-                  key={`user-story-${firstStory.user_id}`}
-                  style={styles.storyItemContainer}
-                  activeOpacity={0.8}
-                  onPress={() => openUserStories(userStories, 0)}
-                >
-                  <LinearGradient
-                    colors={["#c026d3", "#f43f5e", "#f59e0b"]}
-                    style={styles.storyRing}
-                  >
-                    <Image source={{ uri: resolveAvatarUrl(firstStory.profile_image) }} style={styles.storyProfileImage} />
-                  </LinearGradient>
-                  <Text style={styles.storyName} numberOfLines={1}>{firstStory.display_name || firstStory.username || "User"}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
+      {/* AntiSocial Dog Growth & Circular Habit Dashboard */}
+      <CircularHabitDashboard
+        completedTasks={homeData?.completedTasks || []}
+      />
 
-        {/* AntiSocial Dog Growth & Circular Habit Dashboard — shows the current
-            unlocked day's 7 tasks around the Dog, tapping one navigates straight
-            to that task's real screen (same screens the Task page below uses). */}
-        <CircularHabitDashboard
-          completedTasks={homeData?.completedTasks || []}
-        />
+      <TasksJourneySection completedTasks={homeData?.completedTasks || []} />
 
-        <TasksJourneySection completedTasks={homeData?.completedTasks || []} />
-
-        {/* --- Active Feed Section --- */}
-        <View
-          style={styles.feedSectionContainer}
-          onLayout={(e) => {
-            feedSectionYRef.current = e.nativeEvent.layout.y;
-          }}
-          onTouchStart={() => {
-            if (isInFeedSectionRef.current) {
-              lastFeedInteractionRef.current = Date.now();
-            }
-          }}
-        >
-          {/* Feed Header */}
-          <View style={styles.feedHeaderRow}>
-            <View style={styles.feedTitleGroup}>
-              <Text style={styles.feedTitleText}>Feed</Text>
-              <View style={styles.feedLiveDot} />
-            </View>
-
-            {feedPosts && feedPosts.length > 0 ? (
-              <TouchableOpacity
-                style={styles.createPostHeaderBtn}
-                activeOpacity={0.8}
-                onPress={handleNavigateToAddPost}
-              >
-                <LinearGradient
-                  colors={["#a855f7", "#ec4899"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.createPostHeaderGradient}
-                >
-                  <Feather name="plus" size={15} color="#FFFFFF" style={{ marginRight: 5 }} />
-                  <Text style={styles.createPostHeaderBtnText}>Create a Post</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            ) : null}
+      {/* Feed Header Row */}
+      <View
+        style={{
+          width: "100%",
+          paddingHorizontal: 16,
+          paddingTop: 24,
+          paddingBottom: 14,
+        }}
+        onLayout={(e) => {
+          feedSectionYRef.current = e.nativeEvent.layout.y;
+        }}
+        onTouchStart={() => {
+          if (isInFeedSectionRef.current) {
+            lastFeedInteractionRef.current = Date.now();
+          }
+        }}
+      >
+        <View style={styles.feedHeaderRow}>
+          <View style={styles.feedTitleGroup}>
+            <Text style={styles.feedTitleText}>Feed</Text>
+            <View style={styles.feedLiveDot} />
           </View>
 
-
-          {/* Community Feed Posts */}
-          {feedLoading && feedPosts.length === 0 ? (
-            <View style={styles.feedLoadingContainer}>
-              <ActivityIndicator size="small" color="#ec4899" />
-            </View>
-          ) : feedPosts && feedPosts.length > 0 ? (
-            <View style={styles.feedListContainer}>
-              {feedPosts.map((postItem) => (
-                <PostCard
-                  key={postItem.id}
-                  post={postItem}
-                  currentUserId={currentUserId || homeData?.user?.id}
-                  onLikeToggle={handlePostLikeToggle}
-                  onOpenComments={handleOpenPostComments}
-                  onDeleteSuccess={handlePostDeleteSuccess}
-                />
-              ))}
-
-              {feedHasMore ? (
-                <TouchableOpacity
-                  style={styles.loadMoreBtn}
-                  onPress={handleLoadMorePosts}
-                  disabled={isLoadingMore}
-                >
-                  {isLoadingMore ? (
-                    <ActivityIndicator size="small" color="#a855f7" />
-                  ) : (
-                    <Text style={styles.loadMoreBtnText}>Load Older Posts</Text>
-                  )}
-                </TouchableOpacity>
-              ) : null}
-            </View>
-          ) : (
-            <View style={styles.emptyFeedContainer}>
-              <Feather name="rss" size={38} color="#64748B" style={{ marginBottom: 12 }} />
-              <Text style={styles.emptyFeedTitle}>No Posts in Your Feed Yet</Text>
-              <Text style={styles.emptyFeedSubtitle}>
-                Follow members of the community or share your first post!
-              </Text>
-              <TouchableOpacity
-                style={styles.emptyFeedActionBtn}
-                onPress={handleNavigateToAddPost}
+          {feedPosts && feedPosts.length > 0 ? (
+            <TouchableOpacity
+              style={styles.createPostHeaderBtn}
+              activeOpacity={0.8}
+              onPress={handleNavigateToAddPost}
+            >
+              <LinearGradient
+                colors={["#a855f7", "#ec4899"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.createPostHeaderGradient}
               >
-                <Text style={styles.emptyFeedActionBtnText}>Create a Post ✨</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+                <Feather name="plus" size={15} color="#FFFFFF" style={{ marginRight: 5 }} />
+                <Text style={styles.createPostHeaderBtnText}>Create a Post</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          ) : null}
         </View>
-      </ScrollView>
+      </View>
+    </>
+  );
+
+  const renderPostItem = ({ item }: { item: PostType }) => (
+    <View style={{ paddingHorizontal: 16 }}>
+      <PostCard
+        post={item}
+        isActive={isFeedActive && String(item.id) === String(activeFeedPostId)}
+        currentUserId={currentUserId || homeData?.user?.id}
+        onLikeToggle={handlePostLikeToggle}
+        onOpenComments={handleOpenPostComments}
+        onDeleteSuccess={handlePostDeleteSuccess}
+      />
+    </View>
+  );
+
+  const renderItemSeparator = () => <View style={{ height: 16 }} />;
+
+  const renderListFooter = () => {
+    if (feedHasMore && feedPosts && feedPosts.length > 0) {
+      return (
+        <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
+          <TouchableOpacity
+            style={styles.loadMoreBtn}
+            onPress={handleLoadMorePosts}
+            disabled={isLoadingMore}
+          >
+            {isLoadingMore ? (
+              <ActivityIndicator size="small" color="#a855f7" />
+            ) : (
+              <Text style={styles.loadMoreBtnText}>Load Older Posts</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    return null;
+  };
+
+  const renderListEmpty = () => {
+    if (feedLoading && feedPosts.length === 0) {
+      return (
+        <View style={styles.feedLoadingContainer}>
+          <ActivityIndicator size="small" color="#ec4899" />
+        </View>
+      );
+    }
+    return (
+      <View style={[styles.emptyFeedContainer, { marginHorizontal: 16 }]}>
+        <Feather name="rss" size={38} color="#64748B" style={{ marginBottom: 12 }} />
+        <Text style={styles.emptyFeedTitle}>No Posts in Your Feed Yet</Text>
+        <Text style={styles.emptyFeedSubtitle}>
+          Follow members of the community or share your first post!
+        </Text>
+        <TouchableOpacity
+          style={styles.emptyFeedActionBtn}
+          onPress={handleNavigateToAddPost}
+        >
+          <Text style={styles.emptyFeedActionBtnText}>Create a Post ✨</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  return (
+    <SafeAreaView style={styles.container}>
+      {isFocused && <StatusBar style="dark" />}
+
+      <FlatList
+        data={feedPosts}
+        keyExtractor={(item) => String(item.id)}
+        renderItem={renderPostItem}
+        ItemSeparatorComponent={renderItemSeparator}
+        ListHeaderComponent={renderFeedHeader}
+        ListFooterComponent={renderListFooter}
+        ListEmptyComponent={renderListEmpty}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 40 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+        scrollEventThrottle={16}
+        onScroll={handleMainScroll}
+        viewabilityConfig={viewabilityConfig}
+        onViewableItemsChanged={onViewableItemsChanged}
+      />
 
       {/* Story Viewer Modal */}
       <Modal 
         visible={viewingStory !== null} 
         animationType="fade" 
         transparent={true}
+        statusBarTranslucent={true}
         onRequestClose={closeStoryViewer}
       >
         <View style={styles.storyViewerOverlay}>
-          <SafeAreaView style={{ flex: 1, position: 'relative' }}>
+          <SafeAreaView style={{ flex: 1, width: '100%', height: '100%', position: 'relative' }}>
              {/* 1. Multi-Story Segmented Progress Bar */}
              <View style={styles.storyProgressContainer}>
                {activeStoryList.map((st: any, idx: number) => (
@@ -1838,8 +2130,15 @@ export default function HomeScreen() {
              {/* 3. Media Content & Touch Zones */}
              <View style={styles.storyViewerContent}>
                 {(() => {
-                  const resolvedMedia = resolveStoryMediaUrl(viewingStory?.media_url);
-                  const isVideo = viewingStory?.media_type === 'video' || (typeof viewingStory?.media_url === 'string' && viewingStory.media_url.toLowerCase().endsWith('.mp4'));
+                  const rawMedia = viewingStory?.media_url || viewingStory?.image;
+                  const resolvedMedia = resolveStoryMediaUrl(rawMedia);
+                  const isVideo =
+                    (viewingStory?.media_type && viewingStory.media_type.toLowerCase().includes("video")) ||
+                    (viewingStory?.mediaType && viewingStory.mediaType.toLowerCase().includes("video")) ||
+                    (typeof rawMedia === "string" &&
+                      (/\.(mp4|mov|m4v|webm|mkv|3gp)($|\?)/i.test(rawMedia) ||
+                       rawMedia.toLowerCase().includes(".mp4") ||
+                       rawMedia.toLowerCase().includes(".mov")));
 
                   if (!resolvedMedia || viewerMediaError) {
                     return (
@@ -1852,34 +2151,42 @@ export default function HomeScreen() {
                     );
                   }
 
-                  return isVideo ? (
-                    <StoryViewerVideo
-                      uri={resolvedMedia}
-                      isPaused={isStoryPaused}
-                      style={styles.storyViewerImage}
-                    />
-                  ) : (
-                    <Image
-                      source={{ uri: resolvedMedia }}
-                      style={styles.storyViewerImage}
-                      resizeMode="contain"
-                      onLoadStart={() => setViewerMediaLoading(true)}
-                      onLoadEnd={() => setViewerMediaLoading(false)}
-                      onError={(e) => {
-                        console.log(`❌ [StoryViewer] Image error for ${resolvedMedia}:`, e?.nativeEvent || e);
-                        setViewerMediaLoading(false);
-                        setViewerMediaError(true);
-                      }}
-                    />
+                  return (
+                    <View style={styles.storyMediaWrapper}>
+                      {isVideo ? (
+                        <StoryViewerVideo
+                          uri={resolvedMedia}
+                          isPaused={isStoryPaused}
+                          style={styles.storyViewerImage}
+                          contentFit="cover"
+                          onDurationReady={handleVideoDurationLoaded}
+                          onPlaybackEnd={handleVideoPlaybackEnd}
+                          onReady={() => setViewerMediaLoading(false)}
+                        />
+                      ) : (
+                        <Image
+                          source={{ uri: resolvedMedia }}
+                          style={styles.storyViewerImage}
+                          resizeMode="cover"
+                          onLoadStart={() => setViewerMediaLoading(true)}
+                          onLoadEnd={() => setViewerMediaLoading(false)}
+                          onError={(e) => {
+                            console.log(`❌ [StoryViewer] Image error for ${resolvedMedia}:`, e?.nativeEvent || e);
+                            setViewerMediaLoading(false);
+                            setViewerMediaError(true);
+                          }}
+                        />
+                      )}
+
+                      {/* Loading Indicator centered directly over the media container */}
+                      {viewerMediaLoading && !viewerMediaError && (
+                        <View style={[StyleSheet.absoluteFillObject, { justifyContent: 'center', alignItems: 'center' }]} pointerEvents="none">
+                          <ActivityIndicator size="large" color="#FFFFFF" />
+                        </View>
+                      )}
+                    </View>
                   );
                 })()}
-
-                {/* Loading Indicator */}
-                {viewerMediaLoading && !viewerMediaError && (
-                  <View style={[StyleSheet.absoluteFillObject, { justifyContent: 'center', alignItems: 'center' }]} pointerEvents="none">
-                    <ActivityIndicator size="large" color="#FFFFFF" />
-                  </View>
-                )}
 
                 {/* Overlays in Viewer (Instagram Style) */}
                 {(Array.isArray(viewingStory?.text_elements) ? viewingStory.text_elements : []).map((el: any) => (
@@ -2012,6 +2319,15 @@ export default function HomeScreen() {
                 <PreviewStoryVideo
                   uri={previewStoryMedia || ''}
                   style={{ flex: 1 }}
+                  onDurationLoaded={(dur) => setPreviewMediaDuration(Math.min(dur, 60))}
+                  onExceedsDuration={() => {
+                    Alert.alert(
+                      "Video Too Long",
+                      "Stories can be at most 60 seconds long. Please select or record a video up to 60 seconds."
+                    );
+                    setPreviewStoryMedia(null);
+                    setPreviewMediaDuration(null);
+                  }}
                 />
               ) : (
                 <Image source={{ uri: previewStoryMedia || '' }} style={{ flex: 1 }} resizeMode="cover" />
@@ -2330,6 +2646,8 @@ const styles = StyleSheet.create({
   },
   storyViewerOverlay: {
     flex: 1,
+    width: '100%',
+    height: '100%',
     backgroundColor: '#000',
   },
   storyProgressContainer: {
@@ -2376,13 +2694,23 @@ const styles = StyleSheet.create({
   },
   storyViewerContent: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#000'
-  },
-  storyViewerImage: {
     width: '100%',
     height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#000',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  storyMediaWrapper: {
+    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  storyViewerImage: {
+    ...StyleSheet.absoluteFillObject,
   },
   storyViewerBottomBar: {
     position: 'absolute',

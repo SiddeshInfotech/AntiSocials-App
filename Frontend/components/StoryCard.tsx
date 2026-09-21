@@ -41,6 +41,7 @@ export type StoryType = {
   isLiked?: boolean;
   is_liked_by_user?: boolean;
   caption: string;
+  duration?: number;
 };
 
 interface StoryCardProps {

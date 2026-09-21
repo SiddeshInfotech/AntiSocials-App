@@ -183,6 +183,9 @@ const initDB = async () => {
                 IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='stories' AND column_name='view_count') THEN
                     ALTER TABLE stories ADD COLUMN view_count INTEGER DEFAULT 0;
                 END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='stories' AND column_name='duration') THEN
+                    ALTER TABLE stories ADD COLUMN duration NUMERIC;
+                END IF;
                 -- Ensure created_at and expires_at are TIMESTAMPTZ
                 IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='stories' AND column_name='created_at' AND data_type='timestamp without time zone') THEN
                     ALTER TABLE stories ALTER COLUMN created_at TYPE TIMESTAMPTZ USING created_at AT TIME ZONE 'UTC';
@@ -357,6 +360,7 @@ const initDB = async () => {
             );
         `);
         await db.query(`ALTER TABLE points_history ADD COLUMN IF NOT EXISTS task_name VARCHAR(255)`).catch(() => {});
+        await db.query(`ALTER TABLE points_history ADD COLUMN IF NOT EXISTS post_id INTEGER`).catch(() => {});
         await db.query(`ALTER TABLE points_history ALTER COLUMN source SET DEFAULT 'task_completion'`).catch(() => {});
 
         await db.query(`
@@ -8347,6 +8351,10 @@ app.use('/api/connections', profileRoutes);
 
 // Activity Routes
 app.use('/api/activities', activityRoutes);
+
+// Category -> Subcategory Fixed XP Routes
+const categoryRoutes = require('./routes/categoryRoutes');
+app.use('/api/categories', categoryRoutes);
 
 // Badge Routes
 const badgeRoutes = require('./routes/badgeRoutes');

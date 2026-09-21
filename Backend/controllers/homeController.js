@@ -70,6 +70,7 @@ exports.getHomeData = async (req, res) => {
                 s.user_id, 
                 s.media_url, 
                 s.media_type, 
+                s.duration,
                 s.text_elements, 
                 s.text_content, 
                 s.text_position, 
@@ -180,11 +181,23 @@ exports.getHomeData = async (req, res) => {
 exports.uploadStory = async (req, res) => {
     try {
         const userId = parseInt(req.user.id, 10);
-        let { media_url, media_type = 'image', text_elements, text_content, text_position, music_data, caption } = req.body;
+        let { media_url, media_type = 'image', text_elements, text_content, text_position, music_data, caption, duration } = req.body;
 
         if (!media_url || typeof media_url !== 'string' || media_url.trim() === '') {
             console.log(`❌ [Story Upload] Missing media_url from userId: ${userId}`);
             return res.status(400).json({ error: 'media_url is required' });
+        }
+
+        // Validate and clamp duration (maximum 60 seconds allowed)
+        let storyDuration = duration !== undefined && duration !== null ? parseFloat(duration) : null;
+        if (storyDuration !== null && !isNaN(storyDuration)) {
+            if (storyDuration > 60.5) {
+                console.log(`❌ [Story Upload Blocked] Duration ${storyDuration}s exceeds 60s limit`);
+                return res.status(400).json({ error: 'Story duration cannot exceed 60 seconds.' });
+            }
+            storyDuration = Math.min(storyDuration, 60);
+        } else {
+            storyDuration = null;
         }
 
         // Normalize media_url format to clean relative path
@@ -224,13 +237,14 @@ exports.uploadStory = async (req, res) => {
             });
         }
 
-        console.log(`📤 [Story Upload] Processing story upload for userId: ${userId}, media_type: ${determinedMediaType}, url: ${cleanMediaUrl}`);
+        console.log(`📤 [Story Upload] Processing story upload for userId: ${userId}, media_type: ${determinedMediaType}, duration: ${storyDuration}, url: ${cleanMediaUrl}`);
 
         const result = await db.query(
             `INSERT INTO stories (
                 user_id, 
                 media_url, 
                 media_type, 
+                duration,
                 text_elements, 
                 text_content, 
                 text_position, 
@@ -239,11 +253,12 @@ exports.uploadStory = async (req, res) => {
                 created_at, 
                 expires_at, 
                 is_active
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '24 hours', TRUE) RETURNING *`,
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '24 hours', TRUE) RETURNING *`,
             [
                 userId, 
                 cleanMediaUrl, 
                 determinedMediaType, 
+                storyDuration,
                 JSON.stringify(text_elements || []), 
                 text_content || null,
                 JSON.stringify(text_position || {}),
@@ -261,6 +276,7 @@ exports.uploadStory = async (req, res) => {
                 s.user_id, 
                 s.media_url, 
                 s.media_type, 
+                s.duration,
                 s.text_elements, 
                 s.text_content, 
                 s.text_position, 
@@ -317,6 +333,7 @@ exports.getStories = async (req, res) => {
                 s.user_id, 
                 s.media_url, 
                 s.media_type, 
+                s.duration,
                 s.text_elements, 
                 s.text_content,
                 s.text_position,

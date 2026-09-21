@@ -31,6 +31,7 @@ import {
   CATEGORIES_DATA,
   MainCategory,
   searchCategories,
+  getSubcategoryXp,
 } from "../constants/categoriesData";
 
 export interface AttachedMediaItem {
@@ -229,6 +230,42 @@ export default function CreatePostScreen() {
   );
   const [mediaFormat, setMediaFormat] = useState<"portrait" | "square">("portrait");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [completedActivities, setCompletedActivities] = useState<Set<string>>(new Set());
+
+  // Fetch user's completed category activities from backend (authoritative per-user state)
+  useEffect(() => {
+    let isMounted = true;
+    const loadCompleted = async () => {
+      try {
+        const token =
+          (await SecureStore.getItemAsync("token")) ||
+          (await SecureStore.getItemAsync("auth_token"));
+        if (!token) return;
+        const res = await apiFetch("/api/categories/completed", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok && isMounted) {
+          const data = await res.json();
+          if (Array.isArray(data.completedSet)) {
+            setCompletedActivities(new Set(data.completedSet));
+          } else if (Array.isArray(data.completedList)) {
+            setCompletedActivities(new Set(data.completedList.map((s: string) => s.toLowerCase().trim())));
+          }
+        }
+      } catch (err) {
+        console.error("Error loading completed activities:", err);
+      }
+    };
+    loadCompleted();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const isSubCompleted = (mainCatName: string, subName: string) => {
+    const key = `${mainCatName} - ${subName}`.toLowerCase().trim();
+    return completedActivities.has(key);
+  };
 
   // Filtered categories based on search
   const filteredCategories = useMemo(() => {
@@ -241,6 +278,13 @@ export default function CreatePostScreen() {
   };
 
   const handleSelectSubcategory = (sub: string) => {
+    if (selectedMainCategory && isSubCompleted(selectedMainCategory.name, sub)) {
+      Alert.alert(
+        "Already Completed",
+        "You have already completed this category activity. Please choose an available subcategory.",
+      );
+      return;
+    }
     setSelectedSubcategory(sub);
   };
 
@@ -571,31 +615,64 @@ export default function CreatePostScreen() {
 
                   <View style={styles.subCategoryGrid}>
                     {selectedMainCategory.subcategories.map((sub) => {
+                      const isCompleted = isSubCompleted(selectedMainCategory.name, sub);
                       const isSelected = selectedSubcategory === sub;
+                      const xp = getSubcategoryXp(selectedMainCategory.name, sub);
                       return (
                         <TouchableOpacity
                           key={sub}
+                          disabled={isCompleted}
                           style={[
                             styles.subCategoryChip,
                             isSelected && styles.subCategoryChipSelected,
+                            isCompleted && styles.subCategoryChipCompleted,
                           ]}
-                          activeOpacity={0.8}
-                          onPress={() => handleSelectSubcategory(sub)}
+                          activeOpacity={isCompleted ? 1 : 0.8}
+                          onPress={() => !isCompleted && handleSelectSubcategory(sub)}
                         >
                           <Text
                             style={[
                               styles.subCategoryChipText,
                               isSelected && styles.subCategoryChipTextSelected,
+                              isCompleted && styles.subCategoryChipTextCompleted,
                             ]}
                           >
                             {sub}
                           </Text>
-                          <Feather
-                            name="chevron-right"
-                            size={14}
-                            color={isSelected ? "#EA580C" : "#71717a"}
-                            style={{ marginLeft: 4 }}
-                          />
+                          {isCompleted ? (
+                            <View style={styles.subCategoryCompletedBadge}>
+                              <Feather name="check" size={11} color="#059669" />
+                              <Text style={styles.subCategoryCompletedBadgeText}>
+                                Completed
+                              </Text>
+                            </View>
+                          ) : (
+                            <>
+                              {xp !== null && (
+                                <View
+                                  style={[
+                                    styles.subCategoryXpBadge,
+                                    isSelected && styles.subCategoryXpBadgeSelected,
+                                  ]}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.subCategoryXpBadgeText,
+                                      isSelected && styles.subCategoryXpBadgeTextSelected,
+                                    ]}
+                                  >
+                                    {xp} XP
+                                  </Text>
+                                </View>
+                              )}
+                              <Feather
+                                name="chevron-right"
+                                size={14}
+                                color={isSelected ? "#EA580C" : "#71717a"}
+                                style={{ marginLeft: 6 }}
+                              />
+                            </>
+                          )}
                         </TouchableOpacity>
                       );
                     })}
@@ -684,6 +761,7 @@ export default function CreatePostScreen() {
                     flexDirection: "row",
                     alignItems: "center",
                     flex: 1,
+                    flexWrap: "wrap",
                   }}
                 >
                   <Ionicons
@@ -699,6 +777,13 @@ export default function CreatePostScreen() {
                   <Text style={styles.lockedSubText}>
                     {selectedSubcategory}
                   </Text>
+                  {selectedMainCategory && selectedSubcategory && (
+                    <View style={styles.lockedXpBadge}>
+                      <Text style={styles.lockedXpBadgeText}>
+                        {getSubcategoryXp(selectedMainCategory.name, selectedSubcategory)} XP
+                      </Text>
+                    </View>
+                  )}
                 </View>
                 <TouchableOpacity
                   onPress={handleResetCategory}
@@ -1100,6 +1185,52 @@ const styles = StyleSheet.create({
     color: "#C2410C",
     fontWeight: "700",
   },
+  subCategoryXpBadge: {
+    backgroundColor: "#F1F5F9",
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginLeft: 6,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  subCategoryXpBadgeSelected: {
+    backgroundColor: "#FFEDD5",
+    borderColor: "#FDBA74",
+  },
+  subCategoryXpBadgeText: {
+    color: "#EA580C",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  subCategoryXpBadgeTextSelected: {
+    color: "#C2410C",
+  },
+  subCategoryChipCompleted: {
+    backgroundColor: "#F3F4F6",
+    borderColor: "#E5E7EB",
+    opacity: 0.85,
+  },
+  subCategoryChipTextCompleted: {
+    color: "#6B7280",
+  },
+  subCategoryCompletedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#ECFDF5",
+    borderColor: "#A7F3D0",
+    borderWidth: 1,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+    marginLeft: 6,
+    gap: 3,
+  },
+  subCategoryCompletedBadgeText: {
+    color: "#059669",
+    fontSize: 11,
+    fontWeight: "700",
+  },
   lockedCategoryBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -1125,6 +1256,18 @@ const styles = StyleSheet.create({
     color: "#09090b",
     fontSize: 14,
     fontWeight: "600",
+  },
+  lockedXpBadge: {
+    backgroundColor: "#EA580C",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginLeft: 8,
+  },
+  lockedXpBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "700",
   },
   editCategoryBtn: {
     paddingHorizontal: 8,

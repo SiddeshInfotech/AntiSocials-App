@@ -17,34 +17,132 @@ import { apiFetch } from "../constants/Api";
 import { resolveAvatarUrl, resolveStoryMediaUrl } from "../constants/ImageUtils";
 import { useVideoPlayer, VideoView } from "expo-video";
 
-function PostVideoPlayer({ uri, isSquare }: { uri: string; isSquare?: boolean }) {
+// Feed Video Player Registry for strict audio safety (only 1 player with audio at any time)
+const feedPlayerRegistry = new Map<string, any>();
+
+export function pauseAllFeedPlayersExcept(exceptId?: string | number) {
+  const strExcept = exceptId !== undefined && exceptId !== null ? String(exceptId) : undefined;
+  feedPlayerRegistry.forEach((p, id) => {
+    if (id !== strExcept && p) {
+      try {
+        p.pause();
+        p.muted = true;
+      } catch (e) {}
+    }
+  });
+}
+
+export function isPostVideo(post: PostType): boolean {
+  return !!(
+    (post.media_type && post.media_type.toLowerCase().includes("video")) ||
+    (typeof post.media_url === "string" &&
+      (/\.(mp4|mov|m4v|webm|mkv|3gp)($|\?)/i.test(post.media_url) ||
+       post.media_url.toLowerCase().includes(".mp4") ||
+       post.media_url.toLowerCase().includes(".mov")))
+  );
+}
+
+function PostVideoPlayer({
+  postId,
+  uri,
+  isSquare,
+  isActive = false,
+}: {
+  postId: string | number;
+  uri: string;
+  isSquare?: boolean;
+  isActive?: boolean;
+}) {
+  const strPostId = String(postId);
+  const [userPaused, setUserPaused] = useState(false);
+
+  // When post becomes inactive, reset user manual pause state
+  useEffect(() => {
+    if (!isActive) {
+      setUserPaused(false);
+    }
+  }, [isActive]);
+
+  const shouldPlay = isActive && !userPaused;
+
   const player = useVideoPlayer(uri, (p) => {
     p.loop = true;
-    p.muted = false;
-    p.volume = 1.0;
-    p.play();
+    if (shouldPlay) {
+      pauseAllFeedPlayersExcept(strPostId);
+      p.muted = false;
+      p.volume = 1.0;
+      p.play();
+    } else {
+      p.pause();
+      p.muted = true;
+    }
   });
 
   useEffect(() => {
-    if (player) {
+    if (!player) return;
+
+    feedPlayerRegistry.set(strPostId, player);
+
+    if (shouldPlay) {
+      pauseAllFeedPlayersExcept(strPostId);
       player.loop = true;
       player.muted = false;
       player.volume = 1.0;
       player.play();
+    } else {
+      player.pause();
+      player.muted = true;
     }
-  }, [player, uri]);
+
+    return () => {
+      const registered = feedPlayerRegistry.get(strPostId);
+      if (registered === player) {
+        feedPlayerRegistry.delete(strPostId);
+      }
+      try {
+        player.pause();
+        player.muted = true;
+      } catch (e) {}
+    };
+  }, [player, shouldPlay, strPostId, uri]);
+
+  const handleTogglePlay = () => {
+    if (!player) return;
+    if (userPaused) {
+      pauseAllFeedPlayersExcept(strPostId);
+      player.loop = true;
+      player.muted = false;
+      player.volume = 1.0;
+      player.play();
+      setUserPaused(false);
+    } else {
+      player.pause();
+      player.muted = true;
+      setUserPaused(true);
+    }
+  };
 
   return (
-    <VideoView
+    <TouchableOpacity
+      activeOpacity={0.95}
+      onPress={handleTogglePlay}
       style={{
         width: "100%",
         aspectRatio: isSquare ? 1 : 4 / 5,
         borderRadius: 14,
+        overflow: "hidden",
       }}
-      player={player}
-      contentFit="cover"
-      nativeControls={false}
-    />
+    >
+      <VideoView
+        style={{
+          width: "100%",
+          height: "100%",
+        }}
+        player={player}
+        contentFit="cover"
+        nativeControls={false}
+      />
+    </TouchableOpacity>
   );
 }
 
@@ -70,6 +168,7 @@ export interface PostType {
 interface PostCardProps {
   post: PostType;
   currentUserId?: string | number | null;
+  isActive?: boolean;
   onLikeToggle?: (postId: string | number, isLiked: boolean, newCount: number) => void;
   onOpenComments?: (post: PostType) => void;
   onDeleteSuccess?: (postId: string | number) => void;
@@ -78,6 +177,7 @@ interface PostCardProps {
 export default function PostCard({
   post,
   currentUserId,
+  isActive = false,
   onLikeToggle,
   onOpenComments,
   onDeleteSuccess,
@@ -267,7 +367,12 @@ export default function PostCard({
         return (
           <View style={styles.mediaWrap}>
             {isVideo ? (
-              <PostVideoPlayer uri={resolvedMedia} isSquare={isSquare} />
+              <PostVideoPlayer
+                postId={post.id}
+                uri={resolvedMedia}
+                isSquare={isSquare}
+                isActive={isActive}
+              />
             ) : (
               <Image
                 source={{ uri: resolvedMedia }}

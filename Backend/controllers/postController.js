@@ -1,4 +1,5 @@
 const db = require('../db');
+const categoryXpService = require('../services/categoryXpService');
 
 // GET /api/posts & GET /api/posts/feed - Get Instagram-style Following Feed posts with pagination
 exports.getPosts = async (req, res) => {
@@ -115,6 +116,18 @@ exports.createPost = async (req, res) => {
       return res.status(400).json({ error: 'Main category and subcategory are required.' });
     }
 
+    // Enforce Rule: A user can successfully complete each exact Category + Subcategory only ONCE
+    const isCompleted = await categoryXpService.isSubcategoryCompleted(userId, main_category, subcategory);
+    if (isCompleted) {
+      console.warn(`⚠️ [Post Creation Rejected] User ${userId} attempted to reuse already completed subcategory "${main_category} -> ${subcategory}"`);
+      return res.status(400).json({
+        error: `Subcategory "${subcategory}" is already completed. Each subcategory can be used only once.`,
+        already_claimed: true,
+        already_completed: true,
+        xp_awarded: 0
+      });
+    }
+
     const hasCaption = caption && typeof caption === 'string' && caption.trim().length > 0;
     const hasMedia = media_url && typeof media_url === 'string' && media_url.trim().length > 0;
 
@@ -158,34 +171,74 @@ exports.createPost = async (req, res) => {
       is_liked_by_user: false
     };
 
-    console.log(`✅ [Post Created] ID: ${fullPost.id}, Category: ${fullPost.main_category} -> ${fullPost.subcategory}, media: ${fullPost.media_url || 'none'}`);
-    res.status(201).json({ post: fullPost });
+    // Award category/subcategory fixed XP if applicable (linked to this exact post)
+    let xpAwardResult = { xp_awarded: 0, total_points: 0, already_claimed: false };
+    try {
+      xpAwardResult = await categoryXpService.awardCategoryActivityXp({
+        userId,
+        category: fullPost.main_category,
+        subcategory: fullPost.subcategory,
+        postId: fullPost.id
+      });
+    } catch (xpErr) {
+      console.error('⚠️ [Post Create Category XP error]:', xpErr);
+    }
+
+    console.log(`✅ [Post Created] ID: ${fullPost.id}, Category: ${fullPost.main_category} -> ${fullPost.subcategory}, XP Awarded: ${xpAwardResult.xp_awarded || 0}`);
+    res.status(201).json({
+      post: fullPost,
+      xp_awarded: xpAwardResult.xp_awarded || 0,
+      total_points: xpAwardResult.total_points || 0,
+      already_claimed: xpAwardResult.already_claimed || false
+    });
   } catch (error) {
     console.error('❌ Error creating post:', error);
     res.status(500).json({ error: 'Failed to create post', details: error.message });
   }
 };
 
-// DELETE /api/posts/:id - Delete a post (owner only)
+// DELETE /api/posts/:id - Delete a post (owner only) and revoke its awarded category XP
 exports.deletePost = async (req, res) => {
   try {
     const userId = req.user.id;
     const postId = req.params.id;
 
-    const checkRes = await db.query('SELECT * FROM posts WHERE id = $1', [postId]);
-    if (checkRes.rows.length === 0) {
-      return res.status(404).json({ error: 'Post not found.' });
-    }
+    console.log(`\n🗑️ [DELETE /api/posts/${postId}] Request initiated by User ${userId}`);
 
+    const checkRes = await db.query('SELECT * FROM posts WHERE id = $1', [postId]);
     const post = checkRes.rows[0];
-    if (Number(post.user_id) !== Number(userId)) {
+
+    if (post && Number(post.user_id) !== Number(userId)) {
       return res.status(403).json({ error: 'Unauthorized. You can only delete your own posts.' });
     }
 
-    await db.query('DELETE FROM posts WHERE id = $1', [postId]);
-    console.log(`🗑️ [Post Deleted] Post ID ${postId} deleted by User ${userId}`);
+    // 1. Revoke ONLY the Category XP that was awarded for this exact post
+    let xpRevokeResult = { xp_revoked: 0, total_points: 0, totalPoints: 0 };
+    try {
+      xpRevokeResult = await categoryXpService.revokePostCategoryXp({
+        userId,
+        postId
+      });
+    } catch (xpErr) {
+      console.error('⚠️ [Delete Post Category XP Revoke Error]:', xpErr);
+    }
 
-    res.json({ success: true, message: 'Post deleted successfully.' });
+    if (post) {
+      // 2. Delete the post from database
+      await db.query('DELETE FROM posts WHERE id = $1', [postId]);
+      console.log(`🗑️ [Post Deleted from DB] Post ID ${postId} deleted by User ${userId}. Revoked XP: ${xpRevokeResult.xp_revoked || 0}, New Total: ${xpRevokeResult.total_points}`);
+    } else {
+      console.log(`ℹ️ [Post Already Deleted in DB] Post ID ${postId}. Processed XP Revocation: ${xpRevokeResult.xp_revoked || 0}, Current Total: ${xpRevokeResult.total_points}`);
+    }
+
+    res.json({
+      success: true,
+      message: 'Post deleted successfully.',
+      post_id: parseInt(postId, 10),
+      xp_revoked: xpRevokeResult.xp_revoked || 0,
+      total_points: xpRevokeResult.total_points,
+      totalPoints: xpRevokeResult.total_points
+    });
   } catch (error) {
     console.error('❌ Error deleting post:', error);
     res.status(500).json({ error: 'Failed to delete post' });

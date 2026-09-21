@@ -117,6 +117,7 @@ export default function StoriesFeed() {
             isLiked: !!s.is_liked_by_user,
             is_liked_by_user: !!s.is_liked_by_user,
             caption: s.caption || s.text_content || "",
+            duration: typeof s.duration === 'number' ? s.duration : (s.duration ? parseFloat(s.duration) : undefined),
           };
         });
         setStories(formattedStories);
@@ -174,12 +175,26 @@ export default function StoriesFeed() {
     }
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ['images', 'videos'] as any,
+      videoMaxDuration: 60,
       allowsEditing: false,
       quality: 0.5,
     });
     if (!result.canceled && result.assets && result.assets.length > 0) {
       const asset = result.assets[0];
-      uploadStory(asset.uri, asset.type === "video" ? "video" : "image");
+      const isVideo = asset.type === "video" || (typeof asset.uri === "string" && /\.(mp4|mov|m4v|webm)$/i.test(asset.uri));
+      if (isVideo && typeof asset.duration === "number" && asset.duration > 0) {
+        const durSec = asset.duration > 1000 ? asset.duration / 1000 : asset.duration;
+        if (durSec > 60.5) {
+          Alert.alert(
+            "Video Too Long",
+            "Stories can be at most 60 seconds long. Please select or record a video up to 60 seconds."
+          );
+          return;
+        }
+        uploadStory(asset.uri, "video", Math.min(durSec, 60));
+      } else {
+        uploadStory(asset.uri, isVideo ? "video" : "image", null);
+      }
     }
   };
 
@@ -196,11 +211,24 @@ export default function StoriesFeed() {
     });
     if (!result.canceled && result.assets && result.assets.length > 0) {
       const asset = result.assets[0];
-      uploadStory(asset.uri, asset.type === "video" ? "video" : "image");
+      const isVideo = asset.type === "video" || (typeof asset.uri === "string" && /\.(mp4|mov|m4v|webm)$/i.test(asset.uri));
+      if (isVideo && typeof asset.duration === "number" && asset.duration > 0) {
+        const durSec = asset.duration > 1000 ? asset.duration / 1000 : asset.duration;
+        if (durSec > 60.5) {
+          Alert.alert(
+            "Video Too Long",
+            "Stories can be at most 60 seconds long. Please select or record a video up to 60 seconds."
+          );
+          return;
+        }
+        uploadStory(asset.uri, "video", Math.min(durSec, 60));
+      } else {
+        uploadStory(asset.uri, isVideo ? "video" : "image", null);
+      }
     }
   };
 
-  const uploadStory = async (uri: string, mediaType: "image" | "video") => {
+  const uploadStory = async (uri: string, mediaType: "image" | "video", duration?: number | null) => {
     try {
       setIsUploading(true);
       const token = await SecureStore.getItemAsync("token");
@@ -234,6 +262,7 @@ export default function StoriesFeed() {
       const storyPayload = {
         media_url: uploadData.imageUrl,
         media_type: mediaType,
+        duration: duration !== undefined && duration !== null ? Math.min(Number(duration.toFixed(2)), 60) : null,
         text_elements: [],
         text_content: null,
         text_position: {},
@@ -275,6 +304,7 @@ export default function StoriesFeed() {
           image: resolvedMedia,
           media_type: mediaTypeVal,
           mediaType: mediaTypeVal,
+          duration: typeof s.duration === 'number' ? s.duration : (s.duration ? parseFloat(s.duration) : (duration || undefined)),
           likes: 0,
           likes_count: 0,
           comments_count: 0,
