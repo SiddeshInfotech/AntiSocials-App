@@ -646,12 +646,12 @@ export const tasksData: JourneyTask[] = [
     route: "/ask",
   },
   {
-    emoji: "🪞",
+    emoji: "💧",
     difficulty: "medium",
-    title: "Encourage Self-Talk",
-    subtitle: "Choose positive words and encourage yourself.",
+    title: "Mindful Hydration",
+    subtitle: "Take a pause to drink water with full presence and care.",
     points: "+300 points",
-    route: "/self-talk-task",
+    route: "/water",
   },
   {
     emoji: "🪶",
@@ -829,6 +829,46 @@ export const tasksData: JourneyTask[] = [
     points: "+600 points",
     route: "/group-trip",
   },
+  {
+    emoji: "🗣️",
+    difficulty: "hard",
+    title: "The Courage Conversation",
+    subtitle: "Step into a meaningful conversation you have been avoiding.",
+    points: "+600 points",
+    route: "/courage-conversation-task",
+  },
+  {
+    emoji: "📵",
+    difficulty: "hard",
+    title: "90 Minutes Unplugged",
+    subtitle: "Spend 90 continuous minutes away from screens and digital noise.",
+    points: "+600 points",
+    route: "/unplugged-90m-task",
+  },
+  {
+    emoji: "🎯",
+    difficulty: "hard",
+    title: "The Thing I Keep Avoiding",
+    subtitle: "Break through resistance and conquer a postponed responsibility.",
+    points: "+600 points",
+    route: "/avoiding-task",
+  },
+  {
+    emoji: "🤝",
+    difficulty: "hard",
+    title: "Deep Connection Challenge",
+    subtitle: "Spend dedicated, uninterrupted real-world time with another person.",
+    points: "+600 points",
+    route: "/deep-connection-task",
+  },
+  {
+    emoji: "⚡",
+    difficulty: "hard",
+    title: "One Brave Step",
+    subtitle: "Take one uncomfortable, constructive action that moves your life forward.",
+    points: "+600 points",
+    route: "/one-brave-step-task",
+  },
 ];
 
 const difficultyMap: Record<string, number> = { easy: 1, medium: 2, hard: 3 };
@@ -871,7 +911,12 @@ export function isTaskTitleCompleted(taskTitle: string, completedTasks: string[]
       (ct.includes("distraction") && tt.includes("distraction")) ||
       (ct.includes("eye") && tt.includes("eye")) ||
       (ct.includes("rest") && tt.includes("rest")) ||
-      (ct.includes("walk") && tt.includes("walk"))
+      (ct.includes("walk") && tt.includes("walk")) ||
+      (ct.includes("hydration") && tt.includes("hydration")) ||
+      (ct.includes("unplugged") && tt.includes("unplugged")) ||
+      (ct.includes("avoiding") && tt.includes("avoiding")) ||
+      (ct.includes("deep connection") && tt.includes("deep connection")) ||
+      (ct.includes("brave step") && tt.includes("brave step"))
     );
   });
 }

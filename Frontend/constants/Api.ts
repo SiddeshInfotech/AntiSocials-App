@@ -155,6 +155,12 @@ export const apiFetch = async (path: string, options: ApiFetchOptions = {}) => {
         headers: reqHeaders,
       });
 
+      // If gateway or proxy returned 502, 503, 504 (e.g. Render "Service Suspended" or Bad Gateway HTML),
+      // this host is unavailable; treat as attempt failure so next candidate base URL is tried.
+      if (response.status === 502 || response.status === 503 || response.status === 504) {
+        throw new Error(`Host ${baseUrl} returned HTTP ${response.status} (Service Unavailable/Suspended)`);
+      }
+
       clearTimeout(timeoutId);
       // Remember working base URL
       if (activeBaseUrl !== baseUrl) {

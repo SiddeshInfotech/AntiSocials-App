@@ -59,12 +59,17 @@ export default function RootLayout() {
              <Stack.Screen name="observe-emotion" options={{ headerShown: false }} />
             <Stack.Screen name="cleanup-task" options={{ headerShown: false }} />
             <Stack.Screen name="group-trip" options={{ headerShown: false }} />
+            <Stack.Screen name="courage-conversation-task" options={{ headerShown: false }} />
+            <Stack.Screen name="unplugged-90m-task" options={{ headerShown: false }} />
+            <Stack.Screen name="avoiding-task" options={{ headerShown: false }} />
+            <Stack.Screen name="deep-connection-task" options={{ headerShown: false }} />
+            <Stack.Screen name="one-brave-step-task" options={{ headerShown: false }} />
             <Stack.Screen name="eye-rest-task" options={{ headerShown: false }} />
             <Stack.Screen name="uncomfortable-task" options={{ headerShown: false }} />
             <Stack.Screen name="discomfort-task" options={{ headerShown: false }} />
             <Stack.Screen name="focus-task" options={{ headerShown: false }} />
             <Stack.Screen name="fear-task" options={{ headerShown: false }} />
-            <Stack.Screen name="self-talk-task" options={{ headerShown: false }} />
+            <Stack.Screen name="water" options={{ headerShown: false }} />
             <Stack.Screen name="courage-task" options={{ headerShown: false }} />
             <Stack.Screen name="say-hello-task" options={{ headerShown: false }} />
             <Stack.Screen name="say-hello-to-3-people-task" options={{ headerShown: false }} />

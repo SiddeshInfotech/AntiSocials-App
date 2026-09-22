@@ -19,10 +19,74 @@ import {
   TEMPORARY_UNLOCK_ALL_FOR_TESTING,
 } from "../constants/JourneyTasks";
 
+// Module-scoped persistent state to preserve the user's active Journey day, tab, and scroll
+// across task navigation, router.back() transitions, and component remounts.
+let savedActivePrototype = 1;
+let savedActiveTab = "100-Day Journey";
+let savedStageScrollX = 0;
+let savedPrototypeScrollX = 0;
+
+export function getSavedActiveJourneyDay(): number {
+  return savedActivePrototype;
+}
+
+export function setSavedActiveJourneyDay(day: number): void {
+  savedActivePrototype = day;
+}
+
 export default function TasksJourneySection({ completedTasks = [] }: { completedTasks?: string[] }) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState("100-Day Journey");
-  const [activePrototype, setActivePrototype] = useState(1);
+  const [activeTab, setActiveTabState] = useState(() => savedActiveTab);
+  const [activePrototype, setActivePrototypeState] = useState(() => savedActivePrototype);
+
+  const setActivePrototype = React.useCallback((day: number) => {
+    savedActivePrototype = day;
+    setActivePrototypeState(day);
+  }, []);
+
+  const setActiveTab = React.useCallback((tab: string) => {
+    savedActiveTab = tab;
+    setActiveTabState(tab);
+  }, []);
+
+  const stageScrollRef = React.useRef<ScrollView>(null);
+  const prototypeScrollRef = React.useRef<ScrollView>(null);
+
+  const scrollToActiveSection = React.useCallback((animated: boolean = true) => {
+    const stageIndex = Math.floor((activePrototype - 1) / 7);
+    if (stageScrollRef.current) {
+      if (savedStageScrollX > 0 && !animated) {
+        stageScrollRef.current.scrollTo({ x: savedStageScrollX, animated: false });
+      } else if (stageIndex > 0) {
+        const stageOffset = Math.max(0, stageIndex * 100 - 20);
+        stageScrollRef.current.scrollTo({ x: stageOffset, animated });
+      } else {
+        stageScrollRef.current.scrollTo({ x: 0, animated });
+      }
+    }
+
+    if (prototypeScrollRef.current) {
+      if (savedPrototypeScrollX > 0 && !animated) {
+        prototypeScrollRef.current.scrollTo({ x: savedPrototypeScrollX, animated: false });
+      } else if (activePrototype > 1) {
+        const dayOffset = Math.max(0, (activePrototype - 1) * 78 - 30);
+        prototypeScrollRef.current.scrollTo({ x: dayOffset, animated });
+      } else {
+        prototypeScrollRef.current.scrollTo({ x: 0, animated });
+      }
+    }
+  }, [activePrototype]);
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      scrollToActiveSection(false);
+    }, 60);
+    return () => clearTimeout(timer);
+  }, [scrollToActiveSection]);
+
+  React.useEffect(() => {
+    scrollToActiveSection(true);
+  }, [activePrototype, scrollToActiveSection]);
 
   const prototypeDays = Array.from({ length: MAX_DAY }, (_, index) => index + 1);
 
@@ -217,9 +281,14 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
           Your 100-Day Journey
         </Text>
         <ScrollView
+          ref={prototypeScrollRef}
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.prototypeTabsRow}
+          scrollEventThrottle={16}
+          onScroll={(e) => {
+            savedPrototypeScrollX = e.nativeEvent.contentOffset.x;
+          }}
         >
           {prototypeDays.map((day) => {
             const isActive = activePrototype === day;
@@ -283,9 +352,14 @@ export default function TasksJourneySection({ completedTasks = [] }: { completed
         </TouchableOpacity>
 
         <ScrollView
+          ref={stageScrollRef}
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.stageTabsRow}
+          scrollEventThrottle={16}
+          onScroll={(e) => {
+            savedStageScrollX = e.nativeEvent.contentOffset.x;
+          }}
         >
           {stageTabs.map((stageTab) => {
             const isActive =
