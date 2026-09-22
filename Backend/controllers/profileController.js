@@ -1,6 +1,7 @@
 const db = require('../db');
 const pointsStreakService = require('../services/pointsStreakService');
 const { calculateConnectorLevel, getConnectorLevelDetails } = require('../constants/lifeExperienceData');
+const { getUserLevelDetails } = require('../constants/levelConfig');
 
 // 3-tier relationship model. CLOSE = highest trust, GROWING_FOLLOWER = default for new connections.
 const RELATIONSHIP_TIERS = ['CLOSE', 'FAMILY_REGULAR', 'GROWING_FOLLOWER'];
@@ -60,11 +61,16 @@ exports.getProfile = async (req, res) => {
             : calculateConnectorLevel(overallLifeScore);
         const levelDetails = getConnectorLevelDetails(overallLifeScore);
         const quizCompleted = Boolean(lifeScoreRow?.quiz_completed || userResult.rows[0].quiz_completed);
+        const xpLevelDetails = getUserLevelDetails(taskPoints);
 
         const user = {
             ...userResult.rows[0],
             points: taskPoints,
             streak_count: summary.currentStreak,
+            level: xpLevelDetails.current_level,
+            current_level: xpLevelDetails.current_level,
+            level_details: xpLevelDetails,
+            levelDetails: xpLevelDetails,
             quizCompleted,
             quiz_completed: quizCompleted,
         };
@@ -77,7 +83,24 @@ exports.getProfile = async (req, res) => {
             totalPoints: taskPoints,
             total_points: taskPoints,
             streak: summary.currentStreak,
+            currentStreak: summary.currentStreak,
             longestStreak: summary.longestStreak,
+            bestEverStreak: summary.longestStreak,
+            monthlyProgress: summary.monthlyProgress,
+            monthlyStreak: summary.monthlyProgress,
+            monthlyProgressFormatted: summary.monthlyProgressFormatted,
+            monthlyActiveDays: summary.monthlyActiveDays,
+            daysInMonth: summary.daysInMonth,
+            level: xpLevelDetails.current_level,
+            current_level: xpLevelDetails.current_level,
+            next_level: xpLevelDetails.next_level,
+            next_level_xp: xpLevelDetails.next_level_xp,
+            next_level_xp_requirement: xpLevelDetails.next_level_xp_requirement,
+            current_level_xp: xpLevelDetails.current_level_xp,
+            xp_to_next_level: xpLevelDetails.xp_to_next_level,
+            progress_percentage: xpLevelDetails.progress_percentage,
+            level_details: xpLevelDetails,
+            levelDetails: xpLevelDetails,
             storiesCount,
             postsCount: 0, // Placeholder if posts exist in future
             connectorLevel,
@@ -172,7 +195,14 @@ exports.getStats = async (req, res) => {
             connections,
             taskPoints,
             streak: summary.currentStreak,
+            currentStreak: summary.currentStreak,
             longestStreak: summary.longestStreak,
+            bestEverStreak: summary.longestStreak,
+            monthlyProgress: summary.monthlyProgress,
+            monthlyStreak: summary.monthlyProgress,
+            monthlyProgressFormatted: summary.monthlyProgressFormatted,
+            monthlyActiveDays: summary.monthlyActiveDays,
+            daysInMonth: summary.daysInMonth,
             storiesCount,
             postsCount: 0
         });

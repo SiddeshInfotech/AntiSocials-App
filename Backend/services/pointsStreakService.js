@@ -541,12 +541,20 @@ async function getUserPointsAndStreak(userId) {
         // Keep users.points updated to match points_history sum
         await db.query('UPDATE users SET points = $1 WHERE id = $2', [totalPoints, userId]);
 
+        // Authoritative current-month activity progress
+        const monthlyInfo = await getMonthlyActivityProgress(userId);
+
         return {
             totalPoints,
             currentStreak: streakInfo.currentStreak,
             longestStreak: streakInfo.longestStreak,
             completedTasks,
-            completedCount
+            completedCount,
+            monthlyProgress: monthlyInfo.monthlyProgress,
+            monthlyStreak: monthlyInfo.monthlyProgress,
+            monthlyActiveDays: monthlyInfo.activeDays,
+            daysInMonth: monthlyInfo.daysInMonth,
+            monthlyProgressFormatted: monthlyInfo.formatted
         };
     } catch (err) {
         console.error('❌ getUserPointsAndStreak error:', err);
@@ -555,7 +563,69 @@ async function getUserPointsAndStreak(userId) {
             currentStreak: 0,
             longestStreak: 0,
             completedTasks: [],
-            completedCount: 0
+            completedCount: 0,
+            monthlyProgress: 0,
+            monthlyStreak: 0,
+            monthlyActiveDays: 0,
+            daysInMonth: 30,
+            monthlyProgressFormatted: '0%'
+        };
+    }
+}
+
+/**
+ * Calculates the user's actual active days and progress percentage for the current calendar month.
+ * Queries authoritative backend data across task completions, points history, activity participation,
+ * posts, stories, and user streak date milestones.
+ *
+ * @param {number} userId
+ * @returns {Promise<{ activeDays: number, daysInMonth: number, currentDay: number, monthlyProgress: number, formatted: string }>}
+ */
+async function getMonthlyActivityProgress(userId) {
+    try {
+        const res = await db.query(`
+            SELECT COUNT(DISTINCT DATE(act_date))::INTEGER as active_days
+            FROM (
+                SELECT completed_at as act_date FROM task_completions WHERE user_id = $1 AND completed_at IS NOT NULL AND TO_CHAR(completed_at, 'YYYY-MM') = TO_CHAR(CURRENT_DATE, 'YYYY-MM')
+                UNION ALL
+                SELECT created_at as act_date FROM points_history WHERE user_id = $1 AND created_at IS NOT NULL AND TO_CHAR(created_at, 'YYYY-MM') = TO_CHAR(CURRENT_DATE, 'YYYY-MM')
+                UNION ALL
+                SELECT joined_at as act_date FROM activity_participants WHERE user_id = $1 AND joined_at IS NOT NULL AND TO_CHAR(joined_at, 'YYYY-MM') = TO_CHAR(CURRENT_DATE, 'YYYY-MM')
+                UNION ALL
+                SELECT created_at as act_date FROM posts WHERE user_id = $1 AND created_at IS NOT NULL AND TO_CHAR(created_at, 'YYYY-MM') = TO_CHAR(CURRENT_DATE, 'YYYY-MM')
+                UNION ALL
+                SELECT created_at as act_date FROM stories WHERE user_id = $1 AND created_at IS NOT NULL AND TO_CHAR(created_at, 'YYYY-MM') = TO_CHAR(CURRENT_DATE, 'YYYY-MM')
+                UNION ALL
+                SELECT last_streak_date as act_date FROM users WHERE id = $1 AND last_streak_date IS NOT NULL AND TO_CHAR(last_streak_date, 'YYYY-MM') = TO_CHAR(CURRENT_DATE, 'YYYY-MM')
+            ) d
+        `, [userId]);
+
+        const activeDays = parseInt(res.rows[0]?.active_days || 0, 10);
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const currentDay = now.getDate();
+
+        const monthlyProgress = daysInMonth > 0 
+            ? Math.min(100, Math.round((activeDays / daysInMonth) * 100))
+            : 0;
+
+        return {
+            activeDays,
+            daysInMonth,
+            currentDay,
+            monthlyProgress,
+            formatted: `${monthlyProgress}%`
+        };
+    } catch (err) {
+        console.error('❌ getMonthlyActivityProgress error:', err);
+        return {
+            activeDays: 0,
+            daysInMonth: 30,
+            currentDay: 1,
+            monthlyProgress: 0,
+            formatted: '0%'
         };
     }
 }
@@ -650,6 +720,7 @@ module.exports = {
     getPointsByDifficulty,
     recordTaskCompletionAndAwardPoints,
     getUserPointsAndStreak,
+    getMonthlyActivityProgress,
     reconcilePointsAndStreaks,
     resetAllPointsAndStreaks
 };

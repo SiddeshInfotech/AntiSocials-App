@@ -1505,11 +1505,15 @@ export default function HomeScreen() {
         setHomeData((prev: any) => ({ 
           ...(prev || {}), 
           total_points: pts, 
+          level: data.level ?? prev?.level,
+          level_details: data.level_details ?? prev?.level_details,
           completedTasks: data.completedTasks || prev?.completedTasks || [],
           user: {
             ...(prev?.user || {}),
             points: pts,
-            streak_count: stk
+            streak_count: stk,
+            level: data.level ?? prev?.user?.level,
+            level_details: data.level_details ?? prev?.user?.level_details,
           }
         }));
       }

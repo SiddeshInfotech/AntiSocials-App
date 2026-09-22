@@ -53,8 +53,10 @@ exports.getHomeData = async (req, res) => {
 
         // Points, Streak & Completed tasks from pointsStreakService (single source of truth)
         const userSummary = await pointsStreakService.getUserPointsAndStreak(userId);
+        const { getUserLevelDetails } = require('../constants/levelConfig');
+        const levelDetails = getUserLevelDetails(userSummary.totalPoints);
 
-        console.log(`📌 [Backend GET /api/home] userId: ${userId}, username: ${user.username}, totalPoints: ${userSummary.totalPoints}, streak: ${userSummary.currentStreak}`);
+        console.log(`📌 [Backend GET /api/home] userId: ${userId}, username: ${user.username}, totalPoints: ${userSummary.totalPoints}, level: ${levelDetails.current_level}, streak: ${userSummary.currentStreak}`);
 
         // Deactivate any expired or empty stories before returning home data
         await db.query(`
@@ -152,13 +154,27 @@ exports.getHomeData = async (req, res) => {
                 ...user,
                 points: userSummary.totalPoints,
                 streak_count: userSummary.currentStreak,
-                longest_streak: userSummary.longestStreak
+                longest_streak: userSummary.longestStreak,
+                level: levelDetails.current_level,
+                current_level: levelDetails.current_level,
+                level_details: levelDetails,
+                levelDetails
             },
             total_points: userSummary.totalPoints,
             totalPoints: userSummary.totalPoints,
             streak_count: userSummary.currentStreak,
             current_streak: userSummary.currentStreak,
             streak: userSummary.currentStreak,
+            level: levelDetails.current_level,
+            current_level: levelDetails.current_level,
+            next_level: levelDetails.next_level,
+            next_level_xp: levelDetails.next_level_xp,
+            next_level_xp_requirement: levelDetails.next_level_xp_requirement,
+            current_level_xp: levelDetails.current_level_xp,
+            xp_to_next_level: levelDetails.xp_to_next_level,
+            progress_percentage: levelDetails.progress_percentage,
+            level_details: levelDetails,
+            levelDetails,
             completed_tasks: userSummary.completedCount,
             completedTasks: userSummary.completedTasks,
             completed_task_count: userSummary.completedCount,

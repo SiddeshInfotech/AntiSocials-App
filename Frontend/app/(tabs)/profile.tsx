@@ -18,6 +18,7 @@ import { useRouter, useIsFocused } from "expo-router";
 import * as SecureStore from 'expo-secure-store';
 import LifeDomainsChart from "../../components/LifeDomainsChart";
 import LifeExperienceCard from "../../components/LifeExperienceCard";
+import LevelProgressCard from "../../components/LevelProgressCard";
 import { API_BASE_URL, apiFetch } from "../../constants/Api";
 import { resolveImageUrl, DEFAULT_AVATAR } from "../../constants/ImageUtils";
 import {
@@ -161,8 +162,8 @@ export default function ProfileScreen() {
             try {
               await SecureStore.deleteItemAsync('token');
               await SecureStore.deleteItemAsync('userId');
-              await SecureStore.deleteItemAsync('feed_active_seconds').catch(() => {});
-              await SecureStore.deleteItemAsync('feed_deducted_milestone').catch(() => {});
+              await SecureStore.deleteItemAsync('feed_active_seconds').catch(() => { });
+              await SecureStore.deleteItemAsync('feed_deducted_milestone').catch(() => { });
               console.log("Storage cleared, forcing redirect to unique welcome screen...");
 
               // Use a slight timeout to ensure SecureStore finishes
@@ -230,55 +231,12 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.contentContainer}>
-          {/* Life Living Rank Card (Overlapping) — Dynamic Level */}
-          {(() => {
-            const rawScore =
-              lifeScoreData?.overallScore ??
-              lifeScoreData?.overall_score ??
-              lifeScoreData?.data?.overallScore ??
-              lifeScoreData?.current?.overall ??
-              statsData?.overallLifeScore ??
-              0;
-            const details =
-              lifeScoreData?.levelDetails ??
-              statsData?.levelDetails ??
-              getConnectorLevelDetails(rawScore);
-            const level =
-              lifeScoreData?.connectorLevel ??
-              lifeScoreData?.connector_level ??
-              statsData?.connectorLevel ??
-              statsData?.connector_level ??
-              details.level;
-            const progressPercent = details.progressPercent;
-            const nextLevelLabel = details.nextLevelLabel;
-            return (
-              <View style={styles.rankCard}>
-                <View style={styles.rankHeader}>
-                  <View>
-                    <Text style={styles.rankLabel}>Life Living Rank</Text>
-                    <View style={styles.rankTitleRow}>
-                      <Feather
-                        name="award"
-                        size={24}
-                        color="#D97706"
-                        style={styles.crownIcon}
-                      />
-                      <Text style={styles.rankName}>Connector</Text>
-                    </View>
-                    <Text style={styles.rankSubtitle}>Real relationships</Text>
-                  </View>
-                  <Text style={styles.levelText}>Lvl {level}</Text>
-                </View>
-
-                <View style={styles.progressBarContainer}>
-                  <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
-                </View>
-                <Text style={styles.progressText}>
-                  Next: {nextLevelLabel}
-                </Text>
-              </View>
-            );
-          })()}
+          {/* AntiSocial Level System Card (Levels 1–50) */}
+          <LevelProgressCard
+            levelDetails={statsData?.level_details || statsData?.levelDetails}
+            totalXp={statsData?.taskPoints ?? statsData?.total_points ?? userData?.points ?? 0}
+            containerStyle={{ marginBottom: 28 }}
+          />
 
 
           {/* Your Streaks */}
@@ -291,7 +249,7 @@ export default function ProfileScreen() {
                 color="#EA580C"
                 style={styles.streakIcon}
               />
-              <Text style={styles.streakValue}>{statsData?.streak ?? 0}</Text>
+              <Text style={styles.streakValue}>{statsData?.currentStreak ?? statsData?.streak ?? 0}</Text>
               <Text style={styles.streakLabel}>Current</Text>
             </View>
             <View style={[styles.streakBox, { borderColor: "#FEF08A" }]}>
@@ -301,7 +259,7 @@ export default function ProfileScreen() {
                 color="#D97706"
                 style={styles.streakIcon}
               />
-              <Text style={styles.streakValue}>{statsData?.longestStreak ?? statsData?.streak ?? 0}</Text>
+              <Text style={styles.streakValue}>{statsData?.longestStreak ?? statsData?.bestEverStreak ?? statsData?.streak ?? 0}</Text>
               <Text style={styles.streakLabel}>Best Ever</Text>
             </View>
             <View style={[styles.streakBox, { borderColor: "#BBF7D0" }]}>
@@ -311,7 +269,9 @@ export default function ProfileScreen() {
                 color="#16A34A"
                 style={styles.streakIcon}
               />
-              <Text style={styles.streakValue}>{(statsData?.streak && statsData.streak > 0) ? `${Math.min(100, Math.round((statsData.streak / 30) * 100))}%` : '0%'}</Text>
+              <Text style={styles.streakValue}>
+                {statsData?.monthlyProgressFormatted ?? (statsData?.monthlyProgress !== undefined && statsData?.monthlyProgress !== null ? `${statsData.monthlyProgress}%` : (statsData?.monthlyStreak !== undefined && statsData?.monthlyStreak !== null ? `${statsData.monthlyStreak}%` : '0%'))}
+              </Text>
               <Text style={styles.streakLabel}>Monthly</Text>
             </View>
           </View>

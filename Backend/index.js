@@ -8219,7 +8219,9 @@ app.get('/api/user/summary', authenticateToken, async (req, res) => {
     try {
         const userId = parseInt(req.user.id, 10);
         const summary = await pointsStreakService.getUserPointsAndStreak(userId);
-        console.log(`📌 [Backend GET /api/user/summary] userId: ${userId}, totalPoints: ${summary.totalPoints}, streak: ${summary.currentStreak}`);
+        const { getUserLevelDetails } = require('./constants/levelConfig');
+        const levelDetails = getUserLevelDetails(summary.totalPoints);
+        console.log(`📌 [Backend GET /api/user/summary] userId: ${userId}, totalPoints: ${summary.totalPoints}, level: ${levelDetails.current_level}, streak: ${summary.currentStreak}`);
         
         res.json({ 
             points: summary.totalPoints,
@@ -8230,7 +8232,17 @@ app.get('/api/user/summary', authenticateToken, async (req, res) => {
             current_streak: summary.currentStreak,
             longestStreak: summary.longestStreak,
             completedTasks: summary.completedTasks,
-            completed_tasks: summary.completedCount
+            completed_tasks: summary.completedCount,
+            level: levelDetails.current_level,
+            current_level: levelDetails.current_level,
+            next_level: levelDetails.next_level,
+            next_level_xp: levelDetails.next_level_xp,
+            next_level_xp_requirement: levelDetails.next_level_xp_requirement,
+            current_level_xp: levelDetails.current_level_xp,
+            xp_to_next_level: levelDetails.xp_to_next_level,
+            progress_percentage: levelDetails.progress_percentage,
+            level_details: levelDetails,
+            levelDetails
         });
     } catch (error) {
         console.error('User summary error:', error);
@@ -8363,6 +8375,11 @@ app.use('/api/badges', badgeRoutes);
 // Life Experience Score Routes
 const lifeScoreRoutes = require('./routes/lifeScoreRoutes');
 app.use('/api/life-score', lifeScoreRoutes);
+
+// AntiSocial Level System Routes (Levels 1 to 50)
+const levelRoutes = require('./routes/levelRoutes');
+app.use('/api/level', levelRoutes);
+app.use('/api/user/level', levelRoutes);
 
 // Emotion Analysis AI Route
 const emotionAnalysisRoutes = require('./routes/emotionAnalysis');

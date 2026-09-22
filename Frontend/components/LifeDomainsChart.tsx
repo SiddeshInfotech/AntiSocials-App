@@ -3,6 +3,7 @@ import {
   Alert,
   Animated,
   Easing,
+  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -12,6 +13,8 @@ import {
 import Svg, { Circle, G, Line } from "react-native-svg";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
+
+const OWL_IMAGE = require("../assets/images/ChatGPT Image Sep 22, 2026, 02_28_56 PM.png");
 
 const DOMAINS = [
   { name: "Mental", color: "#b388ff", angle: 22.5, progress: 55, rotation: 0 },
@@ -154,13 +157,12 @@ const InteractiveDomainItem = ({
 
 const AnimatedOwl = () => {
   const floatAnim = React.useRef(new Animated.Value(0)).current;
-  const blinkAnim = React.useRef(new Animated.Value(1)).current;
 
   React.useEffect(() => {
     Animated.loop(
       Animated.sequence([
         Animated.timing(floatAnim, {
-          toValue: -8,
+          toValue: -2,
           duration: 2000,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
@@ -173,31 +175,7 @@ const AnimatedOwl = () => {
         }),
       ]),
     ).start();
-
-    const blink = () => {
-      Animated.sequence([
-        Animated.timing(blinkAnim, {
-          toValue: 0.1,
-          duration: 80,
-          useNativeDriver: true,
-        }),
-        Animated.timing(blinkAnim, {
-          toValue: 1,
-          duration: 80,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    };
-
-    const interval = setInterval(() => {
-      blink();
-      if (Math.random() > 0.6) {
-        setTimeout(blink, 200);
-      }
-    }, 4000);
-
-    return () => clearInterval(interval);
-  }, []);
+  }, [floatAnim]);
 
   return (
     <View
@@ -214,46 +192,11 @@ const AnimatedOwl = () => {
       <Animated.View
         style={[styles.newOwlWrap, { transform: [{ translateY: floatAnim }] }]}
       >
-        <View style={styles.owlEarNewLeft} />
-        <View style={styles.owlEarNewRight} />
-        <View style={styles.owlWingNewLeft} />
-        <View style={styles.owlWingNewRight} />
-
-        <View style={styles.owlBodyNew}>
-          <LinearGradient
-            colors={["#6A61FF", "#4C3BDB"]}
-            style={[StyleSheet.absoluteFillObject, { borderRadius: 42 }]}
-          />
-
-          <View style={styles.owlEyesRow}>
-            <Animated.View
-              style={[styles.owlNewEye, { transform: [{ scaleY: blinkAnim }] }]}
-            >
-              <View style={styles.owlPupilCyan}>
-                <View style={styles.owlPupilBlack}>
-                  <View style={styles.owlPupilHighlight} />
-                </View>
-              </View>
-            </Animated.View>
-            <Animated.View
-              style={[styles.owlNewEye, { transform: [{ scaleY: blinkAnim }] }]}
-            >
-              <View style={styles.owlPupilCyan}>
-                <View style={styles.owlPupilBlack}>
-                  <View style={styles.owlPupilHighlight} />
-                </View>
-              </View>
-            </Animated.View>
-          </View>
-
-          <View style={styles.owlNewBeak} />
-
-          <View style={styles.owlChestLinesWrap}>
-            <View style={styles.owlChestLine} />
-            <View style={styles.owlChestLine} />
-            <View style={styles.owlChestLine} />
-          </View>
-        </View>
+        <Image
+          source={OWL_IMAGE}
+          style={styles.owlImage}
+          resizeMode="contain"
+        />
       </Animated.View>
     </View>
   );
@@ -573,126 +516,12 @@ const styles = StyleSheet.create({
     position: "absolute",
     alignItems: "center",
     justifyContent: "center",
-    width: 120,
-    height: 120,
-  },
-  owlBodyNew: {
-    width: 84,
+    width: 104,
     height: 104,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 2,
   },
-  owlEarNewLeft: {
-    position: "absolute",
-    top: 6,
-    left: 20,
-    width: 14,
-    height: 24,
-    backgroundColor: "#6A61FF",
-    borderRadius: 7,
-    transform: [{ rotate: "-15deg" }],
-    zIndex: 0,
-  },
-  owlEarNewRight: {
-    position: "absolute",
-    top: 6,
-    right: 20,
-    width: 14,
-    height: 24,
-    backgroundColor: "#6A61FF",
-    borderRadius: 7,
-    transform: [{ rotate: "15deg" }],
-    zIndex: 0,
-  },
-  owlWingNewLeft: {
-    position: "absolute",
-    width: 32,
-    height: 22,
-    left: 5,
-    top: 50,
-    backgroundColor: "#6A61FF",
-    borderRadius: 11,
-    transform: [{ rotate: "-15deg" }],
-    zIndex: 0,
-  },
-  owlWingNewRight: {
-    position: "absolute",
-    width: 32,
-    height: 22,
-    right: 5,
-    top: 50,
-    backgroundColor: "#6A61FF",
-    borderRadius: 11,
-    transform: [{ rotate: "15deg" }],
-    zIndex: 0,
-  },
-  owlEyesRow: {
-    flexDirection: "row",
-    gap: 0,
-    marginTop: -20,
-    zIndex: 3,
-  },
-  owlNewEye: {
-    width: 36,
-    height: 36,
-    backgroundColor: "#ffffff",
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  owlPupilCyan: {
-    width: 20,
-    height: 20,
-    backgroundColor: "#00D1FF",
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  owlPupilBlack: {
-    width: 10,
-    height: 10,
-    backgroundColor: "#000000",
-    borderRadius: 5,
-    position: "relative",
-    top: 2,
-  },
-  owlPupilHighlight: {
-    width: 3,
-    height: 3,
-    backgroundColor: "#ffffff",
-    borderRadius: 1.5,
-    position: "absolute",
-    top: 2,
-    right: 2,
-  },
-  owlNewBeak: {
-    position: "absolute",
-    top: 48,
-    width: 0,
-    height: 0,
-    borderLeftWidth: 6,
-    borderRightWidth: 6,
-    borderBottomWidth: 10,
-    borderLeftColor: "transparent",
-    borderRightColor: "transparent",
-    borderBottomColor: "#FFB800",
-    transform: [{ rotate: "180deg" }],
-    zIndex: 3,
-  },
-  owlChestLinesWrap: {
-    position: "absolute",
-    bottom: 12,
-    alignItems: "center",
-    gap: 3,
-    zIndex: 3,
-  },
-  owlChestLine: {
-    width: 24,
-    height: 8,
-    borderBottomWidth: 1.5,
-    borderColor: "rgba(0,0,0,0.1)",
-    borderRadius: 12,
+  owlImage: {
+    width: 104,
+    height: 104,
   },
   domainFocusText: {
     color: "#a1a1aa",
