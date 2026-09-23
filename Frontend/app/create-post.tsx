@@ -23,8 +23,6 @@ import { Feather, Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as SecureStore from "expo-secure-store";
 import * as ImagePicker from "expo-image-picker";
-import { File as ExpoFile, Paths } from "expo-file-system";
-import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { apiFetch } from "../constants/Api";
 import {
@@ -75,11 +73,12 @@ function CreatePostVideoPreview({
 export function normalizeMediaUri(uri: string): string {
   if (!uri || typeof uri !== "string") return "";
   let cleanUri = uri.trim();
-  try {
-    if (cleanUri.includes("%")) {
-      cleanUri = decodeURIComponent(cleanUri);
-    }
-  } catch (_) { }
+
+  // DO NOT decodeURIComponent on the full URI.
+  // In Expo on Android, cache folder names contain literal '%40' and '%2F',
+  // e.g. ".../ExperienceData/%40anonymous%2Fantisocial-.../ImagePicker/..."
+  // Calling decodeURIComponent converts '%2F' to a path separator '/', pointing to a nonexistent folder
+  // and causing OkHttp / ContentResolver to fail with FileNotFoundException.
 
   if (Platform.OS !== "web") {
     if (
@@ -94,22 +93,8 @@ export function normalizeMediaUri(uri: string): string {
 }
 
 /**
- * Writes image bytes into the app cache (readable by Expo fetch) and appends that file.
- */
-async function appendBase64AsCacheFile(
-  formData: FormData,
-  fieldName: string,
-  base64: string,
-  finalName: string,
-) {
-  const dest = new ExpoFile(Paths.cache, `${Date.now()}-${finalName}`);
-  dest.create({ overwrite: true });
-  dest.write(base64, { encoding: "base64" });
-  formData.append(fieldName, dest);
-}
-
-/**
- * Safely appends a media file to FormData across React Native (Android/iOS) and Web.
+ * Safely appends a media file to FormData across React Native (Android/iOS) and Web
+ * without loading the file into RAM (avoids java.lang.OutOfMemoryError).
  */
 export async function appendFileToFormData(
   formData: FormData,
@@ -117,7 +102,7 @@ export async function appendFileToFormData(
   uri: string,
   fileName?: string,
   mimeType?: string,
-  base64?: string,
+  _base64?: string,
 ) {
   if (!uri || typeof uri !== "string" || uri.trim().length === 0) {
     throw new Error("Invalid media URI provided.");
@@ -162,10 +147,9 @@ export async function appendFileToFormData(
   console.log(
     `📸 [appendFileToFormData] Appending field="${fieldName}" OS=${Platform.OS}:`,
     {
-      uri,
+      uri: cleanUri,
       name: finalName,
       type,
-      hasBase64: Boolean(base64),
     },
   );
 
@@ -173,8 +157,7 @@ export async function appendFileToFormData(
     try {
       const res = await fetch(cleanUri);
       const blob = await res.blob();
-      const fileObj = new File([blob], finalName, { type });
-      formData.append(fieldName, fileObj);
+      formData.append(fieldName, blob, finalName);
     } catch (e) {
       formData.append(fieldName, {
         uri: cleanUri,
@@ -185,32 +168,16 @@ export async function appendFileToFormData(
     return;
   }
 
-  if (base64) {
-    await appendBase64AsCacheFile(formData, fieldName, base64, finalName);
-    return;
-  }
-
-  if (type.startsWith("image")) {
-    const format = type.includes("png") ? SaveFormat.PNG : SaveFormat.JPEG;
-    const result = await manipulateAsync(uri, [], {
-      compress: 1,
-      format,
-      base64: true,
-    });
-    if (!result.base64) {
-      throw new Error("Could not read image data.");
-    }
-    await appendBase64AsCacheFile(
-      formData,
-      fieldName,
-      result.base64,
-      finalName,
-    );
-    return;
-  }
-
-  const file = new ExpoFile(uri);
-  formData.append(fieldName, file);
+  // React Native on Android and iOS:
+  // React Native's native NetworkingModule / RequestBodyUtil streams the file directly
+  // from the file:// or content:// URI in small buffer chunks via OkHttp / NSURLSession.
+  // We MUST NOT pass ExpoFile or read bytes into memory, which would trigger
+  // FileSystemFile.bytes() and cause java.lang.OutOfMemoryError.
+  formData.append(fieldName, {
+    uri: cleanUri,
+    name: finalName,
+    type,
+  } as any);
 }
 
 export default function CreatePostScreen() {
@@ -356,7 +323,6 @@ export default function CreatePostScreen() {
       mediaTypes: ["images", "videos"] as any,
       allowsEditing: false,
       quality: 0.7,
-      base64: true,
     });
     if (!result.canceled && result.assets && result.assets.length > 0) {
       const asset = result.assets[0];
@@ -370,7 +336,6 @@ export default function CreatePostScreen() {
         type: isVid ? "video" : "image",
         fileName: asset.fileName || undefined,
         mimeType: asset.mimeType || undefined,
-        base64: asset.base64 || undefined,
       });
     }
   };
@@ -385,7 +350,6 @@ export default function CreatePostScreen() {
       mediaTypes: ["images", "videos"] as any,
       allowsEditing: false,
       quality: 0.7,
-      base64: true,
     });
     if (!result.canceled && result.assets && result.assets.length > 0) {
       const asset = result.assets[0];
@@ -399,7 +363,6 @@ export default function CreatePostScreen() {
         type: isVid ? "video" : "image",
         fileName: asset.fileName || undefined,
         mimeType: asset.mimeType || undefined,
-        base64: asset.base64 || undefined,
       });
     }
   };
@@ -455,7 +418,6 @@ export default function CreatePostScreen() {
           attachedMedia.fileName,
           attachedMedia.mimeType ||
           (attachedMedia.type === "video" ? "video/mp4" : "image/jpeg"),
-          attachedMedia.base64,
         );
 
         const uploadRes = await apiFetch("/upload", {

@@ -138,11 +138,17 @@ export function resolveStoryMediaUrl(url: string | null | undefined): string | n
   const rawBase = (getApiBaseUrl() || API_BASE_URL || 'http://localhost:5000').trim();
   const currentBase = rawBase.replace(/\/+$/, '');
 
-  // Check if URL points to an uploaded resource (/uploads/...) anywhere in the string
+  // Check if URL points to an uploaded resource (/uploads/...)
   const uploadsIndex = cleanUrl.indexOf('/uploads/');
   if (uploadsIndex !== -1) {
-    const relativePath = cleanUrl.substring(uploadsIndex);
-    return `${currentBase}${relativePath}`;
+    const isLocalOrRelative = 
+      (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) ||
+      cleanUrl.match(/^https?:\/\/(localhost|127\.0\.0\.1|10\.0\.2\.2|\d+\.\d+\.\d+\.\d+)(:\d+)?(\/.*)?$/);
+    
+    if (isLocalOrRelative) {
+      const relativePath = cleanUrl.substring(uploadsIndex);
+      return `${currentBase}${relativePath}`;
+    }
   }
 
   // Relative path without leading slash (e.g. "uploads/story_123.jpg")

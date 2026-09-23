@@ -63,6 +63,179 @@ export interface ApiFetchOptions extends RequestInit {
   timeoutMs?: number;
 }
 
+/**
+ * Executes a multipart/form-data upload using React Native's native XMLHttpRequest network layer.
+ * This streams files directly via OkHttp / NSURLSession without buffering them in JS RAM
+ * and avoids Expo Winter's "Unsupported FormDataPart implementation" error in global fetch.
+ */
+function xhrFormDataFetch(
+  fullUrl: string,
+  method: string,
+  reqHeaders: Record<string, string>,
+  body: any,
+  timeoutDuration: number,
+  signal?: AbortSignal,
+): Promise<Response> {
+  return new Promise<Response>((resolve, reject) => {
+    console.log(`📡 [XHR START] Initiating upload:`, {
+      url: fullUrl,
+      method: method || 'POST',
+      timeoutMs: timeoutDuration,
+      headerKeys: Object.keys(reqHeaders),
+    });
+
+    const xhr = new XMLHttpRequest();
+    xhr.open(method || 'POST', fullUrl);
+    xhr.timeout = timeoutDuration;
+
+    Object.entries(reqHeaders).forEach(([key, val]) => {
+      if (val !== undefined && val !== null) {
+        try {
+          xhr.setRequestHeader(key, String(val));
+        } catch (_) {}
+      }
+    });
+
+    let settled = false;
+
+    if (xhr.upload) {
+      xhr.upload.onprogress = (event: any) => {
+        if (event.lengthComputable && event.total > 0) {
+          const pct = Math.round((event.loaded / event.total) * 100);
+          console.log(`📊 [XHR PROGRESS] ${fullUrl}: ${pct}% (${event.loaded}/${event.total} bytes)`);
+        }
+      };
+    }
+
+    const onAbort = () => {
+      if (!settled) {
+        settled = true;
+        console.warn(`🛑 [XHR ABORT] Request aborted: ${fullUrl}`);
+        try {
+          xhr.abort();
+        } catch (_) {}
+        const err = new Error('Aborted');
+        err.name = 'AbortError';
+        reject(err);
+      }
+    };
+
+    if (signal) {
+      if (signal.aborted) {
+        onAbort();
+        return;
+      }
+      signal.addEventListener('abort', onAbort);
+    }
+
+    xhr.onload = () => {
+      if (settled) return;
+      settled = true;
+      if (signal) {
+        try {
+          signal.removeEventListener('abort', onAbort);
+        } catch (_) {}
+      }
+
+      console.log(`✅ [XHR LOAD] ${method || 'POST'} ${fullUrl}`, {
+        status: xhr.status,
+        statusText: xhr.statusText,
+        readyState: xhr.readyState,
+        responseLength: xhr.responseText?.length || 0,
+      });
+
+      const responseHeaders = new Headers();
+      const rawHeaders = xhr.getAllResponseHeaders() || '';
+      rawHeaders
+        .trim()
+        .split(/[\r\n]+/)
+        .forEach((line) => {
+          const parts = line.split(': ');
+          const header = parts.shift();
+          const value = parts.join(': ');
+          if (header) {
+            try {
+              responseHeaders.append(header.trim(), value.trim());
+            } catch (_) {}
+          }
+        });
+
+      const responseText =
+        xhr.response !== undefined && typeof xhr.response === 'string'
+          ? xhr.response
+          : xhr.responseText || '';
+
+      const status =
+        xhr.status >= 200 && xhr.status <= 599 ? xhr.status : 200;
+
+      let responseObj: Response;
+      try {
+        responseObj = new Response(responseText, {
+          status,
+          statusText: xhr.statusText || '',
+          headers: responseHeaders,
+        });
+      } catch (_) {
+        responseObj = {
+          ok: xhr.status >= 200 && xhr.status < 300,
+          status: xhr.status,
+          statusText: xhr.statusText || '',
+          headers: responseHeaders,
+          url: fullUrl,
+          text: async () => responseText,
+          json: async () => JSON.parse(responseText),
+          blob: async () => new Blob([responseText]),
+          clone: () => responseObj,
+        } as any;
+      }
+
+      resolve(responseObj);
+    };
+
+    xhr.onerror = (event: any) => {
+      if (settled) return;
+      settled = true;
+      if (signal) {
+        try {
+          signal.removeEventListener('abort', onAbort);
+        } catch (_) {}
+      }
+
+      console.error(`❌ [XHR ERROR] on ${method || 'POST'} ${fullUrl}:`, {
+        readyState: xhr.readyState,
+        status: xhr.status,
+        statusText: xhr.statusText || 'None',
+        timeout: xhr.timeout,
+        eventType: event?.type || 'error',
+      });
+
+      reject(new TypeError(`Network request failed on ${fullUrl}`));
+    };
+
+    xhr.ontimeout = () => {
+      if (settled) return;
+      settled = true;
+      if (signal) {
+        try {
+          signal.removeEventListener('abort', onAbort);
+        } catch (_) {}
+      }
+
+      console.error(`⏰ [XHR TIMEOUT] on ${method || 'POST'} ${fullUrl}:`, {
+        timeoutMs: timeoutDuration,
+        readyState: xhr.readyState,
+        status: xhr.status,
+      });
+
+      const err = new Error(`Request timed out after ${timeoutDuration}ms`);
+      err.name = 'TimeoutError';
+      reject(err);
+    };
+
+    xhr.send(body);
+  });
+}
+
 export const apiFetch = async (path: string, options: ApiFetchOptions = {}) => {
   let lastError: unknown;
   const timeoutDuration = options.timeoutMs || REQUEST_TIMEOUT_MS;
@@ -114,7 +287,8 @@ export const apiFetch = async (path: string, options: ApiFetchOptions = {}) => {
             console.log(`  - constructor name: "${constructorName}"`);
             console.log(`  - contains uri/name/type: ${containsUriNameType}`);
             if (isObject) {
-              console.log(`  - media uri: "${value.uri || 'N/A'}"`);
+              const uriScheme = hasUri ? (value.uri.split(':')[0] || 'unknown') : 'N/A';
+              console.log(`  - media uri scheme: "${uriScheme}" | uri: "${value.uri || 'N/A'}"`);
               console.log(`  - media type: "${value.type || 'N/A'}"`);
               console.log(`  - media filename: "${value.name || 'N/A'}"`);
             } else {
@@ -148,12 +322,25 @@ export const apiFetch = async (path: string, options: ApiFetchOptions = {}) => {
       // Preserve the exact FormData object passed in: do not convert, clone, serialize, spread, or transform it.
       const bodyToUse = fetchOptions.body;
 
-      const response = await fetch(fullUrl, {
-        ...fetchOptions,
-        body: bodyToUse,
-        signal: controller.signal,
-        headers: reqHeaders,
-      });
+      let response: Response;
+      if (isFormData && Platform.OS !== 'web' && typeof XMLHttpRequest !== 'undefined') {
+        console.log(`[API] Using native XMLHttpRequest multipart streaming for ${options.method || 'POST'} ${path}`);
+        response = await xhrFormDataFetch(
+          fullUrl,
+          options.method || 'POST',
+          reqHeaders,
+          bodyToUse,
+          timeoutDuration,
+          controller.signal,
+        );
+      } else {
+        response = await fetch(fullUrl, {
+          ...fetchOptions,
+          body: bodyToUse,
+          signal: controller.signal,
+          headers: reqHeaders,
+        });
+      }
 
       // If gateway or proxy returned 502, 503, 504 (e.g. Render "Service Suspended" or Bad Gateway HTML),
       // this host is unavailable; treat as attempt failure so next candidate base URL is tried.

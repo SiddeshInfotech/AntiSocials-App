@@ -57,6 +57,7 @@ function StoryViewerVideo({
   onDurationReady, 
   onPlaybackEnd,
   onReady,
+  onError,
 }: { 
   uri: string; 
   isPaused: boolean; 
@@ -65,15 +66,24 @@ function StoryViewerVideo({
   onDurationReady?: (durationSec: number) => void;
   onPlaybackEnd?: () => void;
   onReady?: () => void;
+  onError?: (err?: any) => void;
 }) {
+  const isReadyRef = useRef(false);
+
   const player = useVideoPlayer(uri, (p) => {
     p.loop = false;
+    p.muted = false;
+    p.volume = 1.0;
     if (!isPaused) {
-      p.muted = false;
-      p.volume = 1.0;
-      p.play();
+      try {
+        p.play();
+      } catch (e) {
+        console.warn('⚠️ [StoryViewerVideo] Initial p.play error:', e);
+      }
     } else {
-      p.pause();
+      try {
+        p.pause();
+      } catch (e) {}
     }
   });
 
@@ -82,9 +92,15 @@ function StoryViewerVideo({
       if (!isPaused) {
         player.muted = false;
         player.volume = 1.0;
-        player.play();
+        try {
+          player.play();
+        } catch (e) {
+          console.warn('⚠️ [StoryViewerVideo] player.play error on isPaused change:', e);
+        }
       } else {
-        player.pause();
+        try {
+          player.pause();
+        } catch (e) {}
       }
     }
   }, [isPaused, player]);
@@ -92,26 +108,59 @@ function StoryViewerVideo({
   useEffect(() => {
     if (!player) return;
 
-    if (typeof player.duration === 'number' && player.duration > 0 && onDurationReady) {
-      onDurationReady(player.duration);
+    isReadyRef.current = false;
+    console.log(`🎬 [StoryViewerVideo] Init for URI: ${uri} | Initial Status: ${player.status}`);
+
+    const handleReady = () => {
+      if (isReadyRef.current) return;
+      isReadyRef.current = true;
+      console.log(`✅ [StoryViewerVideo] readyToPlay for URI: ${uri} | duration: ${player.duration}`);
+
+      if (!isPaused) {
+        player.muted = false;
+        player.volume = 1.0;
+        try {
+          player.play();
+        } catch (e) {
+          console.warn('⚠️ [StoryViewerVideo] player.play error in handleReady:', e);
+        }
+      }
+
+      if (typeof player.duration === 'number' && player.duration > 0 && onDurationReady) {
+        onDurationReady(player.duration);
+      }
+
+      if (onReady) {
+        onReady();
+      }
+    };
+
+    const handleError = (errorPayload?: any) => {
+      const err = errorPayload || (player as any)?.error || { message: 'Video playback error' };
+      console.error(`❌ [StoryViewerVideo] Playback failure for URI: ${uri}:`, err);
+      if (onError) {
+        onError(err);
+      }
+    };
+
+    // Check status immediately on mount / player change
+    if (player.status === 'readyToPlay') {
+      handleReady();
+    } else if (player.status === 'error') {
+      handleError();
     }
 
-    if (player.status === 'readyToPlay' && onReady) {
-      onReady();
-    }
-
-    const subStatus = player.addListener('statusChange', ({ status }) => {
+    const subStatus = player.addListener('statusChange', ({ status, error }: any) => {
+      console.log(`🔄 [StoryViewerVideo] statusChange: status=${status} | URI=${uri}`, error || (player as any)?.error || '');
       if (status === 'readyToPlay') {
-        if (typeof player.duration === 'number' && player.duration > 0 && onDurationReady) {
-          onDurationReady(player.duration);
-        }
-        if (onReady) {
-          onReady();
-        }
+        handleReady();
+      } else if (status === 'error') {
+        handleError(error);
       }
     });
 
     const subEnd = player.addListener('playToEnd', () => {
+      console.log(`🏁 [StoryViewerVideo] playToEnd for URI: ${uri}`);
       if (onPlaybackEnd) {
         onPlaybackEnd();
       }
@@ -120,11 +169,17 @@ function StoryViewerVideo({
     return () => {
       subStatus?.remove?.();
       subEnd?.remove?.();
+      if (player) {
+        try {
+          player.pause();
+          player.muted = true;
+        } catch (e) {}
+      }
     };
   }, [player, uri]);
 
   return (
-    <VideoView player={player} style={style} contentFit={contentFit} nativeControls={false} />
+    <VideoView player={player} style={[{ width: '100%', height: '100%' }, style]} contentFit={contentFit} nativeControls={false} />
   );
 }
 
@@ -882,7 +937,7 @@ export default function HomeScreen() {
     const map: Record<string, any[]> = {};
     homeData.active_stories
       .filter((story: any) => {
-        const raw = story?.media_url || story?.image;
+        const raw = story?.media_url || story?.image || story?.mediaUrl || story?.uri;
         return story && raw && typeof raw === "string" && raw.trim() !== "";
       })
       .forEach((story: any) => {
@@ -897,7 +952,7 @@ export default function HomeScreen() {
 
   const openOwnStories = (startIndex = 0) => {
     const stories = (homeData?.own_stories || []).filter((s: any) => {
-      const raw = s?.media_url || s?.image;
+      const raw = s?.media_url || s?.image || s?.mediaUrl || s?.uri;
       return s && raw && typeof raw === "string" && raw.trim() !== "";
     });
     if (stories.length > 0) {
@@ -908,7 +963,7 @@ export default function HomeScreen() {
 
   const openUserStories = (userStories: any[], startIndex = 0) => {
     const stories = (userStories || []).filter((s: any) => {
-      const raw = s?.media_url || s?.image;
+      const raw = s?.media_url || s?.image || s?.mediaUrl || s?.uri;
       return s && raw && typeof raw === "string" && raw.trim() !== "";
     });
     if (stories.length > 0) {
@@ -919,7 +974,7 @@ export default function HomeScreen() {
 
   const getStoryDurationMs = (story: any): number => {
     if (!story) return 5000;
-    const rawMedia = story.media_url || story.image;
+    const rawMedia = story.media_url || story.image || story.mediaUrl || story.uri;
     const isVideo =
       (story.media_type && story.media_type.toLowerCase().includes("video")) ||
       (story.mediaType && story.mediaType.toLowerCase().includes("video")) ||
@@ -1868,7 +1923,7 @@ export default function HomeScreen() {
         >
           {/* 1. CURRENT USER STORY (Add Story or View Own Story) */}
           {homeData?.own_stories && (homeData.own_stories.filter((s: any) => {
-            const raw = s?.media_url || s?.image;
+            const raw = s?.media_url || s?.image || s?.mediaUrl || s?.uri;
             return s && raw && typeof raw === "string" && raw.trim() !== "";
           }).length > 0) ? (
             <TouchableOpacity
@@ -2134,7 +2189,7 @@ export default function HomeScreen() {
              {/* 3. Media Content & Touch Zones */}
              <View style={styles.storyViewerContent}>
                 {(() => {
-                  const rawMedia = viewingStory?.media_url || viewingStory?.image;
+                  const rawMedia = viewingStory?.media_url || viewingStory?.image || viewingStory?.mediaUrl || viewingStory?.uri;
                   const resolvedMedia = resolveStoryMediaUrl(rawMedia);
                   const isVideo =
                     (viewingStory?.media_type && viewingStory.media_type.toLowerCase().includes("video")) ||
@@ -2142,11 +2197,30 @@ export default function HomeScreen() {
                     (typeof rawMedia === "string" &&
                       (/\.(mp4|mov|m4v|webm|mkv|3gp)($|\?)/i.test(rawMedia) ||
                        rawMedia.toLowerCase().includes(".mp4") ||
-                       rawMedia.toLowerCase().includes(".mov")));
+                       rawMedia.toLowerCase().includes(".mov"))) ||
+                    (typeof resolvedMedia === "string" &&
+                      (/\.(mp4|mov|m4v|webm|mkv|3gp)($|\?)/i.test(resolvedMedia) ||
+                       resolvedMedia.toLowerCase().includes(".mp4") ||
+                       resolvedMedia.toLowerCase().includes(".mov")));
+
+                  // Useful temporary console logs (Requirement 4 & 7)
+                  console.log(`📱 [Home Story Viewer] viewingStory inspection:`, {
+                    storyId: viewingStory?.id,
+                    user_id: viewingStory?.user_id,
+                    media_url: viewingStory?.media_url,
+                    image: viewingStory?.image,
+                    media_type: viewingStory?.media_type,
+                    mediaType: viewingStory?.mediaType,
+                    rawMedia,
+                    resolvedMedia,
+                    detectedType: isVideo ? 'video' : 'image',
+                    activeStoryIndex,
+                    totalStories: activeStoryList.length
+                  });
 
                   if (!resolvedMedia || viewerMediaError) {
                     return (
-                      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+                      <View style={{ flex: 1, width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
                         <Feather name={isVideo ? "video-off" : "image"} size={48} color="rgba(255,255,255,0.6)" />
                         <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 16, fontWeight: '600', marginTop: 12, textAlign: 'center' }}>
                           {viewerMediaError ? (isVideo ? "Video playback error" : "Story image unavailable") : "No media available"}
@@ -2159,23 +2233,45 @@ export default function HomeScreen() {
                     <View style={styles.storyMediaWrapper}>
                       {isVideo ? (
                         <StoryViewerVideo
+                          key={`${viewingStory?.id || activeStoryIndex}_${resolvedMedia}`}
                           uri={resolvedMedia}
                           isPaused={isStoryPaused}
                           style={styles.storyViewerImage}
                           contentFit="cover"
                           onDurationReady={handleVideoDurationLoaded}
                           onPlaybackEnd={handleVideoPlaybackEnd}
-                          onReady={() => setViewerMediaLoading(false)}
+                          onReady={() => {
+                            console.log(`🎬 [StoryViewer] Video onReady SUCCESS for: ${resolvedMedia}`);
+                            setViewerMediaLoading(false);
+                            setViewerMediaError(false);
+                          }}
+                          onError={(err) => {
+                            console.error(`❌ [StoryViewer] Video onError for ${resolvedMedia}:`, err);
+                            setViewerMediaLoading(false);
+                            setViewerMediaError(true);
+                          }}
                         />
                       ) : (
                         <Image
+                          key={`${viewingStory?.id || activeStoryIndex}_${resolvedMedia}`}
                           source={{ uri: resolvedMedia }}
                           style={styles.storyViewerImage}
                           resizeMode="cover"
-                          onLoadStart={() => setViewerMediaLoading(true)}
-                          onLoadEnd={() => setViewerMediaLoading(false)}
+                          onLoadStart={() => {
+                            console.log(`🖼️ [StoryViewer] Image onLoadStart for: ${resolvedMedia}`);
+                            setViewerMediaLoading(true);
+                          }}
+                          onLoad={() => {
+                            console.log(`🖼️ [StoryViewer] Image onLoad SUCCESS for: ${resolvedMedia}`);
+                            setViewerMediaLoading(false);
+                            setViewerMediaError(false);
+                          }}
+                          onLoadEnd={() => {
+                            console.log(`🖼️ [StoryViewer] Image onLoadEnd for: ${resolvedMedia}`);
+                            setViewerMediaLoading(false);
+                          }}
                           onError={(e) => {
-                            console.log(`❌ [StoryViewer] Image error for ${resolvedMedia}:`, e?.nativeEvent || e);
+                            console.error(`❌ [StoryViewer] Image onError for ${resolvedMedia}:`, e?.nativeEvent || e);
                             setViewerMediaLoading(false);
                             setViewerMediaError(true);
                           }}
@@ -2184,7 +2280,7 @@ export default function HomeScreen() {
 
                       {/* Loading Indicator centered directly over the media container */}
                       {viewerMediaLoading && !viewerMediaError && (
-                        <View style={[StyleSheet.absoluteFillObject, { justifyContent: 'center', alignItems: 'center' }]} pointerEvents="none">
+                        <View style={[StyleSheet.absoluteFillObject, { width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', zIndex: 2 }]} pointerEvents="none">
                           <ActivityIndicator size="large" color="#FFFFFF" />
                         </View>
                       )}
@@ -2225,27 +2321,27 @@ export default function HomeScreen() {
                 ))}
 
                 {/* Left & Right Tap Zones for Navigation */}
-                <View style={StyleSheet.absoluteFillObject} pointerEvents="box-none">
-                  <View style={{ flex: 1, flexDirection: 'row' }}>
+                <View style={[StyleSheet.absoluteFillObject, { width: '100%', height: '100%', zIndex: 15, backgroundColor: 'transparent' }]} pointerEvents="box-none">
+                  <View style={{ flex: 1, flexDirection: 'row', width: '100%', height: '100%', backgroundColor: 'transparent' }}>
                     <TouchableOpacity 
                       activeOpacity={1}
                       onPress={goToPreviousStory}
                       onPressIn={handlePauseStory}
                       onPressOut={handleResumeStory}
-                      style={{ width: '35%', height: '100%' }}
+                      style={{ width: '35%', height: '100%', backgroundColor: 'transparent' }}
                     />
                     <TouchableOpacity 
                       activeOpacity={1}
                       onPressIn={handlePauseStory}
                       onPressOut={handleResumeStory}
-                      style={{ width: '30%', height: '100%' }}
+                      style={{ width: '30%', height: '100%', backgroundColor: 'transparent' }}
                     />
                     <TouchableOpacity 
                       activeOpacity={1}
                       onPress={goToNextStory}
                       onPressIn={handlePauseStory}
                       onPressOut={handleResumeStory}
-                      style={{ width: '35%', height: '100%' }}
+                      style={{ width: '35%', height: '100%', backgroundColor: 'transparent' }}
                     />
                   </View>
                 </View>
@@ -2699,22 +2795,32 @@ const styles = StyleSheet.create({
   storyViewerContent: {
     flex: 1,
     width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
     backgroundColor: '#000',
     position: 'relative',
     overflow: 'hidden',
   },
   storyMediaWrapper: {
     ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
     position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: '#000',
+    zIndex: 1,
   },
   storyViewerImage: {
     ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
   storyViewerBottomBar: {
     position: 'absolute',
