@@ -511,7 +511,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 6,
   },
   timeText: {
-    color: "#71717a",
+    color: "#FFFFFF",
     fontSize: 12,
   },
   moreBtn: {

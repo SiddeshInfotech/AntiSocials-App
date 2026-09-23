@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Switch, Alert, Image, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, Alert, Image, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -20,8 +20,6 @@ export default function EditProfileScreen() {
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
   const [profileImage, setProfileImage] = useState<string | null>(null);
-  const [isPrivate, setIsPrivate] = useState(false);
-  const [emailNotifications, setEmailNotifications] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -311,7 +309,7 @@ export default function EditProfileScreen() {
               />
             </View>
 
-            <View style={styles.inputGroup}>
+            <View style={[styles.inputGroup, { marginBottom: 40 }]}>
               <Text style={styles.label}>Bio</Text>
               <TextInput
                 style={[styles.input, styles.textArea]}
@@ -325,37 +323,6 @@ export default function EditProfileScreen() {
                 maxLength={150}
               />
               <Text style={styles.charCount}>{about.length}/150</Text>
-            </View>
-
-            {/* Privacy & Settings */}
-            <Text style={styles.sectionTitle}>Privacy & Preferences</Text>
-
-            <View style={styles.switchRow}>
-              <View style={styles.switchTextContainer}>
-                <Text style={styles.switchTitle}>Private Account</Text>
-                <Text style={styles.switchSubtitle}>Only verified connections can see your activity.</Text>
-              </View>
-              <Switch
-                value={isPrivate}
-                onValueChange={setIsPrivate}
-                trackColor={{ false: '#E5E7EB', true: '#C084FC' }}
-                thumbColor={isPrivate ? '#8B00FF' : '#F9FAFB'}
-                ios_backgroundColor="#3e3e3e"
-              />
-            </View>
-
-            <View style={[styles.switchRow, { borderBottomWidth: 0, marginBottom: 40 }]}>
-              <View style={styles.switchTextContainer}>
-                <Text style={styles.switchTitle}>Email Notifications</Text>
-                <Text style={styles.switchSubtitle}>Receive updates about joined activities.</Text>
-              </View>
-              <Switch
-                value={emailNotifications}
-                onValueChange={setEmailNotifications}
-                trackColor={{ false: '#E5E7EB', true: '#C084FC' }}
-                thumbColor={emailNotifications ? '#8B00FF' : '#F9FAFB'}
-                ios_backgroundColor="#3e3e3e"
-              />
             </View>
 
           </View>

@@ -11,7 +11,6 @@ export default function NotificationsScreen() {
   const [newActivity, setNewActivity] = useState(true);
   const [messages, setMessages] = useState(true);
   const [reminders, setReminders] = useState(true);
-  const [emailDigest, setEmailDigest] = useState(false);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -85,21 +84,7 @@ export default function NotificationsScreen() {
             )}
           </View>
 
-          <Text style={styles.sectionTitle}>Email Notifications</Text>
-          <View style={styles.settingCard}>
-            <View style={[styles.switchRow, { borderBottomWidth: 0 }]}>
-              <View style={styles.switchTextContainer}>
-                <Text style={styles.switchTitle}>Weekly Digest</Text>
-                <Text style={styles.switchSubtitle}>A summary of top activities and network updates.</Text>
-              </View>
-              <Switch
-                value={emailDigest}
-                onValueChange={setEmailDigest}
-                trackColor={{ false: '#E5E7EB', true: '#C084FC' }}
-                thumbColor={emailDigest ? '#8B00FF' : '#F9FAFB'}
-              />
-            </View>
-          </View>
+
 
         </View>
       </ScrollView>

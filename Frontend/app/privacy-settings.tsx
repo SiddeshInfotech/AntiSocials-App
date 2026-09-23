@@ -74,11 +74,6 @@ export default function PrivacySettingsScreen() {
             </View>
           </View>
 
-          <Text style={styles.sectionTitle}>Blocked Users</Text>
-          <TouchableOpacity style={styles.navigationRow}>
-            <Text style={styles.navigationText}>Manage blocked accounts</Text>
-            <Feather name="chevron-right" size={20} color="#9CA3AF" />
-          </TouchableOpacity>
 
         </View>
       </ScrollView>
